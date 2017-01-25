@@ -55,7 +55,7 @@ proc main {} {
 	}
 	
 	if {$cmd == "request"} {
-		if {$argc < 5} {
+		if {$argc < 4} {
 			usage
 			exit 1
 		}

@@ -51,3 +51,19 @@ Flash group 1 repeatedly:
 
 Set scene for light group 1:  
 `usr/local/addons/hue/hue.tcl 0234faae189721011 group 1 scene=AY-ots9YVHmAE1f`
+
+Get configuration items:  
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 request GET config`
+
+Get info about connected lights:  
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 request GET lights`
+
+Get configured groups:  
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 request GET groups`
+
+Get configured scenes:  
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 request GET scenes`
+
+Turn off light 2:  
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 request PUT lights/2/state '{"on":false}'`
+
