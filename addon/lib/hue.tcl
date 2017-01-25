@@ -21,10 +21,19 @@
 source /usr/local/addons/hue/lib/ini.tcl
 
 namespace eval hue {
+	variable version_file "/usr/local/addons/hue/VERSION"
 	variable ini_file "/usr/local/addons/hue/etc/hue.conf"
 	variable log_file "/usr/local/addons/hue/log.txt"
 	variable devicetype "homematic-addon-hue#ccu"
 	variable curl "/usr/local/addons/cuxd/curl"
+}
+
+proc ::hue::version {} {
+	variable version_file
+	set fp [open $version_file r]
+	set data [read $fp]
+	close $fp
+	return [string trim $data]
 }
 
 proc ::hue::convert_string_to_hex {str} {

@@ -43,7 +43,9 @@ proc process {} {
 		set path [split $query {/}]
 		set plen [expr [llength $path] - 1]
 		
-		if {[lindex $path 1] == "discover-bridges"} {
+		if {[lindex $path 1] == "version"} {
+			return "\"[hue::version]\""
+		} elseif {[lindex $path 1] == "discover-bridges"} {
 			set bridge_ips [hue::discover_bridges]
 			set json "\["
 			if {[llength $bridge_ips] > 0} {

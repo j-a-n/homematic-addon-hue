@@ -40,11 +40,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			discover_bridges();
 		});
 		
-		function display_message(type, html, millis) {
+		function display_message(type, text, millis) {
 			clear_message();
-			$('#message').html(html);
+			$('#message').text(text);
 			$('#message').attr('class', 'ui ' + type + ' message visible');
-			$('#message-edit-bridge').html(html);
+			$('#message-edit-bridge').html(text);
 			$('#message-edit-bridge').attr('class', 'ui ' + type + ' message visible');
 			message_timer_id = setTimeout(clear_message, millis);
 		};
@@ -54,7 +54,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				clearTimeout(message_timer_id);
 			}
 			message_timer_id = null;
-			$('#message').html('');
+			$('#message').text('');
 			$('#message').attr('class', 'ui message hidden');
 			$('#message-edit-bridge').html('');
 			$('#message-edit-bridge').attr('class', 'ui message hidden');
@@ -128,7 +128,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			var ip_or_hostname = form.form('get value', 'ip');
 			//form.addClass('loading');
 			if (ip_or_hostname) {
-				display_message('info', 'Connecting to bridge, please press link button.', 15000);
+				display_message('info', 'Connecting to bridge, please press link button..', 15000);
 				rest("POST", "/establish-link", JSON.stringify({"ip": ip_or_hostname}),
 					function(config) {
 						console.log("link established");
@@ -270,12 +270,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				return 0;
 			});
 			for (var i=0; i < keys.length; i++) {
-				if (typeof obj[keys[i]] !== 'object') {
-					tbody.append($('<tr>').append(
-						$('<td>').text(keys[i]),
-						$('<td>').text(obj[keys[i]])
-					));
-				}
+				tbody.append($('<tr>').append(
+					$('<td>').text(keys[i]),
+					$('<td>').text((typeof obj[keys[i]] === 'object') ? JSON.stringify(obj[keys[i]]) : obj[keys[i]])
+				));
 			};
 			return $('<table class="ui celled stackable table">').append(
 				$('<thead>').append('<tr>').append(
@@ -318,6 +316,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		$(document).ready(function() {
+			rest("GET", "/version", null, function(version) {
+				document.title = document.title + " " + version;
+			});
 			var form_config = {
 				on: 'blur',
 				fields: {

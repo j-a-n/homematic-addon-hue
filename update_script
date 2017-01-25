@@ -29,6 +29,7 @@ chmod 755 "${ADDON_DIR}"
 echo "install addon files" >>$LOG_FILE
 [ -d addon ] && cp -af addon/* ${ADDON_DIR}/
 [ -f "${ADDON_DIR}/${ADDON_NAME}.tcl" ] && chmod 755 "${ADDON_DIR}/${ADDON_NAME}.tcl"
+[ -f VERSION ] && cp VERSION ${ADDON_DIR}/
 
 echo "restore config file" >>$LOG_FILE
 [ -e "/tmp/${ADDON_NAME}.conf" ] && mv "/tmp/${ADDON_NAME}.conf" "${ADDON_DIR}/etc/${ADDON_NAME}.conf"
