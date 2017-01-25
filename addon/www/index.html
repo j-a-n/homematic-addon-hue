@@ -1,0 +1,458 @@
+<!DOCTYPE HTML>
+<!--
+HomeMatic addon to control Philips Hue Lighting
+
+Copyright (C) 2017  Jan Schneider <oss@janschneider.net>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+<html>
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.7/semantic.min.css" integrity="sha256-wT6CFc7EKRuf7uyVfi+MQNHUzojuHN2pSw0YWFt2K5E=" crossorigin="anonymous" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.7/semantic.min.js" integrity="sha256-flVaeawsBV96vCHiLmXn03IRJym7+ZfcLVvUWONCas8=" crossorigin="anonymous"></script>
+	<style>
+	</style>
+	
+	<title>Hue Addon</title>
+	<script>
+		var config = {};
+		var config_loaded = false;
+		var message_timer_id = null;
+		var establish_link_timer_id = null;
+		
+		$(document).ready(function() {
+			get_config();
+			discover_bridges();
+		});
+		
+		function display_message(type, text, millis) {
+			clear_message();
+			$('#message').text(text);
+			$('#message').attr('class', 'ui ' + type + ' message visible');
+			$('#message-edit-bridge').html(text);
+			$('#message-edit-bridge').attr('class', 'ui ' + type + ' message visible');
+			message_timer_id = setTimeout(clear_message, millis);
+		};
+		
+		function clear_message() {
+			if (message_timer_id != null) {
+				clearTimeout(message_timer_id);
+			}
+			message_timer_id = null;
+			$('#message').text('');
+			$('#message').attr('class', 'ui message hidden');
+			$('#message-edit-bridge').html('');
+			$('#message-edit-bridge').attr('class', 'ui message hidden');
+		}
+		
+		function rest(method, path, data, success_callback, error_callback) {
+			if (!error_callback) {
+				error_callback = function(xhr, ajaxOptions, thrownError) {
+					console.error(xhr);
+					err = thrownError;
+					try {
+						obj = JSON.parse(xhr.responseText);
+						if (obj.error != null) {
+							err = obj.error;
+						}
+					}
+					catch(e) {
+					}
+					display_message('error', 'An error occurred: ' + err, 60000);
+				}
+			}
+			$.ajax({
+				url: "rest.cgi?" + path,
+				type: method,
+				data: data,
+				context: document.body,
+				success: success_callback,
+				error: error_callback
+			});
+		}
+		
+		function update_view() {
+			$('#bridges tbody').empty();
+			config.bridges.forEach(function(bridge) {
+				//console.log(bridge);
+				var bedit = $('<button class="ui grey basic button">').attr('data-id', bridge.id).text('edit');
+				bedit.click(function() {
+					edit_config_bridge(this.getAttribute('data-id'));
+				});
+				var bdel = $('<button class="ui red basic button">').attr('data-id', bridge.id).text('delete');
+				bdel.click(function() {
+					$("#confirm-delete").modal({
+						onApprove: function() {
+							delete_config_bridge(this.getAttribute('data-id'));
+						}
+					}).modal('show').attr('data-id', bridge.id);
+				});
+				var binfo = $('<button class="ui grey basic button">').attr('data-id', bridge.id).text('info');
+				binfo.click(function() {
+					show_bridge_info(this.getAttribute('data-id'));
+				});
+				$("#bridges tbody").append($('<tr>').append(
+					$('<td>').text(bridge.id),
+					$('<td>').text(bridge.name || ''),
+					$('<td>').text(bridge.ip || ''),
+					$('<td class="center aligned">').append(bedit, bdel, binfo)
+				));
+			});
+		}
+		
+		function cancel_establish_link() {
+			if (establish_link_timer_id != null) {
+				clearTimeout(establish_link_timer_id);
+			}
+			establish_link_timer_id = null;
+		}
+		
+		function establish_link() {
+			console.log("establish_link");
+			var form = $('#form-edit-bridge');
+			var ip_or_hostname = form.form('get value', 'ip');
+			//form.addClass('loading');
+			if (ip_or_hostname) {
+				display_message('info', 'Connecting to bridge, please press link button..', 15000);
+				rest("POST", "/establish-link", JSON.stringify({"ip": ip_or_hostname}),
+					function(config) {
+						console.log("link established");
+						config.bridgeid = config.bridgeid.toLowerCase();
+						display_message('success', 'Link to bridge ' + config.bridgeid + ' established', 5000);
+						form.form('set values', {
+							id: config.bridgeid || '',
+							name: config.name || '',
+							username: config.username || ''
+						});
+						$('#submit-edit-bridge').removeClass('disabled');
+					},
+					function(xhr, ajaxOptions, thrownError) {
+						//console.error(xhr);
+						err = thrownError;
+						try {
+							obj = JSON.parse(xhr.responseText);
+							if (obj.error != null) {
+								err = obj.error;
+							}
+						}
+						catch(e) {
+						}
+						var msg = 'Failed to establish connection to bridge.';
+						msg += '<ul>';
+						msg += '<li>Ensure that the Hue Bridge is turned on and connected to your network.</li>';
+						msg += '<li>Test that the smartphone app can control the lights.</li>';
+						msg += '<li>Please press link button on Bridge.</li>';
+						msg += '</ul>';
+						display_message('error', msg, 15000);
+						establish_link_timer_id = setTimeout(establish_link, 5000);
+					}
+				);
+			}
+		}
+		
+		function get_config() {
+			rest("GET", "/config", "", function(data) {
+				config = data;
+				config_loaded = true;
+				update_view();
+			});
+		}
+		
+		function discover_bridges() {
+			display_message('info', 'Searching for Hue Bridges...', 15000);
+			rest("GET", "/discover-bridges", null, function(data) {
+				console.log("bridges: " + data);
+				display_message('success', data.length + ' Hue Bridge(s) discovered', 5000);
+				$('#discovered-bridges tbody').empty();
+				data.forEach(function(ip) {
+					var badd = $('<button class="ui grey basic button">').attr('data-ip', ip).text('add');
+					badd.click(function() {
+							add_bridge(this.getAttribute('data-ip'));
+					});
+					$("#discovered-bridges tbody").append($('<tr>').append(
+						$('<td>').text(ip || ''),
+						$('<td class="center aligned">').append(badd)
+					));
+				});
+			});
+		}
+		
+		function delete_config_bridge(id) {
+			var bridges = [];
+			config.bridges.forEach(function(bridge) {
+				if (bridge.id == id) {
+					rest("DELETE", "/config/bridge/" + bridge.id, config, function(data) {
+						console.log(data);
+						get_config();
+						display_message('success', 'Hue Bridge successfully deleted', 5000);
+					});
+				}
+				else {
+					bridges.push(bridge);
+				}
+			});
+			config.bridges = bridges;
+			update_view();
+		}
+		
+		function update_config_bridge(bridge) {
+			rest("PUT", "/config/bridge/" + bridge.id, JSON.stringify(bridge), function(data) {
+				get_config();
+				display_message('success', 'Hue Bridge successfully updated', 5000);
+			});
+		}
+		
+		function edit_config_bridge(id) {
+			config.bridges.forEach(function(bridge) {
+				if (bridge.id == id) {
+					var form = $('#form-edit-bridge');
+					form.form('clear');
+					form.form('set values', {
+						id: bridge.id,
+						name: bridge.name || '',
+						ip: bridge.ip || '',
+						username: bridge.username || ''
+					});
+					form.find("input[name='id']").parent().css('display', 'block');
+					form.find("input[name='name']").parent().css('display', 'block');
+					form.find("input[name='username']").parent().css('display', 'block');
+					$('#modal-edit-bridge').modal('show');
+				}
+			});
+		}
+		
+		function add_bridge(ip) {
+			var form = $('#form-edit-bridge');
+			form.form('clear');
+			form.form('set values', {
+				ip: ip || ''
+			});
+			form.find("input[name='id']").parent().css('display', 'none');
+			form.find("input[name='username']").parent().css('display', 'none');
+			$('#modal-edit-bridge').modal('show');
+			$('#submit-edit-bridge').addClass('disabled');
+			establish_link();
+		}
+		
+		function api_request(bridge_id, method, path, data, success_callback) {
+			rest("POST", "/bridges/" + bridge_id + '/request', JSON.stringify({"method": method, "path": path, "data": data}), function(data) {
+				//display_message('info', data, 5000);
+				success_callback(data);
+			});
+		}
+		
+		function object_to_table( obj) {
+			var tbody = $('<tbody>');
+			var keys = [];
+			for (var key in obj) {
+				keys.push(key);
+			}
+			keys.sort(function(a, b) {
+				a = a.toLowerCase();
+				b = b.toLowerCase();
+				if (a < b) return -1;
+				if (a > b) return 1;
+				return 0;
+			});
+			for (var i=0; i < keys.length; i++) {
+				if (typeof obj[keys[i]] !== 'object') {
+					tbody.append($('<tr>').append(
+						$('<td>').text(keys[i]),
+						$('<td>').text(obj[keys[i]])
+					));
+				}
+			};
+			return $('<table class="ui celled stackable table">').append(
+				$('<thead>').append('<tr>').append(
+					$('<th>').text('Name'),
+					$('<th>').text('Value')
+				),
+				tbody
+			);
+		}
+		
+		function show_bridge_info(bridge_id) {
+			api_request(bridge_id, "GET", "config", null, function(conf) {
+				api_request(bridge_id, "GET", "lights", null, function(lights) {
+					api_request(bridge_id, "GET", "groups", null, function(groups) {
+						api_request(bridge_id, "GET", "scenes", null, function(scenes) {
+							console.log(conf);
+							//console.log(lights);
+							$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Bridge ' + bridge_id));
+							$('#bridge-info-content').append(object_to_table(conf));
+							$.each(lights, function(light_id, light) {
+								//console.info(light);
+								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Light ' + light_id));
+								$('#bridge-info-content').append(object_to_table(light));
+							});
+							$.each(groups, function(group_id, group) {
+								//console.info(group);
+								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Group ' + group_id));
+								$('#bridge-info-content').append(object_to_table(group));
+							});
+							$.each(scenes, function(scene_id, scene) {
+								//console.info(scene);
+								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Scene ' + scene_id));
+								$('#bridge-info-content').append(object_to_table(scene));
+							});
+							$('#modal-bridge-info').modal('show');
+						});
+					});
+				});
+			});
+		}
+		
+		$(document).ready(function() {
+			var form_config = {
+				on: 'blur',
+				fields: {
+					id: {
+						identifier: 'id'
+					},
+					name: {
+						identifier: 'name',
+						rules: [{
+							type: 'regExp[/^[A-Za-z0-9-\. ]+$/]',
+							prompt: 'Please enter a valid name'
+						}]
+					},
+					ip: {
+						identifier: 'ip',
+						rules: [{
+							type: 'regExp[/^[a-z0-9-\.]+$/]',
+							prompt: 'Please enter a valid hostname or ip address'
+						}]
+					},
+					username: {
+						identifier: 'username'
+					}
+				},
+				onSuccess: function(event, fields) {
+					$(event.currentTarget).closest("div.modal").modal('hide');
+					var bridge = $(event.currentTarget).form('get values');
+					update_config_bridge(bridge);
+					event.preventDefault();
+				}
+			};
+			$('#form-edit-bridge').form(form_config);
+			$('#modal-edit-bridge').modal({
+				onHide: function() {
+					cancel_establish_link();
+					clear_message();
+				}
+			});
+		});
+	</script>
+</head>
+<body>
+	<div style="padding-top: 5vw" class="ui container">
+		<h1 class="ui header">Hue Addon Configuration</h1>
+		<div id="message" class="ui message hidden">
+		</div>
+		<h2 class="ui dividing header">Configured Hue Bridges</h2>
+		<table id="bridges" class="ui celled stackable table">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Name</th>
+					<th>IP-Address</th>
+					<th class="center aligned">Action</th>
+				</tr>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>
+		<div onclick="add_bridge();" class="ui blue basic button">
+		<i class="plus icon"></i>
+		Add Hue Bridge
+		</div>
+		
+		<h2 class="ui dividing header">Discovered Hue Bridges</h2>
+		<table id="discovered-bridges" class="ui celled stackable table">
+			<thead>
+				<tr>
+					<th>IP-Address</th>
+					<th class="center aligned">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>
+	</div>
+	
+	<div id="modal-edit-bridge" class="ui modal">
+		<i class="close icon"></i>
+		<div class="header">
+			Hue Bridge
+		</div>
+		<div class="content">
+			<div id="message-edit-bridge" class="ui message hidden">
+			</div>
+			<form id="form-edit-bridge" class="ui form">
+				<div class="disabled field">
+					<label>ID</label>
+					<input name="id" placeholder="ID" type="text">
+				</div>
+				<div class="field">
+					<label>IP-Address or Hostname</label>
+					<input name="ip" placeholder="IP-Address" type="text" onchange='establish_link();'>
+				</div>
+				<div class="field">
+					<label>Name</label>
+					<input name="name" placeholder="Name" type="text">
+				</div>
+				<div class="field">
+					<label>Username</label>
+					<input name="username" placeholder="Username" type="text">
+				</div>
+				<div class="ui error message"></div>
+				<div class="ui button" onclick="$('#modal-edit-bridge').modal('hide');">Cancel</div>
+				<div id="submit-edit-bridge" class="ui primary submit button">Submit</div>
+			</form>
+		</div>
+	</div>
+	
+	<div class="ui dimmer modals page transition">
+		<div id="confirm-delete" class="ui small basic modal transition">
+			<div class="content">
+				<p>Do you really want to delete this Bridge?</p>
+			</div>
+			<div class="actions">
+				<div class="ui red cancel inverted button">
+					<i class="remove icon"></i>
+					No
+				</div>
+				<div class="ui green ok inverted button">
+					<i class="checkmark icon"></i>
+					Yes
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div id="modal-bridge-info" class="ui modal">
+		<i class="close icon"></i>
+		<div class="header">
+			Info
+		</div>
+		<div id="bridge-info-content" class="content">
+		</div>
+	</div>
+	
+</body>
+</html>

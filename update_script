@@ -1,0 +1,59 @@
+#!/bin/sh
+
+ADDON_NAME=hue
+CONFIG_DIR=/usr/local/etc/config
+ADDON_DIR=/usr/local/addons/${ADDON_NAME}
+RCD_DIR=${CONFIG_DIR}/rc.d
+LOG_FILE=/usr/local/addons/${ADDON_NAME}-install.log
+
+exec 1<&-
+exec 2<&-
+exec 1<>$LOG_FILE
+exec 2>&1
+
+echo "starting installation of addon ${ADDON_NAME} at $(date)" >>$LOG_FILE
+
+echo "mount /usr/local if not already mounted" >>$LOG_FILE
+mount | grep /usr/local 2>&1 >/dev/null || mount /usr/local
+
+echo "backup existing config file" >>$LOG_FILE
+[ -e "/tmp/${ADDON_NAME}.conf" ] && rm "/tmp/${ADDON_NAME}.conf"
+[ -e "${ADDON_DIR}/etc/${ADDON_NAME}.conf" ] && cp "${ADDON_DIR}/etc/${ADDON_NAME}.conf" "/tmp/${ADDON_NAME}.conf"
+
+echo "create directories" >>$LOG_FILE
+[ -e "${ADDON_DIR}" ] && rm -rf "${ADDON_DIR}"
+mkdir -p "${ADDON_DIR}"
+chmod 755 "${ADDON_DIR}"
+[ -e "${RCD_DIR}" ] || (mkdir -p "${RCD_DIR}"; chmod 755 "${RCD_DIR}")
+
+echo "install addon files" >>$LOG_FILE
+[ -d addon ] && cp -af addon/* ${ADDON_DIR}/
+[ -f "${ADDON_DIR}/${ADDON_NAME}.tcl" ] && chmod 755 "${ADDON_DIR}/${ADDON_NAME}.tcl"
+
+echo "restore config file" >>$LOG_FILE
+[ -e "/tmp/${ADDON_NAME}.conf" ] && mv "/tmp/${ADDON_NAME}.conf" "${ADDON_DIR}/etc/${ADDON_NAME}.conf"
+
+echo "install ccu dependent files" >>$LOG_FILE
+if [ "$1" = "" ]; then
+	[ -d "ccu1" ] && cp -af ccu1/* "${ADDON_DIR}/"
+elif [ "$1" = "CCU2" ]; then
+	[ -d "ccu2" ] && cp -af ccu2/* "${ADDON_DIR}/"
+elif [ "$1" == "HM-RASPBERRYMATIC" ]; then
+	[ -d "ccurm" ] && cp -af ccurm/* "${ADDON_DIR}/"
+fi
+
+echo "link www files" >>$LOG_FILE
+if [ -d "${ADDON_DIR}/www" -a ! -e "${CONFIG_DIR}/addons/www/${ADDON_NAME}" ]; then
+	ln -sf "${ADDON_DIR}/www" "${CONFIG_DIR}/addons/www/${ADDON_NAME}"
+fi
+
+echo "copy startup files" >>$LOG_FILE
+[ -d "rc.d" ] && cp -af rc.d/* "${RCD_DIR}/"
+
+echo "add menu entry" >>$LOG_FILE
+touch "${CONFIG_DIR}/hm_addons.cfg"
+"/usr/local/addons/cuxd/update_addon" ${ADDON_NAME} "${ADDON_DIR}/etc/${ADDON_NAME}-addon.cfg"
+
+sync
+
+exit 0
