@@ -30,14 +30,14 @@ proc usage {} {
 	puts stderr "    resource : URL path"
 	puts stderr "    data     : optional json data"
 	puts stderr ""
-	puts stderr "  light <light-id> \[parm=val\]...         control a light"
+	puts stderr "  light <light-id> \[parm:val\]...         control a light"
 	puts stderr "    light-id : id of the light to control"
-	puts stderr "    parm=val : parameter and value pairs separated by an equal sign"
+	puts stderr "    parm=val : parameter and value pairs separated by a colon"
 	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct"
 	puts stderr ""
-	puts stderr "  group <group-id> \[parm=val\]...         control a group"
+	puts stderr "  group <group-id> \[parm:val\]...         control a group"
 	puts stderr "    group-id : id of the group to control"
-	puts stderr "    parm=val : parameter and value pairs separated by an equal sign"
+	puts stderr "    parm=val : parameter and value pairs separated by a colon"
 	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,scene"
 }
 
