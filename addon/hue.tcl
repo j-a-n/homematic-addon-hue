@@ -17,7 +17,18 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# CUXD_DEVICE = <cuxd-device>
+# CUXD_TRIGGER_CH = <channel>
+# CUXD_VALUE<channel> = <value>
+# CUXD_MAXVALUE<channel> = <value>
+
 source /usr/local/addons/hue/lib/hue.tcl
+
+proc write_log {str} {
+	set fd [open "/tmp/hue.log" "a"]
+	puts $fd $str
+	close $fd
+}
 
 proc usage {} {
 	global argv0
@@ -45,14 +56,10 @@ proc usage {} {
 proc main {} {
 	global argc
 	global argv
+	global env
 	
 	set bridge_id [string tolower [lindex $argv 0]]
 	set cmd [string tolower [lindex $argv 1]]
-	
-	if {$cmd == "" || $argc < 3} {
-		usage
-		exit 1
-	}
 	
 	if {$cmd == "request"} {
 		if {$argc < 4} {
@@ -61,6 +68,10 @@ proc main {} {
 		}
 		puts [hue::request $bridge_id [lindex $argv 2] [lindex $argv 3] [lindex $argv 4]]
 	} else {
+		if {$argc < 3} {
+			usage
+			exit 1
+		}
 		set path ""
 		if {$cmd == "light"} {
 			set path "lights/[lindex $argv 2]/state"
@@ -71,15 +82,39 @@ proc main {} {
 			exit 1
 		}
 		set json "\{"
-		foreach a [lrange $argv 2 end] {
-			regexp {(.*)[=:](.*$)} $a match k v
-			if {[info exists v]} {
-				set nm ""
-				regexp {^(\d+)$} $v match nm
-				if {$nm != "" || $v == "true" || $v == "false"} {
-					append json "\"${k}\":${v},"
-				} else {
-					append json "\"${k}\":\"${v}\","
+		if {$argc == 3} {
+			set chan $env(CUXD_TRIGGER_CH)
+			set val ""
+			if {$chan == 1} {
+				return
+			} else {
+				set val $env(CUXD_VALUE${chan})
+			}
+			if {$chan == 2} {
+				append json "\"bri\":${val},"
+				# 0 - 254
+			} elseif {$chan == 3} {
+				set val [expr {$val + 153}]
+				append json "\"ct\":${val},"
+				# 153 - 500 mirek
+			} elseif {$chan == 4} {
+				append json "\"hue\":${val},"
+				# 0 - 65535
+			} elseif {$chan == 5} {
+				append json "\"sat\":${val},"
+				# 0 - 254
+			}
+		} else {
+			foreach a [lrange $argv 2 end] {
+				regexp {(.*)[=:](.*$)} $a match k v
+				if {[info exists v]} {
+					set nm ""
+					regexp {^(\d+)$} $v match nm
+					if {$nm != "" || $v == "true" || $v == "false"} {
+						append json "\"${k}\":${v},"
+					} else {
+						append json "\"${k}\":\"${v}\","
+					}
 				}
 			}
 		}

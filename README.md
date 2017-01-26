@@ -13,12 +13,12 @@
  * Name: choose one, i.e: `Hue Group 1`
  * Device-Icon: whatever you want
 * Configure new device in HomeMatic Web-UI
- * Channels: 3
- * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1 hue:$1$ sat:$2$ bri:$3$` (see usage for details)
- * Ch.2: DIMMER|MAX_VAL: 65535
- * Ch.3: DIMMER|MAX_VAL: 254
- * Ch.4: DIMMER|MAX_VAL: 254
-
+ * Channels: 4
+ * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1` (see usage for details)
+ * Ch.2 (brightness): DIMMER|MAX_VAL: 254
+ * Ch.3 (color temperature): DIMMER|MAX_VAL: 347
+ * Ch.4 (hue): DIMMER|MAX_VAL: 65535
+ * Ch.5 (saturation): DIMMER|MAX_VAL: 254
 
 ## hue.tcl usage
 `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
