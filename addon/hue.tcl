@@ -131,7 +131,7 @@ proc main {} {
 				set key "sat"
 				# 0 - 254
 			}
-			if {$key && [lsearch $keys $key] == -1} {
+			if {$key != "" && [lsearch $keys $key] == -1} {
 				append json "\"${key}\":${val},"
 			}
 		}
@@ -149,6 +149,7 @@ if { [ catch {
 	#catch {cd [file dirname [info script]]}
 	main
 } err ] } {
+	write_log $err
 	puts stderr "ERROR: $err"
 	exit 1
 }
