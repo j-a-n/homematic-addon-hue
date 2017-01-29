@@ -21,6 +21,17 @@
 # CUXD_TRIGGER_CH = <channel>
 # CUXD_VALUE<channel> = <value>
 # CUXD_MAXVALUE<channel> = <value>
+#
+# $env(CUXD_DEVICE)
+# $env(CUXD_TRIGGER_CH)
+# $env(CUXD_VALUE2)
+# $env(CUXD_VALUE3)
+# $env(CUXD_VALUE4)
+# $env(CUXD_VALUE5)
+# $env(CUXD_MAXVALUE2)
+# $env(CUXD_MAXVALUE3)
+# $env(CUXD_MAXVALUE4)
+# $env(CUXD_MAXVALUE5)
 
 source /usr/local/addons/hue/lib/hue.tcl
 
@@ -81,9 +92,25 @@ proc main {} {
 			usage
 			exit 1
 		}
+		set keys [list]
 		set json "\{"
-		if {$argc == 3} {
+		foreach a [lrange $argv 2 end] {
+			regexp {(.*)[=:](.*$)} $a match k v
+			if {[info exists v]} {
+				lappend keys k
+				set nm ""
+				regexp {^(\d+)$} $v match nm
+				if {$nm != "" || $v == "true" || $v == "false"} {
+					append json "\"${k}\":${v},"
+				} else {
+					append json "\"${k}\":\"${v}\","
+				}
+			}
+		}
+		
+		if {[info exists env(CUXD_TRIGGER_CH)]} {
 			set chan $env(CUXD_TRIGGER_CH)
+			set key ""
 			set val ""
 			if {$chan == 1} {
 				return
@@ -91,33 +118,24 @@ proc main {} {
 				set val $env(CUXD_VALUE${chan})
 			}
 			if {$chan == 2} {
-				append json "\"bri\":${val},"
+				set key "bri"
 				# 0 - 254
 			} elseif {$chan == 3} {
 				set val [expr {$val + 153}]
-				append json "\"ct\":${val},"
+				set key "ct"
 				# 153 - 500 mirek
 			} elseif {$chan == 4} {
-				append json "\"hue\":${val},"
+				set key "hue"
 				# 0 - 65535
 			} elseif {$chan == 5} {
-				append json "\"sat\":${val},"
+				set key "sat"
 				# 0 - 254
 			}
-		} else {
-			foreach a [lrange $argv 2 end] {
-				regexp {(.*)[=:](.*$)} $a match k v
-				if {[info exists v]} {
-					set nm ""
-					regexp {^(\d+)$} $v match nm
-					if {$nm != "" || $v == "true" || $v == "false"} {
-						append json "\"${k}\":${v},"
-					} else {
-						append json "\"${k}\":\"${v}\","
-					}
-				}
+			if {$key && [lsearch $keys $key] == -1} {
+				append json "\"${key}\":${val},"
 			}
 		}
+		
 		if {$json != "\{"} {
 			set json [string range $json 0 end-1]
 		}
