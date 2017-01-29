@@ -14,7 +14,7 @@
  * Device-Icon: whatever you want
 * Configure new device in HomeMatic Web-UI
  * Channels: 4
- * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1` (see usage for details)
+ * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1 transitiontime:0` (see usage for details)
  * Ch.2 (brightness): DIMMER|MAX_VAL: 254
  * Ch.3 (color temperature): DIMMER|MAX_VAL: 347
  * Ch.4 (hue): DIMMER|MAX_VAL: 65535
