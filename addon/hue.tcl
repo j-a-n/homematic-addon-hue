@@ -33,6 +33,8 @@
 # $env(CUXD_MAXVALUE4)
 # $env(CUXD_MAXVALUE5)
 
+load tclrega.so
+
 source /usr/local/addons/hue/lib/hue.tcl
 
 proc write_log {str} {
@@ -54,15 +56,41 @@ proc usage {} {
 	puts stderr ""
 	puts stderr "  light <light-id> \[parm:val\]...         control a light"
 	puts stderr "    light-id : id of the light to control"
-	puts stderr "    parm=val : parameter and value pairs separated by a colon"
+	puts stderr "    parm:val : parameter and value pairs separated by a colon"
 	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct"
 	puts stderr ""
 	puts stderr "  group <group-id> \[parm:val\]...         control a group"
 	puts stderr "    group-id : id of the group to control"
-	puts stderr "    parm=val : parameter and value pairs separated by a colon"
+	puts stderr "    parm:val : parameter and value pairs separated by a colon"
 	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,scene"
 }
 
+proc update_device_channels {bridge_id obj_path} {
+	global env
+	if {![info exists env(CUXD_DEVICE)]} {
+		return
+	}
+	set device "CUxD.$env(CUXD_DEVICE)"
+	set data [hue::request $bridge_id "GET" $obj_path]
+	#write_log "update_device_channels ${device}"
+	
+	regexp {\"bri\"\s*:\s*(\d+)} $data match val
+	set bri [format "%.2f" [expr {$val / 254.0}]]
+	regexp {\"ct\"\s*:\s*(\d+)} $data match val
+	set ct [format "%.2f" [expr {($val - 153) / 347.0}]]
+	regexp {\"hue\"\s*:\s*(\d+)} $data match val
+	set hue [format "%.2f" [expr {$val / 65535.0}]]
+	regexp {\"sat\"\s*:\s*(\d+)} $data match val
+	set sat [format "%.2f" [expr {$val / 254.0}]]
+	set s "
+		dom.GetObject(\"${device}:2.SET_STATE\").State(${bri});
+		dom.GetObject(\"${device}:3.SET_STATE\").State(${ct});
+		dom.GetObject(\"${device}:4.SET_STATE\").State(${hue});
+		dom.GetObject(\"${device}:5.SET_STATE\").State(${sat});
+	"
+	#write_log "rega_script ${s}"
+	rega_script $s
+}
 
 proc main {} {
 	global argc
@@ -71,6 +99,10 @@ proc main {} {
 	
 	set bridge_id [string tolower [lindex $argv 0]]
 	set cmd [string tolower [lindex $argv 1]]
+	
+	if {[info exists username]} {
+		return $username
+	}
 	
 	if {$cmd == "request"} {
 		if {$argc < 4} {
@@ -83,10 +115,13 @@ proc main {} {
 			usage
 			exit 1
 		}
+		set obj_path ""
 		set path ""
 		if {$cmd == "light"} {
+			set obj_path "lights/[lindex $argv 2]"
 			set path "lights/[lindex $argv 2]/state"
 		} elseif {$cmd == "group"} {
+			set obj_path "groups/[lindex $argv 2]"
 			set path "groups/[lindex $argv 2]/action"
 		} else {
 			usage
@@ -113,6 +148,7 @@ proc main {} {
 			set key ""
 			set val ""
 			if {$chan == 1} {
+				update_device_channels $bridge_id $obj_path
 				return
 			} else {
 				set val $env(CUXD_VALUE${chan})
@@ -140,8 +176,10 @@ proc main {} {
 			set json [string range $json 0 end-1]
 		}
 		append json "\}"
-		puts [hue::request $bridge_id "PUT" $path $json]
-		
+		set res [hue::request $bridge_id "PUT" $path $json]
+		#write_log $res
+		update_device_channels $bridge_id $obj_path
+		puts $res
 	}
 }
 
