@@ -285,12 +285,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function show_bridge_info(bridge_id) {
+			var error_callback = function(xhr, ajaxOptions, thrownError) {
+				console.error(xhr);
+				$('#dimmer-bridge-info').removeClass('active');
+				$('#modal-bridge-info').modal('hide');
+			}
+			$('#modal-bridge-info').modal('show');
+			$('#dimmer-bridge-info').addClass('active');
 			api_request(bridge_id, "GET", "config", null, function(conf) {
 				api_request(bridge_id, "GET", "lights", null, function(lights) {
 					api_request(bridge_id, "GET", "groups", null, function(groups) {
 						api_request(bridge_id, "GET", "scenes", null, function(scenes) {
-							console.log(conf);
+							//console.log(conf);
 							//console.log(lights);
+							$('#dimmer-bridge-info').removeClass('active');
 							$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Bridge ' + bridge_id));
 							$('#bridge-info-content').append(object_to_table(conf));
 							$.each(lights, function(light_id, light) {
@@ -308,11 +316,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Scene ' + scene_id));
 								$('#bridge-info-content').append(object_to_table(scene));
 							});
-							$('#modal-bridge-info').modal('show');
-						});
-					});
-				});
-			});
+							$('#modal-bridge-info').modal('refresh');
+						}, error_callback);
+					}, error_callback);
+				}, error_callback);
+			}, error_callback);
 		}
 		
 		$(document).ready(function() {
@@ -448,6 +456,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	
 	<div id="modal-bridge-info" class="ui modal">
 		<i class="close icon"></i>
+		<div id="dimmer-bridge-info" class="ui inverted dimmer">
+			<div class="ui text loader">Loading</div>
+		</div>
 		<div class="header">
 			Info
 		</div>
