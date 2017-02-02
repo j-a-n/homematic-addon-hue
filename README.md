@@ -7,6 +7,8 @@
 * Download [addon package](https://github.com/j-a-n/homematic-addon-lgtv/raw/master/hm-hue.tar.gz)
 * Install addon package on ccu via system control
 * Open Philips Hue addon configuration in system control and add your Hue Bridges
+
+### Multi-DIM-Device
 * Create new (28) System device in CUxD for each group or light
  * Function: Multi-DIM-Exec
  * Serialnumber: choose a free one
@@ -19,6 +21,16 @@
  * Ch.3 (color temperature): DIMMER|MAX_VAL: 347
  * Ch.4 (hue): DIMMER|MAX_VAL: 65535
  * Ch.5 (saturation): DIMMER|MAX_VAL: 254
+
+### Universal-Control-Device
+* Create new (40) 19 channel universalcontrol device in CUxD
+ * Serialnumber: choose a free one
+ * Name: choose one, i.e: `Hue`
+ * Device-Icon: whatever you want
+ * Control: KEY
+* Configure new device in HomeMatic Web-UI
+ * CMD_EXEC: yes
+ * CMD_SHORT `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
 
 ## hue.tcl usage
 `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
@@ -39,25 +51,25 @@ The `request` command can be use to send a raw api request.
 
 ### Examples
 Turn on light 1 and set saturation, hue and brightness:  
-`usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 on:true hue:1000 sat:200 bri:100`
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 on:true hue:1000 sat:200 bri:100`
 
 Turn on light 1 and set saturation, hue and brightness:  
-`usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 on:true hue:1000 sat:200 bri:100`
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 on:true hue:1000 sat:200 bri:100`
 
 Set color temperature of light 1 to 500 with a transition time of 1 second (10 * 1/10s):  
-`usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 ct:500 transitiontime:10`
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 ct:500 transitiontime:10`
 
 Start colorloop effect on light 2:  
-`usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 effect:colorloop`
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 effect:colorloop`
 
 Flash group 1 once:  
-`usr/local/addons/hue/hue.tcl 0234faae189721011 group alert:select`
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 group alert:select`
 
 Flash group 1 repeatedly:  
-`usr/local/addons/hue/hue.tcl 0234faae189721011 group alert:lselect`
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 group alert:lselect`
 
 Set scene for light group 1:  
-`usr/local/addons/hue/hue.tcl 0234faae189721011 group 1 scene:AY-ots9YVHmAE1f`
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 group 1 scene:AY-ots9YVHmAE1f`
 
 Get configuration items:  
 `/usr/local/addons/hue/hue.tcl 0234faae189721011 request GET config`
