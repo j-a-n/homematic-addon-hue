@@ -4,7 +4,7 @@
 * This addon depends on CUxD
 
 ## Installation / configuration
-* Download [addon package](https://github.com/j-a-n/homematic-addon-lgtv/raw/master/hm-hue.tar.gz)
+* Download [addon package](https://github.com/j-a-n/homematic-addon-hue/raw/master/hm-hue.tar.gz)
 * Install addon package on ccu via system control
 * Open Philips Hue addon configuration in system control and add your Hue Bridges (http://ccu-ip/addons/hue/index.html)
 
