@@ -298,6 +298,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 			$('#modal-bridge-info').modal('show');
 			$('#dimmer-bridge-info').addClass('active');
+			$('#bridge-info-content').empty();
 			api_request(bridge_id, "GET", "config", null, function(conf) {
 				api_request(bridge_id, "GET", "lights", null, function(lights) {
 					api_request(bridge_id, "GET", "groups", null, function(groups) {
