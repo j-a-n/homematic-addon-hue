@@ -6,7 +6,7 @@
 ## Installation / configuration
 * Download [addon package](https://github.com/j-a-n/homematic-addon-lgtv/raw/master/hm-hue.tar.gz)
 * Install addon package on ccu via system control
-* Open Philips Hue addon configuration in system control and add your Hue Bridges
+* Open Philips Hue addon configuration in system control and add your Hue Bridges (http://<ccu-ip>/addons/hue/index.html)
 
 ### Multi-DIM-Device
 * Create new (28) System device in CUxD for each group or light
