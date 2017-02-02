@@ -23,7 +23,7 @@
  * Ch.5 (saturation): DIMMER|MAX_VAL: 254
 
 ### Universal-Control-Device
-* Create new (40) 19 channel universalcontrol device in CUxD
+* Create new (40) 16-channel universal control device in CUxD
  * Serialnumber: choose a free one
  * Name: choose one, i.e: `Hue`
  * Device-Icon: whatever you want
