@@ -98,7 +98,10 @@ proc process {} {
 					set id [lindex $path 2]
 					regexp {\"method\"\s*:\s*\"([^\"]+)\"} $data match method
 					regexp {\"path\"\s*:\s*\"([^\"]+)\"} $data match path
-					regexp {\"data\"\s*:\s*\"([^\"]+)\"} $data match data
+					regexp {\"data\"\s*:\s*(.*)\}} $data match data
+					if {$data == "null"} {
+						set data ""
+					}
 					return [hue::request $id $method $path $data]
 				}
 			}

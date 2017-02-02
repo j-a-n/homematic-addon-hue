@@ -106,11 +106,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				binfo.click(function() {
 					show_bridge_info(this.getAttribute('data-id'));
 				});
+				var btest = $('<button class="ui blue basic button">').attr('data-id', bridge.id).text('test');
+				btest.click(function() {
+					bridge_test(this.getAttribute('data-id'));
+				});
 				$("#bridges tbody").append($('<tr>').append(
 					$('<td>').text(bridge.id),
 					$('<td>').text(bridge.name || ''),
 					$('<td>').text(bridge.ip || ''),
-					$('<td class="center aligned">').append(bedit, bdel, binfo)
+					$('<td class="center aligned">').append(bedit, bdel, binfo, btest)
 				));
 			});
 		}
@@ -252,7 +256,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function api_request(bridge_id, method, path, data, success_callback) {
 			rest("POST", "/bridges/" + bridge_id + '/request', JSON.stringify({"method": method, "path": path, "data": data}), function(data) {
 				//display_message('info', data, 5000);
-				success_callback(data);
+				if (success_callback) {
+					success_callback(data);
+				}
 			});
 		}
 		
@@ -321,6 +327,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					}, error_callback);
 				}, error_callback);
 			}, error_callback);
+		}
+		
+		function bridge_test(bridge_id) {
+			api_request(bridge_id, "GET", "lights", null, function(lights) {
+				$.each(lights, function(light_id, light) {
+					api_request(bridge_id, "PUT", "lights/" + light_id + "/state", {"alert":"select"}, function(data) {
+						//console.log(data);
+					});
+				});
+			});
 		}
 		
 		$(document).ready(function() {
