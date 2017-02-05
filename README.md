@@ -62,6 +62,9 @@ Set color temperature of light 1 to 500 with a transition time of 1 second (10 *
 Start colorloop effect on light 2:  
 `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 effect:colorloop`
 
+Stop effect on light 2:  
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 effect:none`
+
 Flash group 1 once:  
 `/usr/local/addons/hue/hue.tcl 0234faae189721011 group alert:select`
 
