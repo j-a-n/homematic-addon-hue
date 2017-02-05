@@ -53,8 +53,8 @@ The `request` command can be use to send a raw api request.
 Turn on light 1 and set saturation, hue and brightness:  
 `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 on:true hue:1000 sat:200 bri:100`
 
-Turn on light 1 and set saturation, hue and brightness:  
-`/usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 on:true hue:1000 sat:200 bri:100`
+Turn light 1 off:  
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 on:false`
 
 Set color temperature of light 1 to 500 with a transition time of 1 second (10 * 1/10s):  
 `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 ct:500 transitiontime:10`
