@@ -150,9 +150,8 @@ proc main {} {
 			if {$chan == 1} {
 				update_device_channels $bridge_id $obj_path
 				return
-			} else {
-				set val $env(CUXD_VALUE${chan})
 			}
+			set val $env(CUXD_VALUE${chan})
 			if {$chan == 2} {
 				set key "bri"
 				# 0 - 254
