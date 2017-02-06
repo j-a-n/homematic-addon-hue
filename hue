@@ -1,0 +1,43 @@
+#!/bin/sh
+
+ADDON_NAME=hue
+CONFIG_DIR=/usr/local/etc/config
+ADDON_DIR=/usr/local/addons/${ADDON_NAME}
+RCD_DIR=${CONFIG_DIR}/rc.d
+
+case "$1" in
+	""|start|stop|restart)
+		echo "Nothing to do."
+	;;
+
+	info)
+		version=$(cat ${ADDON_DIR}/VERSION)
+		echo "Info: <b>${ADDON_NAME} addon</b><br>"
+		echo "Info: <a href='https://github.com/j-a-n/homematic-addon-hue'>https://github.com/j-a-n/homematic-addon-hue</a>"
+		echo "Name: Philips Hue"
+		echo "Version: ${version}"
+		echo "Operations: uninstall"
+		echo "Config-Url: /addons/${ADDON_NAME}"
+		echo "Update: /addons/${ADDON_NAME}/update.cgi"
+	;;
+
+	uninstall)
+		logger -t homematic -p user.info "removing addon ${ADDON_NAME}"
+		"/usr/local/addons/cuxd/update_addon" ${ADDON_NAME} || true
+
+		[ -e "${ADDON_DIR}" ] && rm -rf "${ADDON_DIR}"
+		[ -L "${CONFIG_DIR}/addons/www/${ADDON_NAME}" ] && rm "${CONFIG_DIR}/addons/www/${ADDON_NAME}"
+		if [ -e "${RCD_DIR}/${ADDON_NAME}" ]; then
+			mount -o remount,rw /
+			rm -f ${RCD_DIR}/${ADDON_NAME}
+			mount -o remount,ro /
+		fi
+	;;
+
+	*)
+		echo "Usage: $0 {start|stop|restart|uninstall}" >&2
+		exit 1
+	;;
+esac
+
+exit 0
