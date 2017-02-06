@@ -32,6 +32,7 @@ case "$1" in
 			rm -f ${RCD_DIR}/${ADDON_NAME}
 			mount -o remount,ro /
 		fi
+		[ -e "/usr/local/addons/${ADDON_NAME}-install.log" ] && rm -rf "/usr/local/addons/${ADDON_NAME}-install.log"
 	;;
 
 	*)
