@@ -20,10 +20,12 @@
 set version_url "https://github.com/j-a-n/homematic-addon-hue/raw/master/VERSION"
 set package_url "https://github.com/j-a-n/homematic-addon-hue/raw/master/hm-hue.tar.gz"
 
-if { [info exists env(QUERY_STRING)] } {
-	if { [regexp {"cmd=download"} $env(QUERY_STRING)] } {
-		puts "<meta http-equiv=\"refresh\" content=\"0; url=${package_url}\" />"
-	}
+set cmd ""
+if {[info exists env(QUERY_STRING)]} {
+	regexp {cmd=([^&]+)} $env(QUERY_STRING) match cmd
 }
-
-puts [/usr/bin/wget -q --no-check-certificate -O- "${version_url}"]
+if {$cmd == "download"} {
+	puts "<html><head><meta http-equiv=\"refresh\" content=\"0; url=${package_url}\" /></head></html>"
+} else {
+	puts [exec /usr/bin/wget -q --no-check-certificate -O- "${version_url}"]
+}

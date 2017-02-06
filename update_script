@@ -48,13 +48,25 @@ if [ -d "${ADDON_DIR}/www" -a ! -e "${CONFIG_DIR}/addons/www/${ADDON_NAME}" ]; t
 	ln -sf "${ADDON_DIR}/www" "${CONFIG_DIR}/addons/www/${ADDON_NAME}"
 fi
 
-echo "copy startup files" >>$LOG_FILE
-[ -d "rc.d" ] && cp -af rc.d/* "${RCD_DIR}/"
+echo "copy rc.d script" >>$LOG_FILE
+if [ -e ${ADDON_NAME} ]; then
+	cp -af ${ADDON_NAME} "${RCD_DIR}/"
+	chmod 755 "${RCD_DIR}/${ADDON_NAME}"
+fi
 
 echo "add menu entry" >>$LOG_FILE
 touch "${CONFIG_DIR}/hm_addons.cfg"
 "/usr/local/addons/cuxd/update_addon" ${ADDON_NAME} "${ADDON_DIR}/etc/${ADDON_NAME}-addon.cfg"
 
 sync
+
+if [ "$1" = "" ]; then
+	echo "running on CCU1, rebooting"
+	echo "x" > /dev/watchdog
+	reboot
+	while true; do
+		sleep 1
+	done
+fi
 
 exit 0
