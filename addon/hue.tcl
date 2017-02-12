@@ -147,6 +147,7 @@ proc main {} {
 			set chan $env(CUXD_TRIGGER_CH)
 			set key ""
 			set val ""
+			set on "true"
 			if {$chan == 1} {
 				update_device_channels $bridge_id $obj_path
 				return
@@ -155,6 +156,9 @@ proc main {} {
 			if {$chan == 2} {
 				set key "bri"
 				# 0 - 254
+				if {$val == 0} {
+					set on "false"
+				}
 			} elseif {$chan == 3} {
 				set val [expr {$val + 153}]
 				set key "ct"
@@ -169,12 +173,16 @@ proc main {} {
 			if {$key != "" && [lsearch $keys $key] == -1} {
 				append json "\"${key}\":${val},"
 			}
+			if {[lsearch $keys "on"] == -1} {
+				append json "\"on\":${on},"
+			}
 		}
 		
 		if {$json != "\{"} {
 			set json [string range $json 0 end-1]
 		}
 		append json "\}"
+		#write_log $json
 		set res [hue::request $bridge_id "PUT" $path $json]
 		#write_log $res
 		update_device_channels $bridge_id $obj_path
