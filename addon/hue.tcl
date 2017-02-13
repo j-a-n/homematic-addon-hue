@@ -65,23 +65,36 @@ proc usage {} {
 	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,scene"
 }
 
-proc update_device_channels {bridge_id obj_path} {
+
+proc get_state {bridge_id obj_path} {
+	set data [hue::request $bridge_id "GET" $obj_path]
+	set st [list]
+	regexp {\"on\"\s*:\s*(true|false)} $data match val
+	lappend st $val
+	regexp {\"bri\"\s*:\s*(\d+)} $data match val
+	lappend st [expr {0 + $val}]
+	regexp {\"ct\"\s*:\s*(\d+)} $data match val
+	lappend st [expr {0 + $val}]
+	regexp {\"hue\"\s*:\s*(\d+)} $data match val
+	lappend st [expr {0 + $val}]
+	regexp {\"sat\"\s*:\s*(\d+)} $data match val
+	lappend st [expr {0 + $val}]
+	return $st
+}
+
+proc update_device_channels {on bri ct hue sat} {
 	global env
 	if {![info exists env(CUXD_DEVICE)]} {
 		return
 	}
 	set device "CUxD.$env(CUXD_DEVICE)"
-	set data [hue::request $bridge_id "GET" $obj_path]
 	#write_log "update_device_channels ${device}"
 	
-	regexp {\"bri\"\s*:\s*(\d+)} $data match val
-	set bri [format "%.2f" [expr {$val / 254.0}]]
-	regexp {\"ct\"\s*:\s*(\d+)} $data match val
-	set ct [format "%.2f" [expr {($val - 153) / 347.0}]]
-	regexp {\"hue\"\s*:\s*(\d+)} $data match val
-	set hue [format "%.2f" [expr {$val / 65535.0}]]
-	regexp {\"sat\"\s*:\s*(\d+)} $data match val
-	set sat [format "%.2f" [expr {$val / 254.0}]]
+	set bri [format "%.2f" [expr {$bri / 254.0}]]
+	set ct [format "%.2f" [expr {($ct - 153) / 347.0}]]
+	set hue [format "%.2f" [expr {$hue / 65535.0}]]
+	set sat [format "%.2f" [expr {$sat / 254.0}]]
+	
 	set s "
 		dom.GetObject(\"${device}:2.SET_STATE\").State(${bri});
 		dom.GetObject(\"${device}:3.SET_STATE\").State(${ct});
@@ -142,14 +155,14 @@ proc main {} {
 				}
 			}
 		}
-		
+	
 		if {[info exists env(CUXD_TRIGGER_CH)]} {
 			set chan $env(CUXD_TRIGGER_CH)
 			set key ""
 			set val ""
-			set on "true"
 			if {$chan == 1} {
-				update_device_channels $bridge_id $obj_path
+				set st [get_state $bridge_id $obj_path]
+				update_device_channels [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
 				return
 			}
 			set val $env(CUXD_VALUE${chan})
@@ -157,7 +170,9 @@ proc main {} {
 				set key "bri"
 				# 0 - 254
 				if {$val == 0} {
-					set on "false"
+					if {[lsearch $keys "on"] == -1} {
+						append json "\"on\":false,"
+					}
 				}
 			} elseif {$chan == 3} {
 				set val [expr {$val + 153}]
@@ -173,9 +188,6 @@ proc main {} {
 			if {$key != "" && [lsearch $keys $key] == -1} {
 				append json "\"${key}\":${val},"
 			}
-			if {[lsearch $keys "on"] == -1} {
-				append json "\"on\":${on},"
-			}
 		}
 		
 		if {$json != "\{"} {
@@ -185,8 +197,18 @@ proc main {} {
 		#write_log $json
 		set res [hue::request $bridge_id "PUT" $path $json]
 		#write_log $res
-		update_device_channels $bridge_id $obj_path
 		puts $res
+		set st [get_state $bridge_id $obj_path]
+		#write_log $st
+		set on [lindex $st 0]
+		set bri [lindex $st 1]
+		if {$on == "false" && $bri > 0} {
+			#write_log "turn on"
+			set res [hue::request $bridge_id "PUT" $path "\{\"on\":true,\"bri\":${bri}\}"]
+			#write_log $res
+			puts $res
+		}
+		update_device_channels [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
 	}
 }
 
