@@ -69,8 +69,13 @@ proc usage {} {
 proc get_state {bridge_id obj_path} {
 	set data [hue::request $bridge_id "GET" $obj_path]
 	set st [list]
-	regexp {\"on\"\s*:\s*(true|false)} $data match val
-	lappend st $val
+	regexp {\"any_on\"\s*:\s*(true|false)} $data match val
+	if { [info exists val] && $val != "" } {
+		lappend st $val
+	} else {
+		regexp {\"on\"\s*:\s*(true|false)} $data match val
+		lappend st $val
+	}
 	regexp {\"bri\"\s*:\s*(\d+)} $data match val
 	lappend st [expr {0 + $val}]
 	regexp {\"ct\"\s*:\s*(\d+)} $data match val
