@@ -55,6 +55,19 @@ proc ::hue::discover_bridges {} {
 	return $bridge_ips
 }
 
+proc ::hue::get_config_bridge_ids {} {
+	variable ini_file
+	set bridge_ids [list]
+	set ini [ini::open $ini_file r]
+	foreach section [ini::sections $ini] {
+		set idx [string first "bridge_" $section]
+		if {$idx == 0} {
+			lappend bridge_ids [string range $section 7 end]
+		}
+	}
+	return $bridge_ids
+}
+
 proc ::hue::get_config_json {} {
 	variable ini_file
 	set ini [ini::open $ini_file r]
