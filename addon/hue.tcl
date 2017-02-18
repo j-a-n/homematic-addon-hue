@@ -44,9 +44,12 @@ proc write_log {str} {
 }
 
 proc usage {} {
+	set bridge_ids [hue::get_config_bridge_ids]
 	global argv0
 	puts stderr ""
 	puts stderr "usage: ${argv0} <bridge-id> <command>"
+	puts stderr ""
+	puts stderr "bridge ids: ${bridge_ids}"
 	puts stderr ""
 	puts stderr "possible commands:"
 	puts stderr "  request <method> <resource> \[data\]     send a request to rest api"
@@ -150,7 +153,7 @@ proc main {} {
 		foreach a [lrange $argv 2 end] {
 			regexp {(.*)[=:](.*$)} $a match k v
 			if {[info exists v]} {
-				lappend keys k
+				lappend keys $k
 				set nm ""
 				regexp {^(\d+)$} $v match nm
 				if {$nm != "" || $v == "true" || $v == "false"} {
@@ -207,7 +210,7 @@ proc main {} {
 		#write_log $st
 		set on [lindex $st 0]
 		set bri [lindex $st 1]
-		if {$on == "false" && $bri > 0} {
+		if {[lsearch $keys "on"] == -1 && $on == "false" && $bri > 0} {
 			#write_log "turn on"
 			set res [hue::request $bridge_id "PUT" $path "\{\"on\":true,\"bri\":${bri}\}"]
 			#write_log $res
