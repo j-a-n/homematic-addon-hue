@@ -4,7 +4,7 @@ ADDON_NAME=hue
 CONFIG_DIR=/usr/local/etc/config
 ADDON_DIR=/usr/local/addons/${ADDON_NAME}
 RCD_DIR=${CONFIG_DIR}/rc.d
-LOG_FILE=/usr/local/addons/${ADDON_NAME}-install.log
+LOG_FILE=/tmp/${ADDON_NAME}-install.log
 
 exec 1<&-
 exec 2<&-
