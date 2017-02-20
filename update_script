@@ -12,6 +12,7 @@ exec 1<>$LOG_FILE
 exec 2>&1
 
 echo "starting installation of addon ${ADDON_NAME} at $(date)" >>$LOG_FILE
+echo $@ >>$LOG_FILE
 
 echo "mount /usr/local if not already mounted" >>$LOG_FILE
 mount | grep /usr/local 2>&1 >/dev/null || mount /usr/local
