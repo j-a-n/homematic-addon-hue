@@ -150,13 +150,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						err = thrownError;
 						try {
 							obj = JSON.parse(xhr.responseText);
-							if (obj.error != null) {
-								err = obj.error;
-							}
+							err = obj.error;
 						}
 						catch(e) {
 						}
-						var msg = 'Failed to establish connection to bridge.';
+						var msg = 'Failed to establish connection to bridge: ' + err;
 						msg += '<ul>';
 						msg += '<li>Ensure that the Hue Bridge is turned on and connected to your network.</li>';
 						msg += '<li>Test that the smartphone app can control the lights.</li>';
