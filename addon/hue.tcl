@@ -104,10 +104,18 @@ proc update_device_channels {on bri ct hue sat} {
 	set sat [format "%.2f" [expr {$sat / 254.0}]]
 	
 	set s "
-		dom.GetObject(\"${device}:2.SET_STATE\").State(${bri});
-		dom.GetObject(\"${device}:3.SET_STATE\").State(${ct});
-		dom.GetObject(\"${device}:4.SET_STATE\").State(${hue});
-		dom.GetObject(\"${device}:5.SET_STATE\").State(${sat});
+		if (dom.GetObject(\"${device}:2.LEVEL\")) \{
+			dom.GetObject(\"${device}:2.SET_STATE\").State(${bri});
+		\}
+		if (dom.GetObject(\"${device}:3.LEVEL\")) \{
+			dom.GetObject(\"${device}:3.SET_STATE\").State(${ct});
+		\}
+		if (dom.GetObject(\"${device}:4.LEVEL\")) \{
+			dom.GetObject(\"${device}:4.SET_STATE\").State(${hue});
+		\}
+		if (dom.GetObject(\"${device}:5.LEVEL\")) \{
+			dom.GetObject(\"${device}:5.SET_STATE\").State(${sat});
+		\}
 	"
 	#write_log "rega_script ${s}"
 	rega_script $s
@@ -170,6 +178,7 @@ proc main {} {
 			set val ""
 			if {$chan == 1} {
 				set st [get_state $bridge_id $obj_path]
+				#write_log "state: $st"
 				update_device_channels [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
 				return
 			}
@@ -204,10 +213,10 @@ proc main {} {
 		append json "\}"
 		#write_log $json
 		set res [hue::request $bridge_id "PUT" $path $json]
-		#write_log $res
+		#write_log "res: $res"
 		puts $res
 		set st [get_state $bridge_id $obj_path]
-		#write_log $st
+		#write_log "state: $st"
 		set on [lindex $st 0]
 		set bri [lindex $st 1]
 		if {[lsearch $keys "on"] == -1 && $on == "false" && $bri > 0} {
