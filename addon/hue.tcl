@@ -186,9 +186,13 @@ proc main {} {
 			if {$chan == 2} {
 				set key "bri"
 				# 0 - 254
-				if {$val == 0} {
-					if {[lsearch $keys "on"] == -1} {
+				if {[lsearch $keys "on"] == -1} {
+					if {$val == 0} {
 						append json "\"on\":false,"
+					} else {
+						if {$cmd == "light"} {
+							append json "\"on\":true,"
+						}
 					}
 				}
 			} elseif {$chan == 3} {
@@ -218,14 +222,17 @@ proc main {} {
 		set st [get_state $bridge_id $obj_path]
 		#write_log "state: $st"
 		set on [lindex $st 0]
-		set bri [lindex $st 1]
-		if {[lsearch $keys "on"] == -1 && $on == "false" && $bri > 0} {
-			#write_log "turn on"
-			set res [hue::request $bridge_id "PUT" $path "\{\"on\":true,\"bri\":${bri}\}"]
-			#write_log $res
-			puts $res
+		#write_log "state: $st"
+		if {$cmd == "group"} {
+			set on [lindex $st 0]
+			set bri [lindex $st 1]
+			if {[lsearch $keys "on"] == -1 && $on == "false" && $bri > 0} {
+				#write_log "turn on"
+				set res [hue::request $bridge_id "PUT" $path "\{\"on\":true,\"bri\":${bri}\}"]
+				#write_log $res
+				puts $res
+			}
 		}
-		update_device_channels [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
 	}
 }
 
