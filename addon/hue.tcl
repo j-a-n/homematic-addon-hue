@@ -37,8 +37,10 @@ load tclrega.so
 
 source /usr/local/addons/hue/lib/hue.tcl
 
-proc write_log {str} {
-	set fd [open "/tmp/hue.log" "a"]
+variable update_device_channels_after 6000
+
+proc debug_log {str} {
+	set fd [open "/tmp/hue-debug.log" "a"]
 	puts $fd $str
 	close $fd
 }
@@ -96,7 +98,7 @@ proc update_device_channels {on bri ct hue sat} {
 		return
 	}
 	set device "CUxD.$env(CUXD_DEVICE)"
-	#write_log "update_device_channels ${device}"
+	#debug_log "update_device_channels ${device}"
 	
 	set bri [format "%.2f" [expr {$bri / 254.0}]]
 	set ct [format "%.2f" [expr {($ct - 153) / 347.0}]]
@@ -117,7 +119,7 @@ proc update_device_channels {on bri ct hue sat} {
 			dom.GetObject(\"${device}:5.SET_STATE\").State(${sat});
 		\}
 	"
-	#write_log "rega_script ${s}"
+	#debug_log "rega_script ${s}"
 	rega_script $s
 }
 
@@ -125,6 +127,7 @@ proc main {} {
 	global argc
 	global argv
 	global env
+	variable update_device_channels_after
 	
 	set bridge_id [string tolower [lindex $argv 0]]
 	set cmd [string tolower [lindex $argv 1]]
@@ -178,7 +181,7 @@ proc main {} {
 			set val ""
 			if {$chan == 1} {
 				set st [get_state $bridge_id $obj_path]
-				#write_log "state: $st"
+				#debug_log "state: $st"
 				update_device_channels [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
 				return
 			}
@@ -215,22 +218,28 @@ proc main {} {
 			set json [string range $json 0 end-1]
 		}
 		append json "\}"
-		#write_log $json
+		#debug_log $json
 		set res [hue::request $bridge_id "PUT" $path $json]
-		#write_log "res: $res"
+		#debug_log "res: $res"
 		puts $res
 		set st [get_state $bridge_id $obj_path]
-		#write_log "state: $st"
+		#debug_log "state: $st"
 		set on [lindex $st 0]
 		if {$cmd == "group"} {
 			set on [lindex $st 0]
 			set bri [lindex $st 1]
 			if {[lsearch $keys "on"] == -1 && [lsearch $keys "effect"] == -1 && [lsearch $keys "alert"] == -1 && $on == "false" && $bri > 0} {
-				#write_log "turn on"
+				#debug_log "turn on"
 				set res [hue::request $bridge_id "PUT" $path "\{\"on\":true,\"bri\":${bri}\}"]
-				#write_log $res
+				#debug_log $res
 				puts $res
 			}
+		}
+		# The bridge needs some time until all values are up to date
+		if {$update_device_channels_after > 0} {
+			after $update_device_channels_after
+			set st [get_state $bridge_id $obj_path]
+			update_device_channels [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
 		}
 	}
 }
@@ -239,7 +248,7 @@ if { [ catch {
 	#catch {cd [file dirname [info script]]}
 	main
 } err ] } {
-	write_log $err
+	debug_log $err
 	puts stderr "ERROR: $err"
 	exit 1
 }
