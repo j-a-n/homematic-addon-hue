@@ -39,12 +39,6 @@ source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_device_channels_after 6000
 
-proc debug_log {str} {
-	set fd [open "/tmp/hue-debug.log" "a"]
-	puts $fd $str
-	close $fd
-}
-
 proc usage {} {
 	set bridge_ids [hue::get_config_bridge_ids]
 	global argv0
@@ -98,7 +92,7 @@ proc update_device_channels {on bri ct hue sat} {
 		return
 	}
 	set device "CUxD.$env(CUXD_DEVICE)"
-	#debug_log "update_device_channels ${device}"
+	hue::write_log 4 "update_device_channels ${device}: ${on} ${bri} ${ct} ${hue} ${sat}"
 	
 	set bri [format "%.2f" [expr {$bri / 254.0}]]
 	set ct [format "%.2f" [expr {($ct - 153) / 347.0}]]
@@ -119,7 +113,7 @@ proc update_device_channels {on bri ct hue sat} {
 			dom.GetObject(\"${device}:5.SET_STATE\").State(${sat});
 		\}
 	"
-	#debug_log "rega_script ${s}"
+	#hue::write_log 4 "rega_script ${s}"
 	rega_script $s
 }
 
@@ -141,7 +135,9 @@ proc main {} {
 			usage
 			exit 1
 		}
+		hue::acquire_lock $bridge_id
 		puts [hue::request $bridge_id [lindex $argv 2] [lindex $argv 3] [lindex $argv 4]]
+		hue::release_lock $bridge_id
 	} else {
 		if {$argc < 3} {
 			usage
@@ -181,7 +177,7 @@ proc main {} {
 			set val ""
 			if {$chan == 1} {
 				set st [get_state $bridge_id $obj_path]
-				#debug_log "state: $st"
+				hue::write_log 4 "state: $st"
 				update_device_channels [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
 				return
 			}
@@ -218,23 +214,26 @@ proc main {} {
 			set json [string range $json 0 end-1]
 		}
 		append json "\}"
-		#debug_log $json
+		
+		hue::acquire_lock $bridge_id
+		hue::write_log 4 "request: ${path} ${json}"
 		set res [hue::request $bridge_id "PUT" $path $json]
-		#debug_log "res: $res"
+		hue::write_log 4 "response: ${res}"
 		puts $res
 		set st [get_state $bridge_id $obj_path]
-		#debug_log "state: $st"
+		hue::write_log 4 "state: ${st}"
 		set on [lindex $st 0]
 		if {$cmd == "group"} {
 			set on [lindex $st 0]
 			set bri [lindex $st 1]
 			if {[lsearch $keys "on"] == -1 && [lsearch $keys "effect"] == -1 && [lsearch $keys "alert"] == -1 && $on == "false" && $bri > 0} {
-				#debug_log "turn on"
+				hue::write_log 4 "Auto turn on group"
 				set res [hue::request $bridge_id "PUT" $path "\{\"on\":true,\"bri\":${bri}\}"]
-				#debug_log $res
 				puts $res
 			}
 		}
+		hue::release_lock $bridge_id
+		
 		# The bridge needs some time until all values are up to date
 		if {$update_device_channels_after > 0} {
 			after $update_device_channels_after
@@ -248,8 +247,8 @@ if { [ catch {
 	#catch {cd [file dirname [info script]]}
 	main
 } err ] } {
-	debug_log $err
-	puts stderr "ERROR: $err"
+	hue::write_log 1 $err
+	puts stderr "ERROR: ${err}"
 	exit 1
 }
 exit 0

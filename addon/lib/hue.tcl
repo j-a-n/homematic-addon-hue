@@ -23,9 +23,27 @@ source /usr/local/addons/hue/lib/ini.tcl
 namespace eval hue {
 	variable version_file "/usr/local/addons/hue/VERSION"
 	variable ini_file "/usr/local/addons/hue/etc/hue.conf"
-	variable log_file "/usr/local/addons/hue/log.txt"
+	variable log_file "/tmp/hue-addon-log.txt"
+	variable log_level 4
+	variable lock_start_port 11200
+	variable lock_socket
 	variable devicetype "homematic-addon-hue#ccu"
 	variable curl "/usr/local/addons/cuxd/curl"
+}
+
+# error=1, warning=2, info=3, debug=4
+proc ::hue::write_log {lvl str} {
+	variable log_level
+	variable log_file
+	if {$lvl <= $log_level} {
+		set fd [open $log_file "a"]
+		set date [clock seconds]
+		set date [clock format $date -format {%Y-%m-%d %T}]
+		set process_id [pid]
+		puts $fd "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
+		close $fd
+		#puts "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
+	}
 }
 
 proc ::hue::version {} {
@@ -34,6 +52,32 @@ proc ::hue::version {} {
 	set data [read $fp]
 	close $fp
 	return [string trim $data]
+}
+
+proc ::hue::acquire_lock {bridge_id} {
+	variable lock_socket
+	variable lock_start_port
+	set lock_id [get_bridge_num $bridge_id]
+	set port [expr { $lock_start_port + $lock_id }]
+	# 'socket already in use' error will be our lock detection mechanism
+	while {1} {
+		if { [catch {socket -server dummy_accept $port} sock] } {
+			write_log 4 "Could not acquire lock"
+			after 25
+		} else {
+			set lock_socket($lock_id) $sock
+			break
+		}
+	}
+}
+
+proc ::hue::release_lock {bridge_id} {
+	variable lock_socket
+	set lock_id [get_bridge_num $bridge_id]
+	if { [catch {close $lock_socket($lock_id)} errormsg] } {
+		write_log 1 "Error '${errormsg}' on closing socket for lock '${lock_id}'"
+	}
+	unset lock_socket($lock_id)
 }
 
 proc ::hue::convert_string_to_hex {str} {
@@ -53,6 +97,22 @@ proc ::hue::discover_bridges {} {
 		}
 	}
 	return $bridge_ips
+}
+
+proc ::hue::get_bridge_num {bridge_id} {
+	variable ini_file
+	set ini [ini::open $ini_file r]
+	set num 0
+	foreach section [ini::sections $ini] {
+		set idx [string first "bridge_" $section]
+		if {$idx == 0} {
+			set num [ expr { $num + 1} ]
+			if {[string range $section 7 end] == $bridge_id} {
+				return $num
+			}
+		}
+	}
+	return $num
 }
 
 proc ::hue::get_config_bridge_ids {} {
