@@ -10,27 +10,27 @@
 
 ### Multi-DIM-Device
 * Create new (28) System device in CUxD for each group or light
- * Function: Multi-DIM-Exec
- * Serialnumber: choose a free one
- * Name: choose one, i.e: `Hue Group 1`
- * Device-Icon: whatever you want
+  * Function: Multi-DIM-Exec
+  * Serialnumber: choose a free one
+  * Name: choose one, i.e: `Hue Group 1`
+  * Device-Icon: whatever you want
 * Configure new device in HomeMatic Web-UI
- * Channels: 4
- * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1 transitiontime:0` (see usage for details)
- * Ch.2 (brightness): DIMMER|MAX_VAL: 254
- * Ch.3 (color temperature): DIMMER|MAX_VAL: 347
- * Ch.4 (hue): DIMMER|MAX_VAL: 65535
- * Ch.5 (saturation): DIMMER|MAX_VAL: 254
+  * Channels: 4
+  * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1 transitiontime:0` (see usage for details)
+  * Ch.2 (brightness): DIMMER|MAX_VAL: 254
+  * Ch.3 (color temperature): DIMMER|MAX_VAL: 347
+  * Ch.4 (hue): DIMMER|MAX_VAL: 65535
+  * Ch.5 (saturation): DIMMER|MAX_VAL: 254
 
 ### Universal-Control-Device
 * Create new (40) 16-channel universal control device in CUxD
- * Serialnumber: choose a free one
- * Name: choose one, i.e: `Hue`
- * Device-Icon: whatever you want
- * Control: KEY
+  * Serialnumber: choose a free one
+  * Name: choose one, i.e: `Hue`
+  * Device-Icon: whatever you want
+  * Control: KEY
 * Configure new device in HomeMatic Web-UI
- * CMD_EXEC: yes
- * CMD_SHORT `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
+  * CMD_EXEC: yes
+  * CMD_SHORT `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
 
 ## hue.tcl usage
 `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
