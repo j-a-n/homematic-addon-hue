@@ -66,10 +66,10 @@ Stop effect on light 2:
 `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 effect:none`
 
 Flash group 1 once:  
-`/usr/local/addons/hue/hue.tcl 0234faae189721011 group alert:select`
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 group 1 alert:select`
 
 Flash group 1 repeatedly:  
-`/usr/local/addons/hue/hue.tcl 0234faae189721011 group alert:lselect`
+`/usr/local/addons/hue/hue.tcl 0234faae189721011 group 1 alert:lselect`
 
 Set scene for light group 1:  
 `/usr/local/addons/hue/hue.tcl 0234faae189721011 group 1 scene:AY-ots9YVHmAE1f`
