@@ -27,6 +27,9 @@ namespace eval hue {
 	variable log_level 4
 	variable lock_start_port 11200
 	variable lock_socket
+	variable lock_id_log_file 1
+	variable lock_id_ini_file 2
+	variable lock_id_bridge_start 3
 	variable devicetype "homematic-addon-hue#ccu"
 	variable curl "/usr/local/addons/cuxd/curl"
 }
@@ -35,7 +38,9 @@ namespace eval hue {
 proc ::hue::write_log {lvl str} {
 	variable log_level
 	variable log_file
+	variable lock_id_log_file
 	if {$lvl <= $log_level} {
+		acquire_lock $lock_id_log_file
 		set fd [open $log_file "a"]
 		set date [clock seconds]
 		set date [clock format $date -format {%Y-%m-%d %T}]
@@ -43,6 +48,7 @@ proc ::hue::write_log {lvl str} {
 		puts $fd "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
 		close $fd
 		#puts "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
+		release_lock $lock_id_log_file
 	}
 }
 
@@ -54,10 +60,9 @@ proc ::hue::version {} {
 	return [string trim $data]
 }
 
-proc ::hue::acquire_lock {bridge_id} {
+proc ::hue::acquire_lock {lock_id} {
 	variable lock_socket
 	variable lock_start_port
-	set lock_id [get_bridge_num $bridge_id]
 	set port [expr { $lock_start_port + $lock_id }]
 	# 'socket already in use' error will be our lock detection mechanism
 	while {1} {
@@ -71,13 +76,24 @@ proc ::hue::acquire_lock {bridge_id} {
 	}
 }
 
-proc ::hue::release_lock {bridge_id} {
+proc ::hue::acquire_bridge_lock {bridge_id} {
+	variable lock_id_bridge_start
+	set lock_id [ expr { $lock_id_bridge_start + [get_bridge_num $bridge_id] } ]
+	acquire_lock $lock_id
+}
+
+proc ::hue::release_lock {lock_id} {
 	variable lock_socket
-	set lock_id [get_bridge_num $bridge_id]
 	if { [catch {close $lock_socket($lock_id)} errormsg] } {
 		write_log 1 "Error '${errormsg}' on closing socket for lock '${lock_id}'"
 	}
 	unset lock_socket($lock_id)
+}
+
+proc ::hue::release_bridge_lock {bridge_id} {
+	variable lock_id_bridge_start
+	set lock_id [ expr { $lock_id_bridge_start + [get_bridge_num $bridge_id] } ]
+	release_lock $lock_id
 }
 
 proc ::hue::convert_string_to_hex {str} {
@@ -101,6 +117,8 @@ proc ::hue::discover_bridges {} {
 
 proc ::hue::get_bridge_num {bridge_id} {
 	variable ini_file
+	variable lock_id_ini_file
+	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
 	set num 0
 	foreach section [ini::sections $ini] {
@@ -108,15 +126,18 @@ proc ::hue::get_bridge_num {bridge_id} {
 		if {$idx == 0} {
 			set num [ expr { $num + 1} ]
 			if {[string range $section 7 end] == $bridge_id} {
-				return $num
+				break
 			}
 		}
 	}
+	release_lock $lock_id_ini_file
 	return $num
 }
 
 proc ::hue::get_config_bridge_ids {} {
 	variable ini_file
+	variable lock_id_ini_file
+	acquire_lock $lock_id_ini_file
 	set bridge_ids [list]
 	set ini [ini::open $ini_file r]
 	foreach section [ini::sections $ini] {
@@ -125,11 +146,14 @@ proc ::hue::get_config_bridge_ids {} {
 			lappend bridge_ids [string range $section 7 end]
 		}
 	}
+	release_lock $lock_id_ini_file
 	return $bridge_ids
 }
 
 proc ::hue::get_config_json {} {
 	variable ini_file
+	variable lock_id_ini_file
+	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
 	set json "\{\"bridges\":\["
 	set count 0
@@ -152,11 +176,14 @@ proc ::hue::get_config_json {} {
 		set json [string range $json 0 end-1]
 	}
 	append json "\]\}"
+	release_lock $lock_id_ini_file
 	return $json
 }
 
 proc ::hue::create_bridge {bridge_id name ip username} {
 	variable ini_file
+	variable lock_id_ini_file
+	acquire_lock $lock_id_ini_file
 	set bridge_id [string tolower $bridge_id]
 	set ini [ini::open $ini_file r+]
 	ini::set $ini "bridge_${bridge_id}" "name" $name
@@ -164,18 +191,24 @@ proc ::hue::create_bridge {bridge_id name ip username} {
 	ini::set $ini "bridge_${bridge_id}" "username" $username
 	ini::set $ini "bridge_${bridge_id}" "port" "80"
 	ini::commit $ini
+	release_lock $lock_id_ini_file
 }
 
 proc ::hue::set_bridge_param {bridge_id param value} {
 	variable ini_file
+	variable lock_id_ini_file
+	acquire_lock $lock_id_ini_file
 	set bridge_id [string tolower $bridge_id]
 	set ini [ini::open $ini_file r+]
 	ini::set $ini "bridge_${bridge_id}" $param $value
 	ini::commit $ini
+	release_lock $lock_id_ini_file
 }
 
 proc ::hue::get_bridge {bridge_id} {
 	variable ini_file
+	variable lock_id_ini_file
+	acquire_lock $lock_id_ini_file
 	set bridge_id [string tolower $bridge_id]
 	set bridge(id) ""
 	set ini [ini::open $ini_file r]
@@ -192,15 +225,19 @@ proc ::hue::get_bridge {bridge_id} {
 	if {![info exists bridge(key)]} {
 		set bridge(key) ""
 	}
+	release_lock $lock_id_ini_file
 	return [array get bridge]
 }
 
 proc ::hue::delete_bridge {bridge_id} {
 	variable ini_file
+	variable lock_id_ini_file
+	acquire_lock $lock_id_ini_file
 	set bridge_id [string tolower $bridge_id]
 	set ini [ini::open $ini_file r+]
 	ini::delete $ini "bridge_${bridge_id}"
 	ini::commit $ini
+	release_lock $lock_id_ini_file
 }
 
 proc ::hue::http_request {ip port method path data} {

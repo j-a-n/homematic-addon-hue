@@ -135,9 +135,9 @@ proc main {} {
 			usage
 			exit 1
 		}
-		hue::acquire_lock $bridge_id
+		hue::acquire_bridge_lock $bridge_id
 		puts [hue::request $bridge_id [lindex $argv 2] [lindex $argv 3] [lindex $argv 4]]
-		hue::release_lock $bridge_id
+		hue::release_bridge_lock $bridge_id
 	} else {
 		if {$argc < 3} {
 			usage
@@ -215,7 +215,7 @@ proc main {} {
 		}
 		append json "\}"
 		
-		hue::acquire_lock $bridge_id
+		hue::acquire_bridge_lock $bridge_id
 		hue::write_log 4 "request: ${path} ${json}"
 		set res [hue::request $bridge_id "PUT" $path $json]
 		hue::write_log 4 "response: ${res}"
@@ -232,7 +232,7 @@ proc main {} {
 				puts $res
 			}
 		}
-		hue::release_lock $bridge_id
+		hue::release_bridge_lock $bridge_id
 		
 		# The bridge needs some time until all values are up to date
 		if {$update_device_channels_after > 0} {
