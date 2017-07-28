@@ -67,7 +67,6 @@ proc ::hue::acquire_lock {lock_id} {
 	# 'socket already in use' error will be our lock detection mechanism
 	while {1} {
 		if { [catch {socket -server dummy_accept $port} sock] } {
-			write_log 4 "Could not acquire lock"
 			after 25
 		} else {
 			set lock_socket($lock_id) $sock
