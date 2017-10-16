@@ -230,6 +230,12 @@ proc main {} {
 				hue::write_log 4 "Auto turn on group"
 				set res [hue::request $bridge_id "PUT" $path "\{\"on\":true,\"bri\":${bri}\}"]
 				puts $res
+				
+				# Repeat initial request after turning on group
+				hue::write_log 4 "repeat request: ${path} ${json}"
+				set res [hue::request $bridge_id "PUT" $path $json]
+				hue::write_log 4 "response: ${res}"
+				puts $res
 			}
 		}
 		hue::release_bridge_lock $bridge_id
