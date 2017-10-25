@@ -162,7 +162,7 @@ proc main {} {
 			if {[info exists v]} {
 				lappend keys $k
 				set nm ""
-				regexp {^(\d+)$} $v match nm
+				regexp {^(-?\d+)$} $v match nm
 				if {$nm != "" || $v == "true" || $v == "false"} {
 					append json "\"${k}\":${v},"
 				} else {
