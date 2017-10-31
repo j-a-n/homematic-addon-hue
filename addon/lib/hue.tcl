@@ -52,6 +52,17 @@ proc ::hue::write_log {lvl str} {
 	}
 }
 
+proc ::hue::read_log {} {
+	variable log_file
+	if { ![file exist $log_file] } {
+		return ""
+	}
+	set fp [open $log_file r]
+	set data [read $fp]
+	close $fp
+	return $data
+}
+
 proc ::hue::version {} {
 	variable version_file
 	set fp [open $version_file r]
