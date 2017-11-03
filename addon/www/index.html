@@ -31,12 +31,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<title>Hue Addon</title>
 	<script>
 		var config = {};
-		var config_loaded = false;
+		var lights = {};
+		var groups = {};
+		var scenes = {};
 		var message_timer_id = null;
 		var establish_link_timer_id = null;
 		
 		$(document).ready(function() {
-			get_config();
+			get_config(function(data) {
+				update_view();
+			});
 			discover_bridges();
 		});
 		
@@ -86,6 +90,50 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function api_request(bridge_id, method, path, data, success_callback) {
+			rest("POST", "/bridges/" + bridge_id + '/request', JSON.stringify({"method": method, "path": path, "data": data}), function(data) {
+				//display_message('info', data, 5000);
+				if (success_callback) {
+					success_callback(data);
+				}
+			});
+		}
+		
+		function get_config(success_callback, error_callback) {
+			rest("GET", "/config", null, function(data) {
+				config = data;
+				if (success_callback) {
+					success_callback(data);
+				}
+			}, error_callback);
+		}
+		
+		function get_lights(bridge_id, success_callback, error_callback) {
+			api_request(bridge_id, "GET", "lights", null, function(data) {
+				lights[bridge_id] = data;
+				if (success_callback) {
+					success_callback(data);
+				}
+			}, error_callback);
+		}
+		
+		function get_groups(bridge_id, success_callback, error_callback) {
+			api_request(bridge_id, "GET", "groups", null, function(data) {
+				groups[bridge_id] = data;
+				if (success_callback) {
+					success_callback(data);
+				}
+			}, error_callback);
+		}
+		
+		function get_scenes(bridge_id, success_callback, error_callback) {
+			api_request(bridge_id, "GET", "scenes", null, function(data) {
+				scenes[bridge_id] = data;
+				if (success_callback) {
+					success_callback(data);
+				}
+			}, error_callback);
+		}
 		function update_view() {
 			$('#bridges tbody').empty();
 			config.bridges.forEach(function(bridge) {
@@ -110,11 +158,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				btest.click(function() {
 					bridge_test(this.getAttribute('data-id'));
 				});
+				var bcontrol = $('<button class="ui blue basic button">').attr('data-id', bridge.id).text('control');
+				bcontrol.click(function() {
+					open_light_control(this.getAttribute('data-id'));
+				});
 				$("#bridges tbody").append($('<tr>').append(
 					$('<td>').text(bridge.id),
 					$('<td>').text(bridge.name || ''),
 					$('<td>').text(bridge.ip || ''),
-					$('<td class="center aligned">').append(bedit, bdel, binfo, btest)
+					$('<td class="center aligned">').append(bedit, bdel, binfo, btest, bcontrol)
 				));
 			});
 		}
@@ -167,14 +219,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 		}
 		
-		function get_config() {
-			rest("GET", "/config", "", function(data) {
-				config = data;
-				config_loaded = true;
-				update_view();
-			});
-		}
-		
 		function discover_bridges() {
 			display_message('info', 'Searching for Hue Bridges...', 15000);
 			rest("GET", "/discover-bridges", null, function(data) {
@@ -200,7 +244,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				if (bridge.id == id) {
 					rest("DELETE", "/config/bridge/" + bridge.id, config, function(data) {
 						console.log(data);
-						get_config();
+						get_config(function(data) {
+							update_view();
+						});
 						display_message('success', 'Hue Bridge successfully deleted', 5000);
 					});
 				}
@@ -214,7 +260,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function update_config_bridge(bridge) {
 			rest("PUT", "/config/bridge/" + bridge.id, JSON.stringify(bridge), function(data) {
-				get_config();
+				get_config(function(data) {
+					update_view();
+				});
 				display_message('success', 'Hue Bridge successfully updated', 5000);
 			});
 		}
@@ -249,15 +297,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#modal-edit-bridge').modal('show');
 			$('#submit-edit-bridge').addClass('disabled');
 			establish_link();
-		}
-		
-		function api_request(bridge_id, method, path, data, success_callback) {
-			rest("POST", "/bridges/" + bridge_id + '/request', JSON.stringify({"method": method, "path": path, "data": data}), function(data) {
-				//display_message('info', data, 5000);
-				if (success_callback) {
-					success_callback(data);
-				}
-			});
 		}
 		
 		function object_to_table( obj) {
@@ -297,26 +336,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#modal-bridge-info').modal('show');
 			$('#dimmer-bridge-info').addClass('active');
 			$('#bridge-info-content').empty();
-			api_request(bridge_id, "GET", "config", null, function(conf) {
-				api_request(bridge_id, "GET", "lights", null, function(lights) {
-					api_request(bridge_id, "GET", "groups", null, function(groups) {
-						api_request(bridge_id, "GET", "scenes", null, function(scenes) {
-							//console.log(conf);
+			
+			get_config(function(data) {
+				get_lights(bridge_id, function(data) {
+					get_groups(bridge_id, function(data) {
+						get_scenes(bridge_id, function(data) {
+							//console.log(config);
 							//console.log(lights);
 							$('#dimmer-bridge-info').removeClass('active');
 							$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Bridge ' + bridge_id));
-							$('#bridge-info-content').append(object_to_table(conf));
-							$.each(lights, function(light_id, light) {
+							$('#bridge-info-content').append(object_to_table(config));
+							$.each(lights[bridge_id], function(light_id, light) {
 								//console.info(light);
 								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Light ' + light_id));
 								$('#bridge-info-content').append(object_to_table(light));
 							});
-							$.each(groups, function(group_id, group) {
+							$.each(groups[bridge_id], function(group_id, group) {
 								//console.info(group);
 								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Group ' + group_id));
 								$('#bridge-info-content').append(object_to_table(group));
 							});
-							$.each(scenes, function(scene_id, scene) {
+							$.each(scenes[bridge_id], function(scene_id, scene) {
 								//console.info(scene);
 								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Scene ' + scene_id));
 								$('#bridge-info-content').append(object_to_table(scene));
@@ -326,6 +366,112 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					}, error_callback);
 				}, error_callback);
 			}, error_callback);
+		}
+		
+		function open_light_control(bridge_id) {
+			var error_callback = function(xhr, ajaxOptions, thrownError) {
+				console.error(xhr);
+				$('#dimmer-light-control').removeClass('active');
+				$('#modal-light-control').modal('hide');
+			}
+			
+			$('#message-light-control-request').html('');
+			$('#message-light-control-request').attr('class', 'ui message hidden');
+			$('#message-light-control-response').html('');
+			$('#message-light-control-response').attr('class', 'ui message hidden');
+			$('#message-light-control-state').html('');
+			$('#message-light-control-state').attr('class', 'ui message hidden');
+			$('#dimmer-light-control').addClass('active');
+			$('#form-light-control').form('clear');
+			$('#modal-light-control').modal('show');
+			
+			get_lights(bridge_id, function(data) {
+				get_groups(bridge_id, function(data) {
+					$('#dimmer-light-control').removeClass('active');
+					$('#light-control-target').empty();
+					$('#light-control-target').append('<option>');
+					$.each(lights[bridge_id], function(light_id, light) {
+						$('#light-control-target').append($('<option>').text('Light ' + light_id + ' - ' + light['name']).data('bridge_id', bridge_id).data('light_id', light_id));
+					});
+					$.each(groups[bridge_id], function(group_id, group) {
+						$('#light-control-target').append($('<option>').text('Group ' + group_id + ' - ' + group['name']).data('bridge_id', bridge_id).data('group_id', group_id));
+					});
+					$('#modal-light-control').modal('refresh');
+				}, error_callback);
+			}, error_callback);
+		}
+		
+		function get_control_target_state() {
+			var bridge_id = $('#light-control-target').find(':selected').data('bridge_id');
+			if (!bridge_id) {
+				return;
+			}
+			var light_id = $('#light-control-target').find(':selected').data('light_id');
+			var group_id = $('#light-control-target').find(':selected').data('group_id');
+			var func = (light_id ? get_lights : get_groups);
+			func(bridge_id, function(data) {
+				var state = (light_id ? lights[bridge_id][light_id]['state'] : groups[bridge_id][group_id]['action']);
+				if (state) {
+					$('#message-light-control-state').html('<div class="header">State</div><pre>' + JSON.stringify(state, null, 2) + '</pre>');
+					$('#message-light-control-state').attr('class', 'ui message info visible');
+					$('#modal-light-control').modal('refresh');
+				}
+			});
+		}
+		
+		function on_submit_control() {
+			var bridge_id = $('#light-control-target').find(':selected').data('bridge_id');
+			if (!bridge_id) {
+				return;
+			}
+			var light_id = $('#light-control-target').find(':selected').data('light_id');
+			var group_id = $('#light-control-target').find(':selected').data('group_id');
+			var resource = (light_id ? '/lights/' + light_id + '/state' : '/groups/' + group_id + '/action');
+			
+			var values = {};
+			['on', 'bri', 'hue', 'sat', 'ct', 'xy', 'transitiontime', 'alert', 'effect'].forEach(function(attr) {
+				var val = $('#form-light-control').form('get value', attr);
+				if (val != '') {
+					if (attr == 'on') {
+						val = (val == 'true');
+					}
+					else if (attr == 'xy') {
+						val = val.split(',')
+						for (var i=0; i<val.length; i++) {
+							val[i] = parseFloat(val[i]);
+						}
+					}
+					else if (['bri', 'hue', 'sat', 'ct', 'transitiontime'].indexOf(attr) > -1) {
+						val = parseInt(val);
+					}
+					values[attr] = val;
+				}
+			});
+			console.log(values);
+			$('#message-light-control-request').html('<div class="header">Request</div><pre>' + JSON.stringify(values, null, 2) + '</pre>');
+			$('#message-light-control-request').attr('class', 'ui message info visible');
+			api_request(bridge_id, "PUT", resource, values,
+				function(data) {
+					console.log(data);
+					var data_str = JSON.stringify(data, null, 2); // spacing level = 2
+					$('#message-light-control-response').html('<div class="header">Response</div><pre>' + data_str + '</pre>');
+					$('#message-light-control-response').attr('class', 'ui message info visible');
+					$('#modal-light-control').modal('refresh');
+					get_control_target_state();
+				},
+				function(xhr, ajaxOptions, thrownError) {
+					console.error(xhr);
+					$('#message-light-control-response').html(xhr);
+					$('#message-light-control-response').attr('class', 'ui message error visible');
+					$('#modal-light-control').modal('refresh');
+					get_control_target_state();
+				}
+			);
+		}
+		
+		function show_log() {
+			var win = window.open('log.cgi', '_blank');
+			win.focus();
 		}
 		
 		function bridge_test(bridge_id) {
@@ -411,6 +557,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<tbody>
 			</tbody>
 		</table>
+		<div class="ui right aligned grid">
+			<div class="right floated right aligned twelve wide column">
+				<div onclick="show_log();" class="ui blue basic button">
+				<i class="file text outline icon"></i>
+				Show addon log
+				</div>
+			</div>
+		</div>
 	</div>
 	
 	<div id="modal-edit-bridge" class="ui modal">
@@ -442,6 +596,79 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<div class="ui button" onclick="$('#modal-edit-bridge').modal('hide');">Cancel</div>
 				<div id="submit-edit-bridge" class="ui primary submit button">Submit</div>
 			</form>
+		</div>
+	</div>
+	
+	<div id="modal-light-control" class="ui modal">
+		<i class="close icon"></i>
+		<div id="dimmer-light-control" class="ui inverted dimmer">
+			<div class="ui text loader">Loading</div>
+		</div>
+		<div class="header">
+			Control Light / Group
+		</div>
+		<div class="content">
+			<form id="form-light-control" class="ui form">
+				<div class="field">
+					<label>Light / Group</label>
+					<select id="light-control-target" name="target" class="ui fluid dropdown" onchange="get_control_target_state();">
+						<option></option>
+					</select>
+				</div>
+				<div class="fields">
+					<div class="field">
+						<label>On</label>
+						<select name="on" class="ui fluid dropdown">
+							<option value=""></option>
+							<option value="true">true</option>
+							<option value="false">false</option>
+						</select>
+					</div>
+					<div class="field">
+						<label>Brightness</label>
+						<input name="bri" placeholder="0-254" type="text">
+					</div>
+					<div class="field">
+						<label>Transitiontime</label>
+						<input name="transitiontime" placeholder="Transitiontime" type="text">
+					</div>
+					<div class="field">
+						<label>Alert</label>
+						<input name="alert" placeholder="select / lselect / none" type="text">
+					</div>
+					<div class="field">
+						<label>Effect</label>
+						<input name="effect" placeholder="colorloop / none" type="text">
+					</div>
+				</div>
+				<div class="fields">
+					<div class="field">
+						<label>Hue</label>
+						<input name="hue" placeholder="0-65535" type="text">
+					</div>
+					<div class="field">
+						<label>Saturation</label>
+						<input name="sat" placeholder="0-254" type="text">
+					</div>
+					<div class="field">
+						<label>Color temperature</label>
+						<input name="ct" placeholder="153-500" type="text">
+					</div>
+					<div class="field">
+						<label>XY</label>
+						<input name="xy" placeholder="0.0-1.0, 0.0-1.0" type="text">
+					</div>
+				</div>
+				<div class="ui error message"></div>
+				<div class="ui button" onclick="$('#modal-light-control').modal('hide');">Cancel</div>
+				<div class="ui primary submit button" onclick="on_submit_control();">Submit</div>
+			</form>
+			<div id="message-light-control-state" class="ui message hidden">
+			</div>
+			<div id="message-light-control-request" class="ui message hidden">
+			</div>
+			<div id="message-light-control-response" class="ui message hidden">
+			</div>
 		</div>
 	</div>
 	
