@@ -33,8 +33,6 @@
 # $env(CUXD_MAXVALUE4)
 # $env(CUXD_MAXVALUE5)
 
-load tclrega.so
-
 source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_device_channels_after 6000
@@ -64,59 +62,6 @@ proc usage {} {
 	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,scene"
 }
 
-
-proc get_state {bridge_id obj_path} {
-	set data [hue::request $bridge_id "GET" $obj_path]
-	set st [list]
-	regexp {\"any_on\"\s*:\s*(true|false)} $data match val
-	if { [info exists val] && $val != "" } {
-		lappend st $val
-	} else {
-		regexp {\"on\"\s*:\s*(true|false)} $data match val
-		lappend st $val
-	}
-	regexp {\"bri\"\s*:\s*(\d+)} $data match val
-	lappend st [expr {0 + $val}]
-	regexp {\"ct\"\s*:\s*(\d+)} $data match val
-	lappend st [expr {0 + $val}]
-	regexp {\"hue\"\s*:\s*(\d+)} $data match val
-	lappend st [expr {0 + $val}]
-	regexp {\"sat\"\s*:\s*(\d+)} $data match val
-	lappend st [expr {0 + $val}]
-	return $st
-}
-
-proc update_device_channels {on bri ct hue sat} {
-	global env
-	if {![info exists env(CUXD_DEVICE)]} {
-		return
-	}
-	set device "CUxD.$env(CUXD_DEVICE)"
-	hue::write_log 4 "update_device_channels ${device}: ${on} ${bri} ${ct} ${hue} ${sat}"
-	
-	set bri [format "%.2f" [expr {$bri / 254.0}]]
-	set ct [format "%.2f" [expr {($ct - 153) / 347.0}]]
-	set hue [format "%.2f" [expr {$hue / 65535.0}]]
-	set sat [format "%.2f" [expr {$sat / 254.0}]]
-	
-	set s "
-		if (dom.GetObject(\"${device}:2.LEVEL\")) \{
-			dom.GetObject(\"${device}:2.SET_STATE\").State(${bri});
-		\}
-		if (dom.GetObject(\"${device}:3.LEVEL\")) \{
-			dom.GetObject(\"${device}:3.SET_STATE\").State(${ct});
-		\}
-		if (dom.GetObject(\"${device}:4.LEVEL\")) \{
-			dom.GetObject(\"${device}:4.SET_STATE\").State(${hue});
-		\}
-		if (dom.GetObject(\"${device}:5.LEVEL\")) \{
-			dom.GetObject(\"${device}:5.SET_STATE\").State(${sat});
-		\}
-	"
-	#hue::write_log 4 "rega_script ${s}"
-	rega_script $s
-}
-
 proc main {} {
 	global argc
 	global argv
@@ -125,9 +70,9 @@ proc main {} {
 	
 	set bridge_id [string tolower [lindex $argv 0]]
 	set cmd [string tolower [lindex $argv 1]]
-	
-	if {[info exists username]} {
-		return $username
+	set cuxd_device ""
+	if {[info exists env(CUXD_DEVICE)]} {
+		set cuxd_device "CUxD.$env(CUXD_DEVICE)"
 	}
 	
 	if {$cmd == "request"} {
@@ -176,9 +121,11 @@ proc main {} {
 			set key ""
 			set val ""
 			if {$chan == 1} {
-				set st [get_state $bridge_id $obj_path]
+				set st [hue::get_object_state $bridge_id $obj_path]
 				hue::write_log 4 "state: $st"
-				update_device_channels [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
+				if {$cuxd_device != ""} {
+					hue::update_cuxd_device_channels $cuxd_device [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
+				}
 				return
 			}
 			set val $env(CUXD_VALUE${chan})
@@ -220,7 +167,7 @@ proc main {} {
 		set res [hue::request $bridge_id "PUT" $path $json]
 		hue::write_log 4 "response: ${res}"
 		puts $res
-		set st [get_state $bridge_id $obj_path]
+		set st [hue::get_object_state $bridge_id $obj_path]
 		hue::write_log 4 "state: ${st}"
 		set on [lindex $st 0]
 		if {$cmd == "group"} {
@@ -241,10 +188,12 @@ proc main {} {
 		hue::release_bridge_lock $bridge_id
 		
 		# The bridge needs some time until all values are up to date
-		if {$update_device_channels_after > 0} {
-			after $update_device_channels_after
-			set st [get_state $bridge_id $obj_path]
-			update_device_channels [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
+		if {$cuxd_device != ""} {
+			if {$update_device_channels_after > 0} {
+				after $update_device_channels_after
+				set st [hue::get_object_state $bridge_id $obj_path]
+				hue::update_cuxd_device_channels $cuxd_device [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
+			}
 		}
 	}
 }

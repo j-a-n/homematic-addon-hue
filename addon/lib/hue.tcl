@@ -18,6 +18,8 @@
 #  hue api docs:
 #    https://developers.meethue.com/documentation/getting-started
 
+load tclrega.so
+
 source /usr/local/addons/hue/lib/ini.tcl
 
 namespace eval hue {
@@ -312,6 +314,54 @@ proc ::hue::hue_command {bridge_id command args} {
 	set res [eval $command [list $bridge_id] [lrange $args 0 end]]
 	return $res
 }
+
+proc ::hue::update_cuxd_device_channels {device on bri ct hue sat} {
+	hue::write_log 4 "update_device_channels ${device}: ${on} ${bri} ${ct} ${hue} ${sat}"
+	
+	set bri [format "%.2f" [expr {$bri / 254.0}]]
+	set ct [format "%.2f" [expr {($ct - 153) / 347.0}]]
+	set hue [format "%.2f" [expr {$hue / 65535.0}]]
+	set sat [format "%.2f" [expr {$sat / 254.0}]]
+	
+	set s "
+		if (dom.GetObject(\"${device}:2.LEVEL\")) \{
+			dom.GetObject(\"${device}:2.SET_STATE\").State(${bri});
+		\}
+		if (dom.GetObject(\"${device}:3.LEVEL\")) \{
+			dom.GetObject(\"${device}:3.SET_STATE\").State(${ct});
+		\}
+		if (dom.GetObject(\"${device}:4.LEVEL\")) \{
+			dom.GetObject(\"${device}:4.SET_STATE\").State(${hue});
+		\}
+		if (dom.GetObject(\"${device}:5.LEVEL\")) \{
+			dom.GetObject(\"${device}:5.SET_STATE\").State(${sat});
+		\}
+	"
+	#hue::write_log 4 "rega_script ${s}"
+	rega_script $s
+}
+
+proc ::hue::get_object_state {bridge_id obj_path} {
+	set data [request $bridge_id "GET" $obj_path]
+	set st [list]
+	regexp {\"any_on\"\s*:\s*(true|false)} $data match val
+	if { [info exists val] && $val != "" } {
+		lappend st $val
+	} else {
+		regexp {\"on\"\s*:\s*(true|false)} $data match val
+		lappend st $val
+	}
+	regexp {\"bri\"\s*:\s*(\d+)} $data match val
+	lappend st [expr {0 + $val}]
+	regexp {\"ct\"\s*:\s*(\d+)} $data match val
+	lappend st [expr {0 + $val}]
+	regexp {\"hue\"\s*:\s*(\d+)} $data match val
+	lappend st [expr {0 + $val}]
+	regexp {\"sat\"\s*:\s*(\d+)} $data match val
+	lappend st [expr {0 + $val}]
+	return $st
+}
+
 
 #hue::api_register
 #puts [hue::api_request "PUT" "lights/1/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
