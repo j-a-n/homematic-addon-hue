@@ -136,6 +136,7 @@ proc main {} {
 					if {$val == 0} {
 						append json "\"on\":false,"
 					} else {
+						# Do not turn on group automatically, because this would turn on all lights in the group
 						if {$cmd == "light"} {
 							append json "\"on\":true,"
 						}
@@ -175,10 +176,9 @@ proc main {} {
 			set bri [lindex $st 1]
 			if {[lsearch $keys "on"] == -1 && [lsearch $keys "effect"] == -1 && [lsearch $keys "alert"] == -1 && $on == "false" && $bri > 0} {
 				hue::write_log 4 "Auto turn on group"
-				set res [hue::request $bridge_id "PUT" $path "\{\"on\":true,\"bri\":${bri}\}"]
-				puts $res
-				
-				# Repeat initial request after turning on group
+				# Repeat initial request with on: true
+				set json [string range $json 0 end-1]
+				append json ",\"on\":true\}"
 				hue::write_log 4 "repeat request: ${path} ${json}"
 				set res [hue::request $bridge_id "PUT" $path $json]
 				hue::write_log 4 "response: ${res}"
