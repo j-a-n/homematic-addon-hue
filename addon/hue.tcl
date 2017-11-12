@@ -115,7 +115,7 @@ proc main {} {
 				}
 			}
 		}
-	
+		
 		if {[info exists env(CUXD_TRIGGER_CH)]} {
 			set chan $env(CUXD_TRIGGER_CH)
 			set key ""
@@ -132,13 +132,21 @@ proc main {} {
 			if {$chan == 2} {
 				set key "bri"
 				# 0 - 254
+				set bri $val
 				if {[lsearch $keys "on"] == -1} {
 					if {$val == 0} {
 						append json "\"on\":false,"
 					} else {
-						# Do not turn on group automatically, because this would turn on all lights in the group
 						if {$cmd == "light"} {
 							append json "\"on\":true,"
+						} elseif {$cmd == "group"} {
+							set st [hue::get_object_state $bridge_id $obj_path]
+							hue::write_log 4 "group state: ${st}"
+							set on [lindex $st 0]
+							if {$on == "false"} {
+								hue::write_log 4 "bri > 0, all lights off, auto turn on group"
+								append json "\"on\":true,"
+							}
 						}
 					}
 				}
@@ -163,29 +171,12 @@ proc main {} {
 		}
 		append json "\}"
 		
-		hue::acquire_bridge_lock $bridge_id
+		#hue::acquire_bridge_lock $bridge_id
 		hue::write_log 4 "request: ${path} ${json}"
 		set res [hue::request $bridge_id "PUT" $path $json]
 		hue::write_log 4 "response: ${res}"
 		puts $res
-		set st [hue::get_object_state $bridge_id $obj_path]
-		hue::write_log 4 "state: ${st}"
-		set on [lindex $st 0]
-		if {$cmd == "group"} {
-			set on [lindex $st 0]
-			set bri [lindex $st 1]
-			if {[lsearch $keys "on"] == -1 && [lsearch $keys "effect"] == -1 && [lsearch $keys "alert"] == -1 && $on == "false" && $bri > 0} {
-				hue::write_log 4 "Auto turn on group"
-				# Repeat initial request with on: true
-				set json [string range $json 0 end-1]
-				append json ",\"on\":true\}"
-				hue::write_log 4 "repeat request: ${path} ${json}"
-				set res [hue::request $bridge_id "PUT" $path $json]
-				hue::write_log 4 "response: ${res}"
-				puts $res
-			}
-		}
-		hue::release_bridge_lock $bridge_id
+		#hue::release_bridge_lock $bridge_id
 		
 		# The bridge needs some time until all values are up to date
 		if {$cuxd_device != ""} {
