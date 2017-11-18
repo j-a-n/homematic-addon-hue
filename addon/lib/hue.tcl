@@ -217,6 +217,20 @@ proc ::hue::set_bridge_param {bridge_id param value} {
 	release_lock $lock_id_ini_file
 }
 
+proc ::hue::get_bridge_param {bridge_id param} {
+	variable ini_file
+	variable lock_id_ini_file
+	acquire_lock $lock_id_ini_file
+	set bridge_id [string tolower $bridge_id]
+	set ini [ini::open $ini_file r+]
+	set value ""
+	catch {
+		set value [ini::value $ini "bridge_${bridge_id}" $param]
+	}
+	release_lock $lock_id_ini_file
+	return $value
+}
+
 proc ::hue::get_bridge {bridge_id} {
 	variable ini_file
 	variable lock_id_ini_file
@@ -229,7 +243,7 @@ proc ::hue::get_bridge {bridge_id} {
 		if {$idx == 0} {
 			set bridge(id) $bridge_id
 			foreach key [ini::keys $ini $section] {
-				set value [::ini::value $ini $section $key]
+				set value [ini::value $ini $section $key]
 				set bridge($key) $value
 			}
 		}

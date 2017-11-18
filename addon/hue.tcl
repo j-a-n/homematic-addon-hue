@@ -70,9 +70,27 @@ proc main {} {
 	
 	set bridge_id [string tolower [lindex $argv 0]]
 	set cmd [string tolower [lindex $argv 1]]
+	
+	set cuxd_device_bridge_param ""
 	set cuxd_device ""
+	if {$cmd == "light" || $cmd == "group"} {
+		set n [lindex $argv 2]
+		if {[string is integer -strict $n]} {
+			set cuxd_device_bridge_param "cuxd_device_${cmd}_${n}"
+		}
+	}
 	if {[info exists env(CUXD_DEVICE)]} {
 		set cuxd_device "CUxD.$env(CUXD_DEVICE)"
+		if {$bridge_id != "" && $cuxd_device_bridge_param != ""} {
+			hue::set_bridge_param $bridge_id $cuxd_device_bridge_param $env(CUXD_DEVICE)
+		}
+	} else {
+		if {$bridge_id != "" && $cuxd_device_bridge_param != ""} {
+			set cuxd_device [hue::get_bridge_param $bridge_id $cuxd_device_bridge_param]
+			if {$cuxd_device != ""} {
+				set cuxd_device "CUxD.$cuxd_device"
+			}
+		}
 	}
 	
 	if {$cmd == "request"} {
