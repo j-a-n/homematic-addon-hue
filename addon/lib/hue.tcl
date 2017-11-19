@@ -26,12 +26,13 @@ namespace eval hue {
 	variable version_file "/usr/local/addons/hue/VERSION"
 	variable ini_file "/usr/local/addons/hue/etc/hue.conf"
 	variable log_file "/tmp/hue-addon-log.txt"
-	variable log_level 4
+	variable log_level 0
 	variable lock_start_port 11200
 	variable lock_socket
 	variable lock_id_log_file 1
 	variable lock_id_ini_file 2
 	variable lock_id_bridge_start 3
+	variable poll_state_interval 0
 	variable devicetype "homematic-addon-hue#ccu"
 	variable curl "/usr/local/addons/cuxd/curl"
 }
@@ -142,6 +143,7 @@ proc ::hue::get_bridge_num {bridge_id} {
 			}
 		}
 	}
+	ini::close $ini
 	release_lock $lock_id_ini_file
 	return $num
 }
@@ -158,16 +160,47 @@ proc ::hue::get_config_bridge_ids {} {
 			lappend bridge_ids [string range $section 7 end]
 		}
 	}
+	ini::close $ini
 	release_lock $lock_id_ini_file
 	return $bridge_ids
+}
+
+proc ::hue::update_global_config {log_level poll_state_interval} {
+	variable ini_file
+	variable lock_id_ini_file
+	write_log 4 "Updating global config: log_level=${log_level} poll_state_interval=${poll_state_interval}"
+	acquire_lock $lock_id_ini_file
+	set ini [ini::open $ini_file r+]
+	ini::set $ini "global" "log_level" $log_level
+	ini::set $ini "global" "poll_state_interval" $poll_state_interval
+	ini::commit $ini
+	release_lock $lock_id_ini_file
+}
+
+proc ::hue::read_global_config {} {
+	variable ini_file
+	variable lock_id_ini_file
+	variable log_level
+	variable poll_state_interval
+	write_log 4 "Reading global config"
+	acquire_lock $lock_id_ini_file
+	set ini [ini::open $ini_file r]
+	catch {
+		set log_level [expr { 0 + [::ini::value $ini "global" "log_level" $log_level] }]
+		set poll_state_interval [expr { 0 + [::ini::value $ini "global" "poll_state_interval" $poll_state_interval] }]
+	}
+	ini::close $ini
+	release_lock $lock_id_ini_file
 }
 
 proc ::hue::get_config_json {} {
 	variable ini_file
 	variable lock_id_ini_file
+	variable log_level
+	variable poll_state_interval
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
-	set json "\{\"bridges\":\["
+	set json "\{\"global\":\{\"log_level\":${log_level},\"poll_state_interval\":${poll_state_interval}\},\"bridges\":\["
 	set count 0
 	foreach section [ini::sections $ini] {
 		set idx [string first "bridge_" $section]
@@ -184,6 +217,7 @@ proc ::hue::get_config_json {} {
 			append json "\},"
 		}
 	}
+	ini::close $ini
 	if {$count > 0} {
 		set json [string range $json 0 end-1]
 	}
@@ -222,11 +256,12 @@ proc ::hue::get_bridge_param {bridge_id param} {
 	variable lock_id_ini_file
 	acquire_lock $lock_id_ini_file
 	set bridge_id [string tolower $bridge_id]
-	set ini [ini::open $ini_file r+]
+	set ini [ini::open $ini_file r]
 	set value ""
 	catch {
 		set value [ini::value $ini "bridge_${bridge_id}" $param]
 	}
+	ini::close $ini
 	release_lock $lock_id_ini_file
 	return $value
 }
@@ -248,6 +283,7 @@ proc ::hue::get_bridge {bridge_id} {
 			}
 		}
 	}
+	ini::close $ini
 	if {![info exists bridge(key)]} {
 		set bridge(key) ""
 	}
@@ -376,6 +412,7 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 	return $st
 }
 
+hue::read_global_config
 
 #hue::api_register
 #puts [hue::api_request "PUT" "lights/1/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
@@ -392,4 +429,5 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 #puts [hue::api_request "GET" "config"]
 #puts [hue::api_request "GET" "scenes"]
 #puts [hue::api_request "PUT" "groups/1/action" "\{\"scene\":\"jXTvbsXs9KO8PVw\"\}"]
+
 

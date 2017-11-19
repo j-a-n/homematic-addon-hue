@@ -19,10 +19,114 @@
 
 source /usr/local/addons/hue/lib/hue.tcl
 
-proc main {} {
-	while 1 {
-		after 5000
+variable update_schedule
+variable last_schedule_update 0
+variable schedule_update_interval 300
+variable server_address "127.0.0.1"
+variable server_port 1919
+
+proc check_update {} {
+	variable update_schedule
+	variable last_schedule_update
+	variable schedule_update_interval
+	
+	foreach o [array names update_schedule] {
+		set scheduled_time $update_schedule($o)
+		#hue::write_log 4 "Update of ${o} cheduled for ${scheduled_time}"
+		if {[clock seconds] >= $scheduled_time} {
+			set tmp [split $o "_"]
+			if {[catch {update_cuxd_device [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]} errmsg]} {
+				hue::write_log 2 "Failed to update [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]: $errmsg"
+			} else {
+				hue::write_log 4 "Update of [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2] successful"
+			}
+			if {$hue::poll_state_interval > 0} {
+				set update_schedule($o) [expr {[clock seconds] + $hue::poll_state_interval}]
+			} else {
+				unset update_schedule($o)
+			}
+		}
 	}
+	
+	if { $hue::poll_state_interval > 0 && [clock seconds] >= [expr {$last_schedule_update + $schedule_update_interval}] } {
+		hue::write_log 4 "Read ini file and schedule update for all devices"
+		set last_schedule_update [clock seconds]
+		foreach bridge_id [hue::get_config_bridge_ids] {
+			set abridge [hue::get_bridge $bridge_id]
+			array set bridge $abridge
+			foreach param [array names bridge] {
+				regexp "cuxd_device_(light|group)_(\\d+)" $param match obj num
+				if {[info exists match]} {
+					unset match
+					set cuxd_device $bridge($param)
+					if {$cuxd_device != ""} {
+						set o "${bridge_id}_${obj}_${num}"
+						set time [expr {[clock seconds] + $hue::poll_state_interval}]
+						if {[info exists update_schedule($o)]} {
+							if {$update_schedule($o) <= $time} {
+								# Keep earlier update time
+								#hue::write_log 4 "Keep earlier update time"
+								continue
+							}
+						}
+						set update_schedule($o) $time
+						hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
+					}
+				}
+			}
+		}
+	}
+	
+	after 1000 check_update
+}
+
+proc update_cuxd_device {bridge_id obj num} {
+	variable update_schedule
+	set cuxd_device [hue::get_bridge_param $bridge_id "cuxd_device_${obj}_${num}"]
+	if {$cuxd_device == ""} {
+		error "Failed to get CUxD device for ${bridge_id} ${obj} ${num}"
+	}
+	set st [hue::get_object_state $bridge_id "${obj}s/${num}"]
+	hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
+	set cuxd_device_last_update($cuxd_device) [clock seconds]
+}
+
+proc read_from_channel {channel} {
+	variable update_schedule
+	set len [gets $channel cmd]
+	hue::write_log 4 "Received command: $cmd"
+	regexp "^schedule_update (\[a-fA-F0-9\]+) (light|group) (\\d+) ?(\\d*)$" $cmd match bridge_id obj num delay_seconds
+	if {[info exists match]} {
+		if {$delay_seconds == ""} {
+			set delay_seconds 0
+		}
+		set time [expr {[clock seconds] + $delay_seconds}]
+		set update_schedule(${bridge_id}_${obj}_${num}) $time
+		puts $channel "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
+	} else {
+		puts $channel "Invalid command"
+	}
+	flush $channel
+	close $channel
+}
+
+proc accept_connection {channel address port} {
+	hue::write_log 3 "Accepted connection from $address\:$port"
+	fconfigure $channel -blocking 0
+	fconfigure $channel -buffersize 16
+	fileevent $channel readable "read_from_channel $channel"
+}
+
+proc main {} {
+	variable server_address
+	variable server_port
+	after 10 check_update
+	if {$server_address == "0.0.0.0"} {
+		socket -server accept_connection $server_port
+	} else {
+		socket -server accept_connection -myaddr $server_address $server_port
+	}
+	hue::write_log 3 "Hue daemon is listening for connections on ${server_address}:${server_port}"
 }
 
 if { "[lindex $argv 0 ]" != "daemon" } {
@@ -37,9 +141,11 @@ if { "[lindex $argv 0 ]" != "daemon" } {
 		exec $argv0 daemon &
 	}
 } else {
+	cd /
 	foreach fd {stdin stdout stderr} {
 		close $fd
 	}
 	main
+	vwait forever
 }
 exit 0

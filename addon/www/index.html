@@ -99,6 +99,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function update_global_config(config) {
+			rest("PUT", "/config/global", JSON.stringify(config), function(data) {
+				get_config();
+				display_message('success', 'Config successfully updated', 5000);
+			});
+		}
+		
 		function get_config(success_callback, error_callback) {
 			rest("GET", "/config", null, function(data) {
 				config = data;
@@ -168,6 +175,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					$('<td>').text(bridge.ip || ''),
 					$('<td class="center aligned">').append(bedit, bdel, binfo, btest, bcontrol)
 				));
+			});
+			
+			var form = $('#form-global-config');
+			form.form('clear');
+			form.form('set values', {
+				poll_state_interval: config.global.poll_state_interval,
+				log_level: config.global.log_level
 			});
 		}
 		
@@ -482,6 +496,28 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("GET", "/version", null, function(version) {
 				document.title = document.title + " " + version;
 			});
+			var form_global_config = {
+				fields: {
+					poll_state_interval: {
+						rules: [{
+							type: 'integer[0..10000]',
+							prompt: 'Please enter a valid integer for the poll interval.'
+						}]
+					},
+					log_level: {
+						rules: [{
+							type: 'integer[0..4]',
+							prompt: 'Please enter a valid log level.'
+						}]
+					}
+				},
+				onSuccess: function(event, fields) {
+					var config = $(event.currentTarget).form('get values');
+					update_global_config(config);
+					event.preventDefault();
+				}
+			};
+			$('#form-global-config').form(form_global_config);
 			var form_config = {
 				on: 'blur',
 				fields: {
@@ -528,6 +564,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		<h1 class="ui header">Hue Addon Configuration</h1>
 		<div id="message" class="ui message hidden">
 		</div>
+		
+		<h2 class="ui dividing header">Global Config</h2>
+		<form id="form-global-config" class="ui form">
+			<div class="field">
+				<label>Interval in seconds which specifies how often the state of devices is retrieved from the bridge (0=do not poll)</label>
+				<input name="poll_state_interval" placeholder="" type="text">
+			</div>
+			<div class="field">
+				<label>Log level (nothing=0, error=1, warning=2, info=3, debug=4)</label>
+				<input name="log_level" placeholder="" type="text">
+			</div>
+			<div id="submit-global-config" class="ui primary submit button">Submit</div>
+		</form>
+		
 		<h2 class="ui dividing header">Configured Hue Bridges</h2>
 		<table id="bridges" class="ui celled stackable table">
 			<thead>

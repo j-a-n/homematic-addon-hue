@@ -35,7 +35,8 @@
 
 source /usr/local/addons/hue/lib/hue.tcl
 
-variable update_device_channels_after 6000
+variable update_device_channels_after 3
+variable server_port 1919
 
 proc usage {} {
 	set bridge_ids [hue::get_config_bridge_ids]
@@ -62,6 +63,15 @@ proc usage {} {
 	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,scene"
 }
 
+proc schedule_update {bridge_id obj num {delay_seconds 0}} {
+	variable server_port
+	set chan [socket 127.0.0.1 $server_port]
+	puts $chan "schedule_update ${bridge_id} ${obj} ${num} ${delay_seconds}"
+	flush $chan
+	hue::write_log 4 "schedule_update response: [gets $chan]"
+	close $chan
+}
+
 proc main {} {
 	global argc
 	global argv
@@ -70,26 +80,12 @@ proc main {} {
 	
 	set bridge_id [string tolower [lindex $argv 0]]
 	set cmd [string tolower [lindex $argv 1]]
+	set num [lindex $argv 2]
 	
-	set cuxd_device_bridge_param ""
-	set cuxd_device ""
 	if {$cmd == "light" || $cmd == "group"} {
-		set n [lindex $argv 2]
-		if {[string is integer -strict $n]} {
-			set cuxd_device_bridge_param "cuxd_device_${cmd}_${n}"
-		}
-	}
-	if {[info exists env(CUXD_DEVICE)]} {
-		set cuxd_device "CUxD.$env(CUXD_DEVICE)"
-		if {$bridge_id != "" && $cuxd_device_bridge_param != ""} {
-			hue::set_bridge_param $bridge_id $cuxd_device_bridge_param $env(CUXD_DEVICE)
-		}
-	} else {
-		if {$bridge_id != "" && $cuxd_device_bridge_param != ""} {
-			set cuxd_device [hue::get_bridge_param $bridge_id $cuxd_device_bridge_param]
-			if {$cuxd_device != ""} {
-				set cuxd_device "CUxD.$cuxd_device"
-			}
+		if {[info exists env(CUXD_DEVICE)] && $bridge_id != "" && [string is integer -strict $num]} {
+			# Update cuxd device mapping
+			hue::set_bridge_param $bridge_id "cuxd_device_${cmd}_${num}" $env(CUXD_DEVICE)
 		}
 	}
 	
@@ -141,7 +137,8 @@ proc main {} {
 			if {$chan == 1} {
 				set st [hue::get_object_state $bridge_id $obj_path]
 				hue::write_log 4 "state: $st"
-				if {$cuxd_device != ""} {
+				if {[info exists env(CUXD_DEVICE)]} {
+					set cuxd_device "CUxD.$env(CUXD_DEVICE)"
 					hue::update_cuxd_device_channels $cuxd_device [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
 				}
 				return
@@ -197,12 +194,8 @@ proc main {} {
 		#hue::release_bridge_lock $bridge_id
 		
 		# The bridge needs some time until all values are up to date
-		if {$cuxd_device != ""} {
-			if {$update_device_channels_after > 0} {
-				after $update_device_channels_after
-				set st [hue::get_object_state $bridge_id $obj_path]
-				hue::update_cuxd_device_channels $cuxd_device [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
-			}
+		if {$update_device_channels_after > 0} {
+			schedule_update $bridge_id $cmd $num $update_device_channels_after
 		}
 	}
 }

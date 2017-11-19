@@ -75,6 +75,13 @@ proc process {} {
 				if {$env(REQUEST_METHOD) == "GET"} {
 					return [hue::get_config_json]
 				}
+			} elseif {[lindex $path 2] == "global"} {
+				if {$env(REQUEST_METHOD) == "PUT"} {
+					regexp {\"log_level\"\s*:\s*\"([^\"]+)\"} $data match log_level
+					regexp {\"poll_state_interval\"\s*:\s*\"([^\"]+)\"} $data match poll_state_interval
+					hue::update_global_config $log_level $poll_state_interval
+					return "\"Global config successfully updated\""
+				}
 			} elseif {[lindex $path 2] == "bridge"} {
 				if {$plen == 3} {
 					if {$env(REQUEST_METHOD) == "PUT"} {

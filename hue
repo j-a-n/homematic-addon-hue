@@ -6,10 +6,21 @@ ADDON_DIR=/usr/local/addons/${ADDON_NAME}
 RCD_DIR=${CONFIG_DIR}/rc.d
 
 case "$1" in
-	""|start|stop|restart)
-		echo "Nothing to do."
+	""|start)
+		echo "Starting hue daemon..."
+		${ADDON_DIR}/hued.tcl
 	;;
-
+	
+	stop)
+		echo "Stopping hue daemon..."
+		${ADDON_DIR}/hued.tcl stop
+	;;
+	
+	restart)
+		echo "Restarting hue daemon..."
+		${ADDON_DIR}/hued.tcl
+	;;
+	
 	info)
 		version=$(cat ${ADDON_DIR}/VERSION)
 		echo "Info: <b>${ADDON_NAME} addon</b><br>"
