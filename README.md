@@ -7,6 +7,7 @@
 * Download [addon package](https://github.com/j-a-n/homematic-addon-hue/raw/master/hm-hue.tar.gz)
 * Install addon package on ccu via system control
 * Open Philips Hue addon configuration in system control and add your Hue Bridges (http://ccu-ip/addons/hue/index.html)
+* Set a poll interval if you want to frequently update the state of the CUxD devices with the state from your hue bridge.
 
 ### Multi-DIM-Device
 * Create new (28) System device in CUxD for each group or light
