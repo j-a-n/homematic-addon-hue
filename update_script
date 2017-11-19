@@ -29,7 +29,8 @@ chmod 755 "${ADDON_DIR}"
 
 echo "install addon files" >>$LOG_FILE
 [ -d addon ] && cp -af addon/* ${ADDON_DIR}/
-[ -f "${ADDON_DIR}/${ADDON_NAME}.tcl" ] && chmod 755 "${ADDON_DIR}/${ADDON_NAME}.tcl"
+[ -f "${ADDON_DIR}/hue.tcl" ] && chmod 755 "${ADDON_DIR}/hue.tcl"
+[ -f "${ADDON_DIR}/hued.tcl" ] && chmod 755 "${ADDON_DIR}/hued.tcl"
 [ -f VERSION ] && cp VERSION ${ADDON_DIR}/
 
 echo "restore config file" >>$LOG_FILE
