@@ -381,7 +381,9 @@ proc ::hue::update_cuxd_device_channels {device on bri ct hue sat} {
 	set ct [format "%.2f" [expr {($ct - 153) / 347.0}]]
 	set hue [format "%.2f" [expr {$hue / 65535.0}]]
 	set sat [format "%.2f" [expr {$sat / 254.0}]]
-	
+	if {$on == "false" || $on == 0} {
+		set bri 0
+	}
 	set s "
 		if (dom.GetObject(\"${device}:2.LEVEL\")) \{
 			dom.GetObject(\"${device}:2.SET_STATE\").State(${bri});
