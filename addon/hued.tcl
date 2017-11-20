@@ -21,12 +21,23 @@ source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_schedule
 variable last_schedule_update 0
-variable schedule_update_interval 30
+variable schedule_update_interval 300
 variable server_address "127.0.0.1"
 variable server_port 1919
 
 proc bgerror message {
 	hue::write_log 1 "Unhandled error: ${message}"
+}
+
+proc main_loop {} {
+	if { [catch {
+		check_update
+	} errormsg] } {
+		hue::write_log 1 "Error: '${errormsg}'"
+		after 30000 main_loop
+	} else {
+		after 1000 main_loop
+	}
 }
 
 proc check_update {} {
@@ -80,8 +91,6 @@ proc check_update {} {
 			}
 		}
 	}
-	
-	after 1000 check_update
 }
 
 proc update_cuxd_device {bridge_id obj num} {
@@ -124,7 +133,7 @@ proc accept_connection {channel address port} {
 proc main {} {
 	variable server_address
 	variable server_port
-	after 10 check_update
+	after 10 main_loop
 	if {$server_address == "0.0.0.0"} {
 		socket -server accept_connection $server_port
 	} else {
