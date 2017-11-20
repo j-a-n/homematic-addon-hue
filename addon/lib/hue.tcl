@@ -333,6 +333,7 @@ proc ::hue::http_request {ip port method path data} {
 	if {$response == ""} {
 		error "Failed to connect to hue bridge at address $ip"
 	}
+	catch { close $sock }
 	return $response
 }
 
