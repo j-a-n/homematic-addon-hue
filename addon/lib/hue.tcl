@@ -89,6 +89,7 @@ proc ::hue::acquire_lock {lock_id} {
 		if { [catch {socket -server dummy_accept $port} sock] } {
 			if {$tn > 10} {
 				write_log 1 "Failed to acquire lock ${lock_id} after 2500ms, ignoring lock" 0
+				break
 			}
 			after 25
 		} else {
