@@ -21,9 +21,13 @@ source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_schedule
 variable last_schedule_update 0
-variable schedule_update_interval 300
+variable schedule_update_interval 30
 variable server_address "127.0.0.1"
 variable server_port 1919
+
+proc bgerror message {
+	hue::write_log 1 "Unhandled error: ${message}"
+}
 
 proc check_update {} {
 	variable update_schedule
