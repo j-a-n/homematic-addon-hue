@@ -38,12 +38,14 @@ namespace eval hue {
 }
 
 # error=1, warning=2, info=3, debug=4
-proc ::hue::write_log {lvl str} {
+proc ::hue::write_log {lvl str {lock 1}} {
 	variable log_level
 	variable log_file
 	variable lock_id_log_file
 	if {$lvl <= $log_level} {
-		acquire_lock $lock_id_log_file
+		if {$lock == 1} {
+			acquire_lock $lock_id_log_file
+		}
 		set fd [open $log_file "a"]
 		set date [clock seconds]
 		set date [clock format $date -format {%Y-%m-%d %T}]
@@ -51,7 +53,9 @@ proc ::hue::write_log {lvl str} {
 		puts $fd "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
 		close $fd
 		#puts "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
-		release_lock $lock_id_log_file
+		if {$lock == 1} {
+			release_lock $lock_id_log_file
+		}
 	}
 }
 
@@ -78,9 +82,14 @@ proc ::hue::acquire_lock {lock_id} {
 	variable lock_socket
 	variable lock_start_port
 	set port [expr { $lock_start_port + $lock_id }]
+	set tn 0
 	# 'socket already in use' error will be our lock detection mechanism
 	while {1} {
+		set tn [expr {$tn + 1}]
 		if { [catch {socket -server dummy_accept $port} sock] } {
+			if {$tn > 10} {
+				write_log 1 "Failed to acquire lock ${lock_id} after 2500ms, ignoring lock" 0
+			}
 			after 25
 		} else {
 			set lock_socket($lock_id) $sock
