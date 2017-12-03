@@ -35,6 +35,7 @@ namespace eval hue {
 	variable poll_state_interval 0
 	variable devicetype "homematic-addon-hue#ccu"
 	variable curl "/usr/local/addons/cuxd/curl"
+	variable cuxd_ps "/usr/local/addons/cuxd/cuxd.ps"
 }
 
 # error=1, warning=2, info=3, debug=4
@@ -376,15 +377,53 @@ proc ::hue::hue_command {bridge_id command args} {
 	return $res
 }
 
+proc ::hue::get_cuxd_channels_max {device} {
+	variable cuxd_ps
+	set result {254 347 65535 254 255 255 255 255 255 255 255 255 255 255 255 255}
+	regexp "^.*CUX(\\d\\d)(\\d+)$" $device match typenum devnum
+	if { [info exists match] } {
+		set fp [open $cuxd_ps r]
+		fconfigure $fp -buffering line
+		gets $fp data
+		set dev_seen 0
+		while {$data != ""} {
+			if {$data == "${typenum} ${devnum}"} {
+				set dev_seen 1
+			} elseif {$dev_seen == 1} {
+				if {[string first " MAX" $data] != -1} {
+					set tmp [split $data " "]
+					set i 0
+					hue::write_log 4 "${device}: ${tmp}"
+					foreach val [lrange $tmp 2 17] {
+						set result [linsert $result $i [expr {0 + $val}]]
+						set i [expr {$i+1}]
+					}
+					break
+				}
+			}
+			gets $fp data
+		}
+		close $fp
+	}
+	return $result
+}
+
 proc ::hue::update_cuxd_device_channels {device on bri ct hue sat} {
 	hue::write_log 4 "update_device_channels ${device}: ${on} ${bri} ${ct} ${hue} ${sat}"
 	
-	set bri [format "%.2f" [expr {$bri / 254.0}]]
-	set ct [format "%.2f" [expr {($ct - 153) / 347.0}]]
-	set hue [format "%.2f" [expr {$hue / 65535.0}]]
-	set sat [format "%.2f" [expr {$sat / 254.0}]]
+	set max [get_cuxd_channels_max $device]
+	hue::write_log 4 "get_cuxd_channels_max: ${max}"
+	
+	set bri [ format "%.2f" [expr {double($bri) / [lindex $max 0]}] ]
+	if {$bri > 1.0} { set bri 1.0 }
+	set ct  [ format "%.2f" [expr {double($ct - 153) / [lindex $max 1]}] ]
+	if {$ct > 1.0} { set ct 1.0 }
+	set hue [ format "%.2f" [expr {double($hue) / [lindex $max 2]}] ]
+	if {$hue > 1.0} { set hue 1.0 }
+	set sat [ format "%.2f" [expr {double($sat) / [lindex $max 3]}] ]
+	if {$sat > 1.0} { set sat 1.0 }
 	if {$on == "false" || $on == 0} {
-		set bri 0
+		set bri 0.0
 	}
 	set s "
 		if (dom.GetObject(\"${device}:2.LEVEL\")) \{
