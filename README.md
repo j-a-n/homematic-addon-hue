@@ -19,7 +19,7 @@
   * Channels: 4
   * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1 transitiontime:0` (see usage for details)
   * Ch.2 (brightness): DIMMER|MAX_VAL: 254
-  * Ch.3 (color temperature): DIMMER|MAX_VAL: 347
+  * Ch.3 (color temperature): DIMMER|MAX_VAL: 347 (or 301 for some tradfri devices)
   * Ch.4 (hue): DIMMER|MAX_VAL: 65535
   * Ch.5 (saturation): DIMMER|MAX_VAL: 254
 
