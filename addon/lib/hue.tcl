@@ -408,8 +408,8 @@ proc ::hue::get_cuxd_channels_max {device} {
 	return $result
 }
 
-proc ::hue::update_cuxd_device_channels {device on bri ct hue sat} {
-	hue::write_log 4 "update_device_channels ${device}: ${on} ${bri} ${ct} ${hue} ${sat}"
+proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
+	hue::write_log 4 "update_device_channels ${device}: reachable=${reachable} on=${on} bri=${bri} ct=${ct} hue=${hue} sat=${sat}"
 	
 	set max [get_cuxd_channels_max $device]
 	hue::write_log 4 "get_cuxd_channels_max: ${max}"
@@ -422,6 +422,9 @@ proc ::hue::update_cuxd_device_channels {device on bri ct hue sat} {
 	if {$hue > 1.0} { set hue 1.0 }
 	set sat [ format "%.2f" [expr {double($sat) / [lindex $max 3]}] ]
 	if {$sat > 1.0} { set sat 1.0 }
+	if {$reachable == "false" || $reachable == 0} {
+		set bri 0.0
+	}
 	if {$on == "false" || $on == 0} {
 		set bri 0.0
 	}
@@ -446,6 +449,12 @@ proc ::hue::update_cuxd_device_channels {device on bri ct hue sat} {
 proc ::hue::get_object_state {bridge_id obj_path} {
 	set data [request $bridge_id "GET" $obj_path]
 	set st [list]
+	regexp {\"reachable\"\s*:\s*(true|false)} $data match val
+	if { [info exists val] && $val != "" } {
+		lappend st $val
+	} else {
+		lappend st "true"
+	}
 	regexp {\"any_on\"\s*:\s*(true|false)} $data match val
 	if { [info exists val] && $val != "" } {
 		lappend st $val

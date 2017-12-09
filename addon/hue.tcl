@@ -139,7 +139,7 @@ proc main {} {
 				hue::write_log 4 "state: $st"
 				if {[info exists env(CUXD_DEVICE)]} {
 					set cuxd_device "CUxD.$env(CUXD_DEVICE)"
-					hue::update_cuxd_device_channels $cuxd_device [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
+					hue::update_cuxd_device_channels $cuxd_device [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
 				}
 				return
 			}

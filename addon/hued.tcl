@@ -100,7 +100,7 @@ proc update_cuxd_device {bridge_id obj num} {
 		error "Failed to get CUxD device for ${bridge_id} ${obj} ${num}"
 	}
 	set st [hue::get_object_state $bridge_id "${obj}s/${num}"]
-	hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4]
+	hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
 	set cuxd_device_last_update($cuxd_device) [clock seconds]
 }
 
