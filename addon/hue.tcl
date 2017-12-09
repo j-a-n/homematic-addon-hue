@@ -157,7 +157,7 @@ proc main {} {
 						} elseif {$cmd == "group"} {
 							set st [hue::get_object_state $bridge_id $obj_path]
 							hue::write_log 4 "group state: ${st}"
-							set on [lindex $st 0]
+							set on [lindex $st 1]
 							if {$on == "false"} {
 								hue::write_log 4 "bri > 0, all lights off, auto turn on group"
 								append json "\"on\":true,"
