@@ -448,6 +448,7 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 
 proc ::hue::get_object_state {bridge_id obj_path} {
 	set data [request $bridge_id "GET" $obj_path]
+	#hue::write_log 4 "${obj_path}: ${data}"
 	set st [list]
 	regexp {\"reachable\"\s*:\s*(true|false)} $data match val
 	if { [info exists val] && $val != "" } {
@@ -455,6 +456,7 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 	} else {
 		lappend st "true"
 	}
+	unset val
 	regexp {\"any_on\"\s*:\s*(true|false)} $data match val
 	if { [info exists val] && $val != "" } {
 		lappend st $val
