@@ -120,12 +120,16 @@ proc main {} {
 			regexp {(.*)[=:](.*$)} $a match k v
 			if {[info exists v]} {
 				lappend keys $k
-				set nm ""
-				regexp {^(-?\d+)$} $v match nm
-				if {$nm != "" || $v == "true" || $v == "false"} {
-					append json "\"${k}\":${v},"
+				if {$k == "xy"} {
+					append json "\"${k}\":\[${v}\],"
 				} else {
-					append json "\"${k}\":\"${v}\","
+					set nm ""
+					regexp {^(-?\d+)$} $v match nm
+					if {$nm != "" || $v == "true" || $v == "false"} {
+						append json "\"${k}\":${v},"
+					} else {
+						append json "\"${k}\":\"${v}\","
+					}
 				}
 			}
 		}
