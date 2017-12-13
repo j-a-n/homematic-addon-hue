@@ -453,10 +453,10 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 	regexp {\"reachable\"\s*:\s*(true|false)} $data match val
 	if { [info exists val] && $val != "" } {
 		lappend st $val
+		unset val
 	} else {
 		lappend st "true"
 	}
-	unset val
 	regexp {\"any_on\"\s*:\s*(true|false)} $data match val
 	if { [info exists val] && $val != "" } {
 		lappend st $val
