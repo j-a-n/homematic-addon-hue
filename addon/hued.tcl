@@ -20,6 +20,7 @@
 source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_schedule
+variable current_object_state
 variable last_schedule_update 0
 variable schedule_update_interval 300
 variable server_address "127.0.0.1"
@@ -52,8 +53,6 @@ proc check_update {} {
 			set tmp [split $o "_"]
 			if {[catch {update_cuxd_device [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]} errmsg]} {
 				hue::write_log 2 "Failed to update [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]: $errmsg"
-			} else {
-				hue::write_log 4 "Update of [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2] successful"
 			}
 			if {$hue::poll_state_interval > 0} {
 				set update_schedule($o) [expr {[clock seconds] + $hue::poll_state_interval}]
@@ -94,13 +93,23 @@ proc check_update {} {
 }
 
 proc update_cuxd_device {bridge_id obj num} {
-	variable update_schedule
+	variable current_object_state
 	set cuxd_device [hue::get_bridge_param $bridge_id "cuxd_device_${obj}_${num}"]
 	if {$cuxd_device == ""} {
 		error "Failed to get CUxD device for ${bridge_id} ${obj} ${num}"
 	}
 	set st [hue::get_object_state $bridge_id "${obj}s/${num}"]
-	hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
+	set cst ""
+	if { [info exists current_object_state($cuxd_device)] } {
+		set cst $current_object_state($cuxd_device)
+	}
+	if {$st != $cst} {
+		hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
+		set current_object_state($cuxd_device) $st
+		hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} successful"
+	} else {
+		hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} not required, state is unchanged"
+	}
 	set cuxd_device_last_update($cuxd_device) [clock seconds]
 }
 
