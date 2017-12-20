@@ -106,7 +106,7 @@ proc update_cuxd_device {bridge_id obj num} {
 	if {$st != $cst} {
 		hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
 		set current_object_state($cuxd_device) $st
-		hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} successful"
+		hue::write_log 3 "Update of ${bridge_id} ${obj} ${num} successful"
 	} else {
 		hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} not required, state is unchanged"
 	}
