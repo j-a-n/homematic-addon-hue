@@ -121,7 +121,7 @@ proc process {} {
 				return "\"${pid}\""
 			} elseif {[lindex $path 2] == "restart"} {
 				exec /usr/local/addons/hue/hued.tcl
-				return ""
+				return "\"OK\""
 			}
 		}
 	}

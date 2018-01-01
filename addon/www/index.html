@@ -492,10 +492,37 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			api_request(bridge_id, "PUT", "/groups/0/action", {"alert":"select"});
 		}
 		
+		function get_hued_info() {
+			rest("GET", "/hued/pid", null, function(data) {
+				var info = "Hue daemon is not running";
+				if (data) {
+					info = "Hue daemon is running (pid: " + data + ")";
+					$('#restart-hued-button').text("Restart");
+					$("#hued-info").attr('class', 'ui message visible success');
+				}
+				else {
+					$('#restart-hued-button').text("Start");
+					$("#hued-info").attr('class', 'ui message visible warning');
+				}
+				$("#hued-info").html(info);
+				//$("#hued-info").empty();
+				//$("#hued-info").append(
+				//	$('<div class="sub header">').html(info)
+				//);
+			});
+		}
+		
+		function restart_hued() {
+			rest("PUT", "/hued/restart", null, function(data) {
+				get_hued_info();
+			});
+		}
+		
 		$(document).ready(function() {
 			rest("GET", "/version", null, function(version) {
 				document.title = document.title + " " + version;
 			});
+			get_hued_info();
 			var form_global_config = {
 				fields: {
 					poll_state_interval: {
