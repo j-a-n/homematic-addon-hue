@@ -112,6 +112,17 @@ proc process {} {
 					return [hue::request $id $method $path $data]
 				}
 			}
+		} elseif {[lindex $path 1] == "hued"} {
+			if {[lindex $path 2] == "pid"} {
+				set pid ""
+				catch {
+					set pid [exec pidof hued.tcl]
+				}
+				return "\"${pid}\""
+			} elseif {[lindex $path 2] == "restart"} {
+				exec /usr/local/addons/hue/hued.tcl
+				return ""
+			}
 		}
 	}
 	error "invalid request" "Not found" 404
