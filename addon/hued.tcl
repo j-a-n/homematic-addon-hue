@@ -88,6 +88,7 @@ proc check_update {} {
 					}
 				}
 			}
+			unset bridge
 		}
 	}
 }
