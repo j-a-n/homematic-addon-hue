@@ -14,7 +14,7 @@
   * Function: Multi-DIM-Exec
   * Serialnumber: choose a free one
   * Name: choose one, i.e: `Hue Group 1`
-  * Device-Icon: whatever you want
+  * Device-Icon: some dimmer icon
 * Configure new device in HomeMatic Web-UI
   * Channels: 4
   * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1 transitiontime:0` (see usage for details)
