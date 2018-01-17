@@ -82,13 +82,6 @@ proc main {} {
 	set cmd [string tolower [lindex $argv 1]]
 	set num [lindex $argv 2]
 	
-	if {$cmd == "light" || $cmd == "group"} {
-		if {[info exists env(CUXD_DEVICE)] && $bridge_id != "" && [string is integer -strict $num]} {
-			# Update cuxd device mapping
-			hue::set_bridge_param $bridge_id "cuxd_device_${cmd}_${num}" $env(CUXD_DEVICE)
-		}
-	}
-	
 	if {$cmd == "request"} {
 		if {$argc < 4} {
 			usage

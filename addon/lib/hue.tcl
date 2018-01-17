@@ -108,10 +108,12 @@ proc ::hue::acquire_bridge_lock {bridge_id} {
 
 proc ::hue::release_lock {lock_id} {
 	variable lock_socket
-	if { [catch {close $lock_socket($lock_id)} errormsg] } {
-		write_log 1 "Error '${errormsg}' on closing socket for lock '${lock_id}'"
+	if {[info exists lock_socket($lock_id)]} {
+		if { [catch {close $lock_socket($lock_id)} errormsg] } {
+			write_log 1 "Error '${errormsg}' on closing socket for lock '${lock_id}'" 0
+		}
+		unset lock_socket($lock_id)
 	}
-	unset lock_socket($lock_id)
 }
 
 proc ::hue::release_bridge_lock {bridge_id} {
@@ -408,6 +410,33 @@ proc ::hue::get_cuxd_channels_max {device} {
 	return $result
 }
 
+proc ::hue::get_cuxd_device_map {} {
+	variable cuxd_ps
+	variable dmap
+	set fp [open $cuxd_ps r]
+	fconfigure $fp -buffering line
+	gets $fp data
+	set device ""
+	while {$data != ""} {
+		if { [string first " " $data] != 0 } {
+			set device ""
+			if { [string first "28 02" $data] == 0 } {
+				set device [string map {" " ""} $data]
+				set device "CUX${device}"
+			}
+		} elseif {$device != ""} {
+			regexp "CMD .*hue\\.tcl\\s+(\\S+)\\s+(light|group)\\s+(\\d+)" $data match bridge_id obj num
+			if { [info exists match] } {
+				set dmap($device) "${bridge_id}_${obj}_${num}"
+				unset match
+			}
+		}
+		gets $fp data
+	}
+	close $fp
+	return [array get dmap]
+}
+
 proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 	hue::write_log 4 "update_device_channels ${device}: reachable=${reachable} on=${on} bri=${bri} ct=${ct} hue=${hue} sat=${sat}"
 	
@@ -455,15 +484,28 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 		lappend st $val
 		unset val
 	} else {
-		lappend st "true"
+		regexp {\"error\"(.*)} $data match val
+		if { [info exists val] && $val != "" } {
+			lappend st "false"
+			unset val
+		} else {
+			lappend st "true"
+		}
 	}
 	regexp {\"any_on\"\s*:\s*(true|false)} $data match val
 	if { [info exists val] && $val != "" } {
 		lappend st $val
+		unset val
 	} else {
 		regexp {\"on\"\s*:\s*(true|false)} $data match val
-		lappend st $val
+		if { [info exists val] && $val != "" } {
+			lappend st $val
+			unset val
+		} else {
+			lappend st "false"
+		}
 	}
+	set val 0
 	regexp {\"bri\"\s*:\s*(\d+)} $data match val
 	lappend st [expr {0 + $val}]
 	regexp {\"ct\"\s*:\s*(\d+)} $data match val
@@ -492,5 +534,5 @@ hue::read_global_config
 #puts [hue::api_request "GET" "config"]
 #puts [hue::api_request "GET" "scenes"]
 #puts [hue::api_request "PUT" "groups/1/action" "\{\"scene\":\"jXTvbsXs9KO8PVw\"\}"]
-
+#puts [hue::get_cuxd_device_map]
 
