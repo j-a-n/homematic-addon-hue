@@ -21,8 +21,9 @@ source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_schedule
 variable current_object_state
+variable cuxd_device_map
 variable last_schedule_update 0
-variable schedule_update_interval 300
+variable schedule_update_interval 60
 variable server_address "127.0.0.1"
 variable server_port 1919
 
@@ -45,6 +46,7 @@ proc check_update {} {
 	variable update_schedule
 	variable last_schedule_update
 	variable schedule_update_interval
+	variable cuxd_device_map
 	
 	foreach o [array names update_schedule] {
 		set scheduled_time $update_schedule($o)
@@ -63,39 +65,39 @@ proc check_update {} {
 	}
 	
 	if { $hue::poll_state_interval > 0 && [clock seconds] >= [expr {$last_schedule_update + $schedule_update_interval}] } {
-		hue::write_log 4 "Read ini file and schedule update for all devices"
+		hue::write_log 4 "Get device map and schedule update for all devices"
 		set last_schedule_update [clock seconds]
-		foreach bridge_id [hue::get_config_bridge_ids] {
-			set abridge [hue::get_bridge $bridge_id]
-			array set bridge $abridge
-			foreach param [array names bridge] {
-				regexp "cuxd_device_(light|group)_(\\d+)" $param match obj num
-				if {[info exists match]} {
-					unset match
-					set cuxd_device $bridge($param)
-					if {$cuxd_device != ""} {
-						set o "${bridge_id}_${obj}_${num}"
-						set time [expr {[clock seconds] + $hue::poll_state_interval}]
-						if {[info exists update_schedule($o)]} {
-							if {$update_schedule($o) <= $time} {
-								# Keep earlier update time
-								#hue::write_log 4 "Keep earlier update time"
-								continue
-							}
-						}
-						set update_schedule($o) $time
-						hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
-					}
+		set dmap [hue::get_cuxd_device_map]
+		array set cuxd_device_map $dmap
+		foreach { cuxd_device o } [array get cuxd_device_map] {
+			set tmp [split $o "_"]
+			set bridge_id [lindex $tmp 0]
+			set obj [lindex $tmp 1]
+			set num [lindex $tmp 2]
+			hue::write_log 4 "Device map entry: ${cuxd_device} = ${bridge_id} ${obj} ${num}"
+			set time [expr {[clock seconds] + $hue::poll_state_interval}]
+			if {[info exists update_schedule($o)]} {
+				if {$update_schedule($o) <= $time} {
+					# Keep earlier update time
+					#hue::write_log 4 "Keep earlier update time"
+					continue
 				}
 			}
-			unset bridge
+			set update_schedule($o) $time
+			hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
 		}
 	}
 }
 
 proc update_cuxd_device {bridge_id obj num} {
 	variable current_object_state
-	set cuxd_device [hue::get_bridge_param $bridge_id "cuxd_device_${obj}_${num}"]
+	variable cuxd_device_map
+	set cuxd_device ""
+	foreach { d o } [array get cuxd_device_map] {
+		if { $o == "${bridge_id}_${obj}_${num}" } {
+			set cuxd_device $d
+		}
+	}
 	if {$cuxd_device == ""} {
 		error "Failed to get CUxD device for ${bridge_id} ${obj} ${num}"
 	}
@@ -140,9 +142,30 @@ proc accept_connection {channel address port} {
 	fileevent $channel readable "read_from_channel $channel"
 }
 
+proc update_config {} {
+	hue::write_log 3 "Update config $hue::ini_file"
+	hue::acquire_lock $hue::lock_id_ini_file
+	catch {
+		set f [open $hue::ini_file r]
+		set data [read $f]
+		# Remove legacy options
+		regsub -all {cuxd_device_[^\n]+\n} $data "" data
+		close $f
+		set f [open $hue::ini_file w]
+		puts $f $data
+		close $f
+	}
+	hue::release_lock $hue::lock_id_ini_file
+}
+
 proc main {} {
 	variable server_address
 	variable server_port
+	if { [catch {
+		update_config
+	} errormsg] } {
+		hue::write_log 1 "Error: '${errormsg}'"
+	}
 	after 10 main_loop
 	if {$server_address == "0.0.0.0"} {
 		socket -server accept_connection $server_port
