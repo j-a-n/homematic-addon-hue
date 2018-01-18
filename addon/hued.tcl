@@ -89,15 +89,21 @@ proc check_update {} {
 	}
 }
 
-proc update_cuxd_device {bridge_id obj num} {
-	variable current_object_state
+proc get_cuxd_device_from_map {bridge_id obj num} {
 	variable cuxd_device_map
 	set cuxd_device ""
 	foreach { d o } [array get cuxd_device_map] {
 		if { $o == "${bridge_id}_${obj}_${num}" } {
 			set cuxd_device $d
+			break
 		}
 	}
+	return $cuxd_device
+}
+
+proc update_cuxd_device {bridge_id obj num} {
+	variable current_object_state
+	set cuxd_device [get_cuxd_device_from_map $bridge_id $obj $num]
 	if {$cuxd_device == ""} {
 		error "Failed to get CUxD device for ${bridge_id} ${obj} ${num}"
 	}
@@ -121,16 +127,24 @@ proc read_from_channel {channel} {
 	set len [gets $channel cmd]
 	hue::write_log 4 "Received command: $cmd"
 	regexp "^schedule_update (\[a-fA-F0-9\]+) (light|group) (\\d+) ?(\\d*)$" $cmd match bridge_id obj num delay_seconds
+	set response ""
 	if {[info exists match]} {
-		if {$delay_seconds == ""} {
-			set delay_seconds 0
+		set cuxd_device [get_cuxd_device_from_map $bridge_id $obj $num]
+		if {$cuxd_device == ""} {
+			set response "Failed to get CUxD device for ${bridge_id} ${obj} ${num}"
+		} else {
+			if {$delay_seconds == ""} {
+				set delay_seconds 0
+			}
+			set time [expr {[clock seconds] + $delay_seconds}]
+			set update_schedule(${bridge_id}_${obj}_${num}) $time
+			set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
 		}
-		set time [expr {[clock seconds] + $delay_seconds}]
-		set update_schedule(${bridge_id}_${obj}_${num}) $time
-		puts $channel "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
 	} else {
-		puts $channel "Invalid command"
+		set response "Invalid command"
 	}
+	hue::write_log 4 "Sending response: $response"
+	puts $channel $response
 	flush $channel
 	close $channel
 }
