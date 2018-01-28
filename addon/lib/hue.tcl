@@ -38,6 +38,20 @@ namespace eval hue {
 	variable cuxd_ps "/usr/local/addons/cuxd/cuxd.ps"
 }
 
+
+proc json_string {str} {
+	set replace_map {
+		"\"" "\\\""
+		"\\" "\\\\"
+		"\b"  "\\b"
+		"\f"  "\\f"
+		"\n"  "\\n"
+		"\r"  "\\r"
+		"\t"  "\\t"
+	}
+	return "[string map $replace_map $str]"
+}
+
 # error=1, warning=2, info=3, debug=4
 proc ::hue::write_log {lvl str {lock 1}} {
 	variable log_level
@@ -425,7 +439,8 @@ proc ::hue::get_cuxd_device_map {} {
 				set device "CUX${device}"
 			}
 		} elseif {$device != ""} {
-			regexp "CMD .*hue\\.tcl\\s+(\\S+)\\s+(light|group)\\s+(\\d+)" $data match bridge_id obj num
+			set data [string tolower $data]
+			regexp "cmd .*hue\\.tcl\\s+(\\S+)\\s+(light|group)\\s+(\\d+)" $data match bridge_id obj num
 			if { [info exists match] } {
 				set dmap($device) "${bridge_id}_${obj}_${num}"
 				unset match

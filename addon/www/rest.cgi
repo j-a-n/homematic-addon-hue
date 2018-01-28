@@ -19,19 +19,6 @@
 
 source /usr/local/addons/hue/lib/hue.tcl
 
-proc json_string {str} {
-	set replace_map {
-		"\"" "\\\""
-		"\\" "\\\\"
-		"\b"  "\\b"
-		"\f"  "\\f"
-		"\n"  "\\n"
-		"\r"  "\\r"
-		"\t"  "\\t"
-	}
-	return "[string map $replace_map $str]"
-}
-
 proc process {} {
 	global env
 	if { [info exists env(QUERY_STRING)] } {
