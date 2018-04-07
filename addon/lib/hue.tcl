@@ -1,6 +1,6 @@
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2017  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -431,25 +431,44 @@ proc ::hue::get_cuxd_device_map {} {
 	fconfigure $fp -buffering line
 	gets $fp data
 	set device ""
+	set channel ""
 	while {$data != ""} {
 		if { [string first " " $data] != 0 } {
 			set device ""
-			if { [string first "28 02" $data] == 0 } {
+			if { [string first "28 02" $data] == 0 || [string first "40 00" $data] == 0 } {
 				set device [string map {" " ""} $data]
 				set device "CUX${device}"
+				hue::write_log 4 "get_cuxd_device_map: device=${device}"
 			}
 		} elseif {$device != ""} {
 			set data [string tolower $data]
-			regexp "cmd .*hue\\.tcl\\s+(\\S+)\\s+(light|group)\\s+(\\d+)" $data match bridge_id obj num
-			if { [info exists match] } {
-				set dmap($device) "${bridge_id}_${obj}_${num}"
-				unset match
+			if {[regexp "cmd\[sh\]? (\\d*)\\D.*hue\\.tcl\\s+(\\S+)\\s+(light|group)\\s+(\\d+)" $data match channel bridge_id obj num]} {
+				if {$channel != ""} {
+					set channel ":${channel}"
+				}
+				set dmap(${device}${channel}) "${bridge_id}_${obj}_${num}"
+				hue::write_log 4 "get_cuxd_device_map: device=${device}${channel} mapped=${bridge_id}_${obj}_${num}"
 			}
 		}
 		gets $fp data
 	}
 	close $fp
 	return [array get dmap]
+}
+
+proc ::hue::update_cuxd_device_channel {device channel reachable on} {
+	hue::write_log 4 "update_device_channel ${device}:${channel}: reachable=${reachable} on=${on}"
+	if {$on == "false" || $on == 0} {
+		set on 0
+	} else {
+		set on 1
+	}
+	if {$reachable == "false" || $reachable == 0} {
+		set on 0
+	}
+	set s "dom.GetObject(\"${device}:${channel}.SET_STATE\").State(${on});"
+	#hue::write_log 4 "rega_script ${s}"
+	rega_script $s
 }
 
 proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
@@ -486,6 +505,7 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 			dom.GetObject(\"${device}:5.SET_STATE\").State(${sat});
 		\}
 	"
+	
 	#hue::write_log 4 "rega_script ${s}"
 	rega_script $s
 }

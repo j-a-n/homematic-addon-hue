@@ -113,7 +113,12 @@ proc update_cuxd_device {bridge_id obj num} {
 		set cst $current_object_state($cuxd_device)
 	}
 	if {$st != $cst} {
-		hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
+		set channel ""
+		if {[regexp "^(\[^:\]+):(\\d+)$" $cuxd_device match d c]} {
+			hue::update_cuxd_device_channel "CUxD.$d" $c [lindex $st 0] [lindex $st 1]
+		} else {
+			hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
+		}
 		set current_object_state($cuxd_device) $st
 		hue::write_log 3 "Update of ${bridge_id} ${obj} ${num} successful (reachable=[lindex $st 0] on=[lindex $st 1] bri=[lindex $st 2] ct=[lindex $st 3] hue=[lindex $st 4] sat=[lindex $st 5])"
 	} else {
