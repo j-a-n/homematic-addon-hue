@@ -2,7 +2,7 @@
 
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2017  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -67,6 +67,7 @@ proc check_update {} {
 	if { $hue::poll_state_interval > 0 && [clock seconds] >= [expr {$last_schedule_update + $schedule_update_interval}] } {
 		hue::write_log 4 "Get device map and schedule update for all devices"
 		set last_schedule_update [clock seconds]
+		hue::read_global_config
 		set dmap [hue::get_cuxd_device_map]
 		array set cuxd_device_map $dmap
 		foreach { cuxd_device o } [array get cuxd_device_map] {
