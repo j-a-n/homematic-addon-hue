@@ -2,7 +2,7 @@
 
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2017  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -28,5 +28,5 @@ if {$cmd == "download"} {
 	puts "<html><head><meta http-equiv=\"refresh\" content=\"0; url=${package_url}\" /></head></html>"
 } else {
 	#puts [exec /usr/bin/wget -q --no-check-certificate -O- "${version_url}"]
-	puts [exec /usr/bin/curl -L "${version_url}"]
+	puts [exec /usr/bin/curl -L "${version_url}" 2>&1]
 }
