@@ -28,5 +28,9 @@ if {$cmd == "download"} {
 	puts "<html><head><meta http-equiv=\"refresh\" content=\"0; url=${package_url}\" /></head></html>"
 } else {
 	#puts [exec /usr/bin/wget -q --no-check-certificate -O- "${version_url}"]
-	puts [exec /usr/bin/curl -L "${version_url}" 2>&1]
+	set curl "/usr/bin/curl"
+	if {[file exist "/usr/local/addons/hue/curl"]} {
+		set curl "/usr/local/addons/hue/curl"
+	}	
+	puts [exec $curl -L "${version_url}" 2>&1]
 }
