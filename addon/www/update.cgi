@@ -29,8 +29,8 @@ if {$cmd == "download"} {
 } else {
 	#puts [exec /usr/bin/wget -q --no-check-certificate -O- "${version_url}"]
 	set curl "/usr/bin/curl"
-	if {[file exist "/usr/local/addons/hue/curl"]} {
-		set curl "/usr/local/addons/hue/curl"
-	}	
+	#if {[file exist "/usr/local/addons/hue/curl"]} {
+	#	set curl "/usr/local/addons/hue/curl"
+	#}
 	puts [exec $curl -L "${version_url}" 2>&1]
 }
