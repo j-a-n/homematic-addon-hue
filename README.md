@@ -34,8 +34,8 @@
   * CMD_SHORT `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
 
 #### Example for a simple on/off switch: 
-CMD_SHORT `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:false`
-CMD_LONG `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:true`
+* CMD_SHORT `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:false`
+* CMD_LONG `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:true`
 
 ## hue.tcl usage
 `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
