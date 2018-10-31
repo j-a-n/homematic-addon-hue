@@ -15,7 +15,7 @@
   * Serialnumber: choose a free one
   * Name: choose one, i.e: `Hue Group 1`
   * Device-Icon: some dimmer icon
-* Configure new device in HomeMatic Web-UI
+* Configure new device in HomeMatic Web-UI (device inbox)
   * Channels: 4
   * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1 transitiontime:0` (see usage for details)
   * Ch.2 (brightness): DIMMER|MAX_VAL: 254
@@ -29,13 +29,13 @@
   * Name: choose one, i.e: `Hue`
   * Device-Icon: whatever you want
   * Control: KEY
-* Configure new device in HomeMatic Web-UI
+* Configure new device in HomeMatic Web-UI (device inbox)
   * CMD_EXEC: yes
   * CMD_SHORT `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
 
 #### Example for a simple on/off switch: 
-  	CMD_SHORT `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:false`
-			CMD_LONG `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:true`
+CMD_SHORT `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:false`
+CMD_LONG `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:true`
 
 ## hue.tcl usage
 `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
