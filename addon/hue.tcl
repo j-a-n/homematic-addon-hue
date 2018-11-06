@@ -55,12 +55,12 @@ proc usage {} {
 	puts stderr "  light <light-id> \[parm:val\]...         control a light"
 	puts stderr "    light-id : id of the light to control"
 	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct"
+	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode"
 	puts stderr ""
 	puts stderr "  group <group-id> \[parm:val\]...         control a group"
 	puts stderr "    group-id : id of the group to control"
 	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,scene"
+	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode"
 }
 
 proc schedule_update {bridge_id obj num {delay_seconds 0}} {
@@ -81,6 +81,7 @@ proc main {} {
 	set bridge_id [string tolower [lindex $argv 0]]
 	set cmd [string tolower [lindex $argv 1]]
 	set num [lindex $argv 2]
+	set bri_mode "abs"
 	
 	if {$cmd == "request"} {
 		if {$argc < 4} {
@@ -113,7 +114,11 @@ proc main {} {
 			regexp {(.*)[=:](.*$)} $a match k v
 			if {[info exists v]} {
 				lappend keys $k
-				if {$k == "xy"} {
+				if {$k == "bri_mode"} {
+					if {$v == "abs" || $v == "inc"} {
+						set bri_mode $v
+					}
+				} elseif {$k == "xy"} {
 					append json "\"${k}\":\[${v}\],"
 				} else {
 					set nm ""
@@ -136,6 +141,7 @@ proc main {} {
 				hue::write_log 4 "state: $st"
 				if {[info exists env(CUXD_DEVICE)]} {
 					set cuxd_device "CUxD.$env(CUXD_DEVICE)"
+					# device reachable on bri ct hue sat
 					hue::update_cuxd_device_channels $cuxd_device [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
 				}
 				return
@@ -144,7 +150,11 @@ proc main {} {
 			if {$chan == 2} {
 				set key "bri"
 				# 0 - 254
-				set bri $val
+				set st [list]
+				if {$cmd == "group" || $bri_mode == "inc"} {
+					set st [hue::get_object_state $bridge_id $obj_path]
+					hue::write_log 4 "${cmd} state: ${st}"
+				}
 				if {[lsearch $keys "on"] == -1} {
 					if {$val == 0} {
 						append json "\"on\":false,"
@@ -152,8 +162,6 @@ proc main {} {
 						if {$cmd == "light"} {
 							append json "\"on\":true,"
 						} elseif {$cmd == "group"} {
-							set st [hue::get_object_state $bridge_id $obj_path]
-							hue::write_log 4 "group state: ${st}"
 							set on [lindex $st 1]
 							if {$on == "false"} {
 								hue::write_log 4 "bri > 0, all lights off, auto turn on group"
@@ -161,6 +169,11 @@ proc main {} {
 							}
 						}
 					}
+				}
+				if {$val > 0 && $bri_mode == "inc"} {
+					set key "bri_inc"
+					set bri [lindex $st 2]
+					set val [expr {$val - $bri}]
 				}
 			} elseif {$chan == 3} {
 				set val [expr {$val + 153}]

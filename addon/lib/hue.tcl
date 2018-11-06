@@ -491,6 +491,7 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 	if {$on == "false" || $on == 0} {
 		set bri 0.0
 	}
+	hue::write_log 4 "update_device_channels ${device} set states: bri=${bri} ct=${ct} hue=${hue} sat=${sat}"
 	set s "
 		if (dom.GetObject(\"${device}:2.LEVEL\")) \{
 			dom.GetObject(\"${device}:2.SET_STATE\").State(${bri});
@@ -511,6 +512,7 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 }
 
 proc ::hue::get_object_state {bridge_id obj_path} {
+	set calc_group_brightness 1
 	set data [request $bridge_id "GET" $obj_path]
 	#hue::write_log 4 "${obj_path}: ${data}"
 	set st [list]
@@ -541,7 +543,26 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 		}
 	}
 	set val 0
-	regexp {\"bri\"\s*:\s*(\d+)} $data match val
+	if {[regexp {^groups} $obj_path] && $calc_group_brightness} {
+		#"lights":["11","10","9"]
+		if [regexp {\"lights\"\s*:\s*\[(["\d,]+)\]} $data match lights] {
+			#set lights [split $lights ","]
+			set light_num 0
+			set bri_sum 0
+			foreach light [split $lights ","] {
+				set light_num [expr {$light_num + 1}]
+				set light [string map {"\"" ""} $light]
+				set light_data [request $bridge_id "GET" "lights/${light}"]
+				#hue::write_log 4 "Light ${light}: ${ldata}"
+				regexp {\"bri\"\s*:\s*(\d+)} $light_data match bri
+				set bri_sum [expr {$bri_sum + $bri}]
+			}
+			set val [expr {$bri_sum / $light_num}]
+			hue::write_log 4 "Calculated group brightness: ${val}"
+		}
+	} else {
+		regexp {\"bri\"\s*:\s*(\d+)} $data match val
+	}
 	lappend st [expr {0 + $val}]
 	regexp {\"ct\"\s*:\s*(\d+)} $data match val
 	lappend st [expr {0 + $val}]
