@@ -19,6 +19,19 @@
 
 source /usr/local/addons/hue/lib/hue.tcl
 
+proc json_string {str} {
+	set replace_map {
+		"\"" "\\\""
+		"\\" "\\\\"
+		"\b"  "\\b"
+		"\f"  "\\f"
+		"\n"  "\\n"
+		"\r"  "\\r"
+		"\t"  "\\t"
+	}
+	return "[string map $replace_map $str]"
+}
+
 proc process {} {
 	global env
 	if { [info exists env(QUERY_STRING)] } {
@@ -32,6 +45,19 @@ proc process {} {
 		
 		if {[lindex $path 1] == "version"} {
 			return "\"[hue::version]\""
+		} elseif {[lindex $path 1] == "test-command"} {
+			set exitcode 0
+			set output ""
+			if {! [regexp {^/usr/local/addons/hue/hue.tcl( |$)[a-zA-Z0-9 \-:_/]*$} $data] } {
+				set exitcode 1
+				set output "Invalid command"
+			} else {
+				set exitcode [catch {
+					eval exec $data
+				} output]
+				set output [json_string $output]
+			}
+			return "\{\"exitcode\":${exitcode},\"output\":\"${output}\"\}"
 		} elseif {[lindex $path 1] == "discover-bridges"} {
 			set bridge_ips [hue::discover_bridges]
 			set json "\["

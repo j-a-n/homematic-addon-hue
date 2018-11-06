@@ -99,6 +99,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function execute_test_command() {
+			var cmd = $('#test-command').val();
+			if (cmd) {
+				rest("PUT", "/test-command", cmd, function(data) {
+					$('#test-command-output').removeClass('hidden');
+					if (data.exitcode == 0) {
+						$('#test-command-output').removeClass('error');
+						$('#test-command-output').addClass('success');
+					}
+					else {
+						$('#test-command-output').addClass('error');
+						$('#test-command-output').removeClass('success');
+					}
+					$('#test-command-output').html('<pre>' + data.output + '</pre>');
+				});
+			}
+		}
+		
 		function update_global_config(config) {
 			rest("PUT", "/config/global", JSON.stringify(config), function(data) {
 				get_config();
@@ -519,6 +537,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		$(document).ready(function() {
+			$('#test-command').bind("keyup", function(event) {
+				if (event.keyCode === 13) {
+					execute_test_command();
+				}
+			});
+			
 			rest("GET", "/version", null, function(version) {
 				document.title = document.title + " " + version;
 			});
@@ -642,7 +666,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<tbody>
 			</tbody>
 		</table>
-		<div class="ui right aligned grid">
+		
+		<h2 class="ui dividing header">Test command</h2>
+		<div style="width: 100%" class="ui action input">
+			<input id="test-command" type="text" value="/usr/local/addons/hue/hue.tcl"/>
+			<button id="execute-test-command" class="ui green right labeled icon button" onclick="execute_test_command();">
+				<i class="play icon"></i>
+				execute
+			</button>
+		</div>
+		<div id="test-command-output" class="ui message hidden"></div>
+		
+		<div style="margin-top:25px;" class="ui right aligned grid">
 			<div class="right floated right aligned twelve wide column">
 				<div onclick="show_log();" class="ui blue basic button">
 				<i class="file text outline icon"></i>
