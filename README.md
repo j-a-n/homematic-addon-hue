@@ -23,6 +23,9 @@
   * Ch.4 (hue): DIMMER|MAX_VAL: 65535
   * Ch.5 (saturation): DIMMER|MAX_VAL: 254
 
+You can add the parameter `bri_mode:inc` to the command.
+This will keep the brightness difference of the lights in the group when using the dimmer.
+
 ### Universal-Control-Device
 * Create new (40) 16-channel universal control device in CUxD
   * Serialnumber: choose a free one
