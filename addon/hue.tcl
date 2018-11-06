@@ -55,12 +55,12 @@ proc usage {} {
 	puts stderr "  light <light-id> \[parm:val\]...         control a light"
 	puts stderr "    light-id : id of the light to control"
 	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode"
+	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode"
 	puts stderr ""
 	puts stderr "  group <group-id> \[parm:val\]...         control a group"
 	puts stderr "    group-id : id of the group to control"
 	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some ot the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode"
+	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode"
 }
 
 proc schedule_update {bridge_id obj num {delay_seconds 0}} {
