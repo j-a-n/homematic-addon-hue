@@ -90,42 +90,43 @@ proc check_update {} {
 	}
 }
 
-proc get_cuxd_device_from_map {bridge_id obj num} {
+proc get_cuxd_devices_from_map {bridge_id obj num} {
 	variable cuxd_device_map
-	set cuxd_device ""
+	set cuxd_devices [list]
 	foreach { d o } [array get cuxd_device_map] {
 		if { $o == "${bridge_id}_${obj}_${num}" } {
-			set cuxd_device $d
-			break
+			lappend cuxd_devices $d
 		}
 	}
-	return $cuxd_device
+	return $cuxd_devices
 }
 
 proc update_cuxd_device {bridge_id obj num} {
 	variable current_object_state
-	set cuxd_device [get_cuxd_device_from_map $bridge_id $obj $num]
-	if {$cuxd_device == ""} {
-		error "Failed to get CUxD device for ${bridge_id} ${obj} ${num}"
+	set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
+	if {[llength $cuxd_devices] == 0} {
+		error "Failed to get CUxD devices for ${bridge_id} ${obj} ${num}"
 	}
-	set st [hue::get_object_state $bridge_id "${obj}s/${num}"]
-	set cst ""
-	if { [info exists current_object_state($cuxd_device)] } {
-		set cst $current_object_state($cuxd_device)
-	}
-	if {$st != $cst} {
-		set channel ""
-		if {[regexp "^(\[^:\]+):(\\d+)$" $cuxd_device match d c]} {
-			hue::update_cuxd_device_channel "CUxD.$d" $c [lindex $st 0] [lindex $st 1]
-		} else {
-			hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
+	foreach cuxd_device $cuxd_devices {
+		set st [hue::get_object_state $bridge_id "${obj}s/${num}"]
+		set cst ""
+		if { [info exists current_object_state($cuxd_device)] } {
+			set cst $current_object_state($cuxd_device)
 		}
-		set current_object_state($cuxd_device) $st
-		hue::write_log 3 "Update of ${bridge_id} ${obj} ${num} successful (reachable=[lindex $st 0] on=[lindex $st 1] bri=[lindex $st 2] ct=[lindex $st 3] hue=[lindex $st 4] sat=[lindex $st 5])"
-	} else {
-		hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} not required, state is unchanged"
+		if {$st != $cst} {
+			set channel ""
+			if {[regexp "^(\[^:\]+):(\\d+)$" $cuxd_device match d c]} {
+				hue::update_cuxd_device_channel "CUxD.$d" $c [lindex $st 0] [lindex $st 1]
+			} else {
+				hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
+			}
+			set current_object_state($cuxd_device) $st
+			hue::write_log 3 "Update of ${bridge_id} ${obj} ${num} successful (reachable=[lindex $st 0] on=[lindex $st 1] bri=[lindex $st 2] ct=[lindex $st 3] hue=[lindex $st 4] sat=[lindex $st 5])"
+		} else {
+			hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} not required, state is unchanged"
+		}
+		set cuxd_device_last_update($cuxd_device) [clock seconds]
 	}
-	set cuxd_device_last_update($cuxd_device) [clock seconds]
 }
 
 proc read_from_channel {channel} {
@@ -135,9 +136,9 @@ proc read_from_channel {channel} {
 	regexp "^schedule_update (\[a-fA-F0-9\]+) (light|group) (\\d+) ?(\\d*)$" $cmd match bridge_id obj num delay_seconds
 	set response ""
 	if {[info exists match]} {
-		set cuxd_device [get_cuxd_device_from_map $bridge_id $obj $num]
-		if {$cuxd_device == ""} {
-			set response "Failed to get CUxD device for ${bridge_id} ${obj} ${num}"
+		set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
+		if {[llength $cuxd_devices] == 0} {
+			set response "Failed to get CUxD devices for ${bridge_id} ${obj} ${num}"
 		} else {
 			if {$delay_seconds == ""} {
 				set delay_seconds 0
