@@ -36,7 +36,8 @@ This will keep the brightness difference of the lights in the group when using t
   * CMD_EXEC: yes
   * CMD_SHORT `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
 
-#### Example for a simple on/off switch: 
+#### Example for a simple on/off switch:
+* Control: SWITCH
 * CMD_SHORT `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:false`
 * CMD_LONG `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:true`
 
