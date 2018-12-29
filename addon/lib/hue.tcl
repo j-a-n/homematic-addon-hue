@@ -490,6 +490,10 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 	}
 	if {$on == "false" || $on == 0} {
 		set bri 0.0
+	} else {
+		if {$bri == 0.0} {
+			set bri 0.01
+		}
 	}
 	hue::write_log 4 "update_device_channels ${device} set states: bri=${bri} ct=${ct} hue=${hue} sat=${sat}"
 	set s "
