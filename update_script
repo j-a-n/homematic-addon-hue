@@ -41,8 +41,10 @@ if [ "$1" = "" ]; then
 	[ -d "ccu1" ] && cp -af ccu1/* "${ADDON_DIR}/"
 elif [ "$1" = "CCU2" ]; then
 	[ -d "ccu2" ] && cp -af ccu2/* "${ADDON_DIR}/"
+elif [ "$1" = "CCU3" ]; then
+	[ -d "ccu3" ] && cp -af ccu3/* "${ADDON_DIR}/"
 elif [ "$1" == "HM-RASPBERRYMATIC" ]; then
-	[ -d "ccurm" ] && cp -af ccurm/* "${ADDON_DIR}/"
+	[ -d "ccu3" ] && cp -af ccu3/* "${ADDON_DIR}/"
 fi
 
 echo "link www files" >>$LOG_FILE
