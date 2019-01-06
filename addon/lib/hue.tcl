@@ -435,7 +435,7 @@ proc ::hue::get_cuxd_device_map {} {
 	while {$data != ""} {
 		if { [string first " " $data] != 0 } {
 			set device ""
-			if { [string first "28 02" $data] == 0 || [string first "40 00" $data] == 0 } {
+			if { [string first "28 01" $data] == 0 || [string first "28 02" $data] == 0 || [string first "40 00" $data] == 0 } {
 				set device [string map {" " ""} $data]
 				set device "CUX${device}"
 				hue::write_log 4 "get_cuxd_device_map: device=${device}"
