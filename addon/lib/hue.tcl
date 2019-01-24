@@ -514,7 +514,7 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 	set sat [ format "%.2f" [expr {double($sat) / [lindex $max 3]}] ]
 	if {$sat > 1.0} { set sat 1.0 }
 	if {$reachable == "false" || $reachable == 0} {
-		set bri 0.0
+		set on 0
 	}
 	if {$on == "false" || $on == 0} {
 		set bri 0.0
