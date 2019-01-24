@@ -33,6 +33,7 @@ namespace eval hue {
 	variable lock_id_ini_file 2
 	variable lock_id_bridge_start 3
 	variable poll_state_interval 0
+	variable ignore_unreachable 0
 	variable devicetype "homematic-addon-hue#ccu"
 	variable curl "/usr/local/addons/cuxd/curl"
 	variable cuxd_ps "/usr/local/addons/cuxd/cuxd.ps"
@@ -192,7 +193,7 @@ proc ::hue::get_config_bridge_ids {} {
 	return $bridge_ids
 }
 
-proc ::hue::update_global_config {log_level poll_state_interval} {
+proc ::hue::update_global_config {log_level poll_state_interval ignore_unreachable} {
 	variable ini_file
 	variable lock_id_ini_file
 	write_log 4 "Updating global config: log_level=${log_level} poll_state_interval=${poll_state_interval}"
@@ -200,6 +201,11 @@ proc ::hue::update_global_config {log_level poll_state_interval} {
 	set ini [ini::open $ini_file r+]
 	ini::set $ini "global" "log_level" $log_level
 	ini::set $ini "global" "poll_state_interval" $poll_state_interval
+	if {$ignore_unreachable == "true" || $ignore_unreachable == "1"} {
+		ini::set $ini "global" "ignore_unreachable" "1"
+	} else {
+		ini::set $ini "global" "ignore_unreachable" "0"
+	}
 	ini::commit $ini
 	release_lock $lock_id_ini_file
 }
@@ -209,12 +215,14 @@ proc ::hue::read_global_config {} {
 	variable lock_id_ini_file
 	variable log_level
 	variable poll_state_interval
+	variable ignore_unreachable
 	write_log 4 "Reading global config"
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
 	catch {
 		set log_level [expr { 0 + [::ini::value $ini "global" "log_level" $log_level] }]
 		set poll_state_interval [expr { 0 + [::ini::value $ini "global" "poll_state_interval" $poll_state_interval] }]
+		set ignore_unreachable [expr { 0 + [::ini::value $ini "global" "ignore_unreachable" $ignore_unreachable] }]
 	}
 	ini::close $ini
 	release_lock $lock_id_ini_file
@@ -225,9 +233,14 @@ proc ::hue::get_config_json {} {
 	variable lock_id_ini_file
 	variable log_level
 	variable poll_state_interval
+	variable ignore_unreachable
+	set iu "false"
+	if {$ignore_unreachable} {
+		set iu "true"
+	}
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
-	set json "\{\"global\":\{\"log_level\":${log_level},\"poll_state_interval\":${poll_state_interval}\},\"bridges\":\["
+	set json "\{\"global\":\{\"log_level\":${log_level},\"poll_state_interval\":${poll_state_interval},\"ignore_unreachable\":${iu}\},\"bridges\":\["
 	set count 0
 	foreach section [ini::sections $ini] {
 		set idx [string first "bridge_" $section]
@@ -457,7 +470,15 @@ proc ::hue::get_cuxd_device_map {} {
 }
 
 proc ::hue::update_cuxd_device_channel {device channel reachable on} {
+	variable ignore_unreachable
 	hue::write_log 4 "update_device_channel ${device}:${channel}: reachable=${reachable} on=${on}"
+	if {$reachable == "false" || $reachable == 0} {
+		if {$ignore_unreachable} {
+			hue::write_log 4 "ignoring unreachable device, no update"
+			return
+		}
+	}
+	
 	if {$on == "false" || $on == 0} {
 		set on 0
 	} else {
@@ -472,7 +493,14 @@ proc ::hue::update_cuxd_device_channel {device channel reachable on} {
 }
 
 proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
+	variable ignore_unreachable
 	hue::write_log 4 "update_device_channels ${device}: reachable=${reachable} on=${on} bri=${bri} ct=${ct} hue=${hue} sat=${sat}"
+	if {$reachable == "false" || $reachable == 0} {
+		if {$ignore_unreachable} {
+			hue::write_log 4 "ignoring unreachable device, no update"
+			return
+		}
+	}
 	
 	set max [get_cuxd_channels_max $device]
 	hue::write_log 4 "get_cuxd_channels_max: ${max}"

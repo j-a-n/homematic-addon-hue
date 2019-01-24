@@ -199,7 +199,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			form.form('clear');
 			form.form('set values', {
 				poll_state_interval: config.global.poll_state_interval,
-				log_level: config.global.log_level
+				log_level: config.global.log_level,
+				ignore_unreachable: config.global.ignore_unreachable
 			});
 		}
 		
@@ -560,11 +561,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							type: 'integer[0..4]',
 							prompt: 'Please enter a valid log level.'
 						}]
+					},
+					ignore_unreachable: {
+						identifier: 'ignore_unreachable',
 					}
 				},
 				onSuccess: function(event, fields) {
-					var config = $(event.currentTarget).form('get values');
-					update_global_config(config);
+					var conf = $(event.currentTarget).form('get values');
+					if (conf.ignore_unreachable == "on" || conf.ignore_unreachable === true) {
+						conf.ignore_unreachable = true;
+					}
+					else {
+						conf.ignore_unreachable = false;
+					}
+					update_global_config(conf);
 					event.preventDefault();
 				}
 			};
@@ -625,6 +635,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<div class="field">
 				<label>Log level (nothing=0, error=1, warning=2, info=3, debug=4)</label>
 				<input name="log_level" placeholder="" type="text">
+			</div>
+			<div class="field">
+				<label>Do not update state if device is unreachable</label>
+				<div class="ui toggle checkbox">
+					<input name="ignore_unreachable" type="checkbox">
+				</div>
 			</div>
 			<div id="submit-global-config" class="ui primary submit button">Submit</div>
 		</form>

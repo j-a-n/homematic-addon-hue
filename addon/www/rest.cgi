@@ -92,7 +92,8 @@ proc process {} {
 				if {$env(REQUEST_METHOD) == "PUT"} {
 					regexp {\"log_level\"\s*:\s*\"([^\"]+)\"} $data match log_level
 					regexp {\"poll_state_interval\"\s*:\s*\"([^\"]+)\"} $data match poll_state_interval
-					hue::update_global_config $log_level $poll_state_interval
+					regexp {\"ignore_unreachable\"\s*:\s*(false|true)} $data match ignore_unreachable
+					hue::update_global_config $log_level $poll_state_interval $ignore_unreachable
 					return "\"Global config successfully updated\""
 				}
 			} elseif {[lindex $path 2] == "bridge"} {
