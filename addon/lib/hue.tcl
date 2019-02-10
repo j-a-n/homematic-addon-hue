@@ -406,6 +406,19 @@ proc ::hue::hue_command {bridge_id command args} {
 	return $res
 }
 
+proc ::hue::get_scene_name_id_map {bridge_id} {
+	array set scenes {}
+	set data [hue::request $bridge_id "GET" "scenes"]
+	while {1} {
+		if {[regexp {\"([a-zA-Z0-9\-]{15})\":\{.*?\"name\":\"([^\"]+)\"(.*)$} $data match id name data]} {
+			set scenes($name) $id
+		} else {
+			break
+		}
+	}
+	return [array get scenes]
+}
+
 proc ::hue::get_cuxd_channels_max {device} {
 	variable cuxd_ps
 	set result {254 347 65535 254 255 255 255 255 255 255 255 255 255 255 255 255}
@@ -608,19 +621,19 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 hue::read_global_config
 
 #hue::api_register
-#puts [hue::api_request "PUT" "lights/1/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
-#puts [hue::api_request "PUT" "lights/2/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
-#puts [hue::api_request "PUT" "lights/1/state" "\{\"alert\":\"select\"\}"]
-#puts [hue::api_request "PUT" "lights/2/state" "\{\"alert\":\"select\"\}"]
-#puts [hue::api_request "PUT" "lights/1/state" "\{\"effect\":\"colorloop\"\}"]
-#puts [hue::api_request "PUT" "lights/2/state" "\{\"effect\":\"colorloop\"\}"]
-#puts [hue::api_request "PUT" "lights/1/state" "\{\"effect\":\"none\"\}"]
-#puts [hue::api_request "PUT" "lights/2/state" "\{\"effect\":\"none\"\}"]
-#puts [hue::api_request "GET" "groups"]
-#puts [hue::api_request "GET" "groups/1"]
-#puts [hue::api_request "PUT" "groups/1/action" "\{\"on\":true\}"]
-#puts [hue::api_request "GET" "config"]
-#puts [hue::api_request "GET" "scenes"]
-#puts [hue::api_request "PUT" "groups/1/action" "\{\"scene\":\"jXTvbsXs9KO8PVw\"\}"]
+#puts [hue::request "PUT" "lights/1/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
+#puts [hue::request "PUT" "lights/2/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
+#puts [hue::request "PUT" "lights/1/state" "\{\"alert\":\"select\"\}"]
+#puts [hue::request "PUT" "lights/2/state" "\{\"alert\":\"select\"\}"]
+#puts [hue::request "PUT" "lights/1/state" "\{\"effect\":\"colorloop\"\}"]
+#puts [hue::request "PUT" "lights/2/state" "\{\"effect\":\"colorloop\"\}"]
+#puts [hue::request "PUT" "lights/1/state" "\{\"effect\":\"none\"\}"]
+#puts [hue::request "PUT" "lights/2/state" "\{\"effect\":\"none\"\}"]
+#puts [hue::request "GET" "groups"]
+#puts [hue::request "GET" "groups/1"]
+#puts [hue::request "PUT" "groups/1/action" "\{\"on\":true\}"]
+#puts [hue::request "GET" "config"]
+#puts [hue::request "GET" "scenes"]
+#puts [hue::request "PUT" "groups/1/action" "\{\"scene\":\"jXTvbsXs9KO8PVw\"\}"]
 #puts [hue::get_cuxd_device_map]
-
+#puts [hue::get_scene_name_id_map "xxxxxxxxxxxxxxxxxx"]

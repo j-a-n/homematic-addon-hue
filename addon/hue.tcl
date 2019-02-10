@@ -120,6 +120,17 @@ proc main {} {
 					}
 				} elseif {$k == "xy"} {
 					append json "\"${k}\":\[${v}\],"
+				} elseif {$k == "scene"} {
+					if {![regexp {[a-zA-Z0-9\-]{15}} $v]} {
+						# Not a scene id
+						array set scene_map [hue::get_scene_name_id_map $bridge_id]
+						if [catch {
+							set v $scene_map($v)
+						} err] {
+							error "Failed to find scene with name ${v}."
+						}
+					}
+					append json "\"${k}\":\"${v}\","
 				} else {
 					set nm ""
 					regexp {^(-?\d+)$} $v match nm
