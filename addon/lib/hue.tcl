@@ -594,6 +594,7 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 			#set lights [split $lights ","]
 			set light_num 0
 			set bri_sum 0
+			set any_reachable 0
 			foreach light [split $lights ","] {
 				set light_num [expr {$light_num + 1}]
 				set light [string map {"\"" ""} $light]
@@ -601,9 +602,21 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 				#hue::write_log 4 "Light ${light}: ${ldata}"
 				regexp {\"bri\"\s*:\s*(\d+)} $light_data match bri
 				set bri_sum [expr {$bri_sum + $bri}]
+				if {$any_reachable == 0} {
+					if {[regexp {\"reachable\"\s*:\s*(true|false)} $light_data match reachable]} {
+						if {$reachable == "true"} {
+							set any_reachable 1
+						}
+					}
+				}
 			}
 			set val [expr {$bri_sum / $light_num}]
-			hue::write_log 4 "Calculated group brightness: ${val}"
+			if {$any_reachable == 0} {
+				set st [lreplace $st 0 0 "false"]
+			} else {
+				set st [lreplace $st 0 0 "true"]
+			}
+			hue::write_log 4 "Calculated group reachable: ${any_reachable}, brightness: ${val}"
 		}
 	} else {
 		regexp {\"bri\"\s*:\s*(\d+)} $data match val
