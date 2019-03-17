@@ -58,6 +58,9 @@ command        | description
 The `request` command can be use to send a raw api request.
 [Philips Hue API documentation](https://developers.meethue.com/philips-hue-api).
 
+You can add the parameter `sleep:ms` to delay light and group command for the given milliseconds.
+
+
 ### Examples
 Turn on light 1 and set saturation, hue and brightness:  
 `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 1 on:true hue:1000 sat:200 bri:100`

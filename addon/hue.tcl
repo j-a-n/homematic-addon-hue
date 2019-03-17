@@ -55,12 +55,12 @@ proc usage {} {
 	puts stderr "  light <light-id> \[parm:val\]...         control a light"
 	puts stderr "    light-id : id of the light to control"
 	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode"
+	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode,sleep"
 	puts stderr ""
 	puts stderr "  group <group-id> \[parm:val\]...         control a group"
 	puts stderr "    group-id : id of the group to control"
 	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode"
+	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode,sleep"
 }
 
 proc schedule_update {bridge_id obj num {delay_seconds 0}} {
@@ -82,6 +82,7 @@ proc main {} {
 	set cmd [string tolower [lindex $argv 1]]
 	set num [lindex $argv 2]
 	set bri_mode "abs"
+	set sleep 0
 	
 	if {$cmd == "request"} {
 		if {$argc < 4} {
@@ -114,7 +115,9 @@ proc main {} {
 			regexp {(.*)[=:](.*$)} $a match k v
 			if {[info exists v]} {
 				lappend keys $k
-				if {$k == "bri_mode"} {
+				if {$k == "sleep"} {
+					set sleep [expr {0 + $v}]
+				} elseif {$k == "bri_mode"} {
 					if {$v == "abs" || $v == "inc"} {
 						set bri_mode $v
 					}
@@ -206,6 +209,11 @@ proc main {} {
 			set json [string range $json 0 end-1]
 		}
 		append json "\}"
+		
+		if {$sleep > 0} {
+			hue::write_log 4 "Sleep ${sleep} ms"
+			after $sleep
+		}
 		
 		#hue::acquire_bridge_lock $bridge_id
 		hue::write_log 4 "request: ${path} ${json}"
