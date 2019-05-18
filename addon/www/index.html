@@ -112,7 +112,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						$('#test-command-output').addClass('error');
 						$('#test-command-output').removeClass('success');
 					}
-					$('#test-command-output').html('<pre>' + data.output + '</pre>');
+					$('#test-command-output').html('<pre>' + data.output.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</pre>');
 				});
 			}
 		}
