@@ -8,6 +8,9 @@
 * Install addon package on ccu via system control
 * Open Philips Hue addon configuration in system control and add your Hue Bridges (http://ccu-ip/addons/hue/index.html)
 * Set a poll interval if you want to frequently update the state of the CUxD devices with the state from your hue bridge.
+* Click the bridge info button to see the list of lights, groups and scenes.
+* Click on "Create CUxD-Dimmmer" to create a new device.
+* Go to the device inbox in HomeMatic Web-UI to complete the device configuration.
 
 ### Multi-DIM-Device
 * Create new (28) System device in CUxD for each group or light
