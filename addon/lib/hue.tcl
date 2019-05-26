@@ -19,6 +19,7 @@
 #    https://developers.meethue.com/documentation/getting-started
 
 load tclrega.so
+load tclrpc.so
 
 source /usr/local/addons/hue/lib/ini.tcl
 
@@ -32,11 +33,12 @@ namespace eval hue {
 	variable lock_id_log_file 1
 	variable lock_id_ini_file 2
 	variable lock_id_bridge_start 3
-	variable poll_state_interval 0
+	variable poll_state_interval 5
 	variable ignore_unreachable 0
 	variable devicetype "homematic-addon-hue#ccu"
 	variable curl "/usr/local/addons/cuxd/curl"
 	variable cuxd_ps "/usr/local/addons/cuxd/cuxd.ps"
+	variable cuxd_xmlrpc_url "xmlrpc_bin://127.0.0.1:8701"
 }
 
 
@@ -342,13 +344,17 @@ proc ::hue::delete_bridge {bridge_id} {
 	release_lock $lock_id_ini_file
 }
 
-proc ::hue::http_request {ip port method path data} {
+proc ::hue::http_request {ip port method path {data ""} {content_type ""}} {
 	set sock [socket $ip $port]
 	puts $sock "${method} ${path} HTTP/1.1"
 	puts $sock "Host: ${ip}:${port}"
 	puts $sock "User-Agent: cuxd"
-	puts $sock "Content-Type: application/json"
-	puts $sock "Content-Length: [string length $data]"
+	if {$content_type != ""} {
+		puts $sock "Content-Type: ${content_type}"
+	}
+	if {$data != ""} {
+		puts $sock "Content-Length: [string length $data]"
+	}
 	puts $sock ""
 	puts -nonewline $sock $data
 	flush $sock
@@ -361,7 +367,7 @@ proc ::hue::http_request {ip port method path data} {
 		}
 	}
 	if {$response == ""} {
-		error "Failed to connect to hue bridge at address $ip"
+		error "Failed to connect to server at address $ip"
 	}
 	catch { close $sock }
 	return $response
@@ -372,11 +378,11 @@ proc ::hue::api_request {ip port username method path {data ""}} {
 		set path [string range $path 1 end]
 	}
 	set path "/api/${username}/${path}"
-	return [http_request $ip $port $method $path $data]
+	return [http_request $ip $port $method $path $data "application/json"]
 }
 
 proc ::hue::api_establish_link {ip port} {
-	set response [http_request $ip $port "POST" "/api" "\{\"devicetype\":\"${hue::devicetype}\"\}"]
+	set response [http_request $ip $port "POST" "/api" "\{\"devicetype\":\"${hue::devicetype}\"\}" "application/json"]
 	regexp {"success":.*"username"\s*:\s*"([a-zA-Z0-9]+)"} $response match username
 	if {[info exists username]} {
 		return $username
@@ -419,38 +425,39 @@ proc ::hue::get_scene_name_id_map {bridge_id} {
 	return [array get scenes]
 }
 
-proc ::hue::get_cuxd_channels_max {device} {
-	variable cuxd_ps
-	set result {254 347 65535 254 255 255 255 255 255 255 255 255 255 255 255 255}
-	regexp "^.*CUX(\\d\\d)(\\d+)$" $device match typenum devnum
-	if { [info exists match] } {
-		set fp [open $cuxd_ps r]
-		fconfigure $fp -buffering line
-		gets $fp data
-		set dev_seen 0
-		while {$data != ""} {
-			if {$data == "${typenum} ${devnum}"} {
-				set dev_seen 1
-			} elseif {$dev_seen == 1} {
-				if {[string first " MAX" $data] != -1} {
-					set tmp [split $data " "]
-					set i 0
-					hue::write_log 4 "${device}: ${tmp}"
-					foreach val [lrange $tmp 2 17] {
-						set result [linsert $result $i [expr {0 + $val}]]
-						set i [expr {$i+1}]
-					}
-					break
-				}
-			}
-			gets $fp data
-		}
-		close $fp
+proc ::hue::get_cuxd_channels_min_max {device} {
+	variable cuxd_xmlrpc_url
+	if {[regexp {CUxD\.(\S+)} $device match addr]} {
+		set device $addr
 	}
-	return $result
+	set ct_min 153
+	set bri_min 0
+	set hue_min 0
+	set sat_min 0
+	set command [lindex [xmlrpc $cuxd_xmlrpc_url getParamset [list string $device] [list string "MASTER"]] 3]
+	if {[regexp {ct_min:(\d+)} $command match val]} {
+		set ct_min [expr {0 + $val}]
+	} else {
+	hue::write_log 3 "device ${device} - ct_min not found in command, using default: ${ct_min}"
+	}
+	set bri_max [expr {0 + [lindex [xmlrpc $cuxd_xmlrpc_url getParamset [list string $device:2] [list string "MASTER"]] 3]}]
+	set ct_max [expr {$ct_min + [lindex [xmlrpc $cuxd_xmlrpc_url getParamset [list string $device:3] [list string "MASTER"]] 3]}]
+	set hue_max [lindex [xmlrpc $cuxd_xmlrpc_url getParamset [list string $device:4] [list string "MASTER"]] 3]
+	if {$hue_max == ""} {
+		set hue_max 0
+	} else {
+		set hue_max [expr {0 + $hue_max}]
+	}
+	set sat_max [lindex [xmlrpc $cuxd_xmlrpc_url getParamset [list string $device:5] [list string "MASTER"]] 3]
+	if {$sat_max == ""} {
+		set sat_max 0
+	} else {
+		set sat_max [expr {0 + $sat_max}]
+	}
+	return [list $bri_min $bri_max $ct_min $ct_max $hue_min $hue_max $sat_min $sat_max]
 }
 
-proc ::hue::get_cuxd_device_map {} {
+proc ::hue::get_cuxd_device_map_cuxd_ps {} {
 	variable cuxd_ps
 	variable dmap
 	set fp [open $cuxd_ps r]
@@ -479,6 +486,31 @@ proc ::hue::get_cuxd_device_map {} {
 		gets $fp data
 	}
 	close $fp
+	return [array get dmap]
+}
+
+proc ::hue::get_cuxd_device_map {} {
+	variable cuxd_xmlrpc_url
+	variable dmap
+	
+	set devices [xmlrpc $cuxd_xmlrpc_url listDevices]
+	foreach device $devices {
+		set address [lindex $device 1]
+		if {[regexp {^CUX(28|40)(00|02)(\d\d\d)} $address match dtype dtype2 serial]} {
+			set paramset [xmlrpc $cuxd_xmlrpc_url getParamset [list string $address] [list string "MASTER"]]
+			if {$dtype == 28} {
+				set command [lindex $paramset 3]
+			} else {
+				set command [lindex $paramset 5]
+			}
+			if {$command != ""} {
+				if {[regexp ".*hue\\.tcl\\s+(\\S+)\\s+(light|group)\\s+(\\d+)" $command match bridge_id obj num]} {
+					set dmap(${address}) "${bridge_id}_${obj}_${num}"
+					hue::write_log 4 "get_cuxd_device_map: device=${address} mapped=${bridge_id}_${obj}_${num}"
+				}
+			}
+		}
+	}
 	return [array get dmap]
 }
 
@@ -515,17 +547,27 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 		}
 	}
 	
-	set max [get_cuxd_channels_max $device]
-	hue::write_log 4 "get_cuxd_channels_max: ${max}"
+	set mm [get_cuxd_channels_min_max $device]
+	hue::write_log 4 "get_cuxd_channels_min_max: ${mm}"
 	
-	set bri [ format "%.2f" [expr {double($bri) / [lindex $max 0]}] ]
+	set bri [ format "%.2f" [expr {double($bri) / [lindex $mm 1]}] ]
 	if {$bri > 1.0} { set bri 1.0 }
-	set ct  [ format "%.2f" [expr {double($ct - 153) / [lindex $max 1]}] ]
+	
+	set ct [ format "%.2f" [expr {double($ct - [lindex $mm 2]) / double([lindex $mm 3] - [lindex $mm 2])}] ]
 	if {$ct > 1.0} { set ct 1.0 }
-	set hue [ format "%.2f" [expr {double($hue) / [lindex $max 2]}] ]
-	if {$hue > 1.0} { set hue 1.0 }
-	set sat [ format "%.2f" [expr {double($sat) / [lindex $max 3]}] ]
-	if {$sat > 1.0} { set sat 1.0 }
+	
+	set hue 0.0
+	if {[lindex $mm 5] > 0} {
+		set hue [ format "%.2f" [expr {double($hue) / [lindex $mm 5]}] ]
+		if {$hue > 1.0} { set hue 1.0 }
+	}
+	
+	set sat 0.0
+	if {[lindex $mm 7] > 0} {
+		set sat [ format "%.2f" [expr {double($sat) / [lindex $mm 7]}] ]
+		if {$sat > 1.0} { set sat 1.0 }
+	}
+	
 	if {$reachable == "false" || $reachable == 0} {
 		set on 0
 	}
@@ -631,9 +673,198 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 	return $st
 }
 
+
+proc ::hue::get_free_cuxd_device_serial {dtype dtype2} {
+	set type "CUX[format %02s $dtype][format %02s $dtype2]"
+	set s "
+		string type = '${type}';
+		string deviceid;
+		integer maxSerial = 0;
+		foreach(deviceid, dom.GetObject(ID_DEVICES).EnumUsedIDs()) {
+			var device = dom.GetObject(deviceid);
+			if (device && device.Address().StartsWith(type)) {
+				integer serial = 0 + device.Address().Substr(7,8);
+				if (serial > maxSerial) {
+					maxSerial = serial;
+				}
+			}
+		}
+		WriteLine(maxSerial + 1);
+	"
+	hue::write_log 4 "rega_script ${s}"
+	array set res [rega_script $s]
+	set free_serial [string trim [encoding convertfrom utf-8 $res(STDOUT)]]
+	if {$free_serial >= 1000} {
+		error "No free serial found"
+	}
+	return [expr {0 + $free_serial}]
+}
+
+proc ::hue::urlencode {string} {
+	variable map
+	variable alphanumeric a-zA-Z0-9
+	for {set i 0} {$i <= 256} {incr i} {
+		set c [format %c $i]
+		if {![string match \[$alphanumeric\] $c]} {
+			set map($c) %[format %.2x $i]
+		}
+	}
+	array set map { " " + \n %0d%0a }
+	regsub -all \[^$alphanumeric\] $string {$map(&)} string
+	regsub -all {[][{})\\]\)} $string {\\&} string
+	return [subst -nocommand $string]
+}
+
+proc ::hue::create_cuxd_device {dtype dtype2 serial name bridge_id obj num ct_min ct_max {color 0}} {
+	variable cuxd_xmlrpc_url
+	
+	if {$serial <= 0} {
+		set serial [get_free_cuxd_device_serial $dtype $dtype2]
+	}
+	set dtype [expr {0 + $dtype}]
+	set dtype2 [expr {0 + $dtype2}]
+	set serial [expr {0 + $serial}]
+	
+	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
+	set command "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} ct_min:${ct_min} transitiontime:0"
+	
+	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=10041"
+	set response [http_request "localhost" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
+	
+	set channels 2
+	if {$color} {
+		set channels 4
+	}
+	
+	set struct [list [list "CHANNELS" [list "int" $channels]] [list "CMD_EXEC" [list "string" $command]] [list "SYSLOG" [list "bool" 0]] ]
+	xmlrpc $cuxd_xmlrpc_url putParamset [list string $device] [list string "MASTER"] [list struct $struct]
+	
+	set struct [list [list "EXEC_ON_CHANGE" [list "bool" 1]] [list "MAX_VAL" [list "int" 254]]]
+	xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:2"] [list string "MASTER"] [list struct $struct]
+	set struct [list [list "EXEC_ON_CHANGE" [list "bool" 1]] [list "MAX_VAL" [list "int" [expr {$ct_max - $ct_min}]]]]
+	xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:3"] [list string "MASTER"] [list struct $struct]
+	if {$channels == 4} {
+		set struct [list [list "EXEC_ON_CHANGE" [list "bool" 1]] [list "MAX_VAL" [list "int" 65535]]]
+		xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:4"] [list string "MASTER"] [list struct $struct]
+		set struct [list [list "EXEC_ON_CHANGE" [list "bool" 1]] [list "MAX_VAL" [list "int" 254]]]
+		xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:5"] [list string "MASTER"] [list struct $struct]
+	}
+	#puts [xmlrpc $cuxd_xmlrpc_url getParamset [list string $address] [list string "MASTER"] ]
+	#puts [xmlrpc $cuxd_xmlrpc_url getParamset [list string "${address}:2"] [list string "MASTER"] ]
+	#puts [xmlrpc $cuxd_xmlrpc_url getParamset [list string "${address}:3"] [list string "MASTER"] ]
+	#puts [xmlrpc $cuxd_xmlrpc_url getParamset [list string "${address}:4"] [list string "MASTER"] ]
+	#puts [xmlrpc $cuxd_xmlrpc_url getParamset [list string "${address}:5"] [list string "MASTER"] ]
+	
+	after 5000
+	
+	# http://www.wikimatic.de/wiki/Kategorie:Methoden
+	
+	set ch1 [encoding convertfrom identity [string map {. ,} "${name} - Status aktualisieren"]]
+	set ch2 [encoding convertfrom identity [string map {. ,} "${name} - Helligkeit"]]
+	set ch3 [encoding convertfrom identity [string map {. ,} "${name} - Farbtemperatur"]]
+	set ch4 [encoding convertfrom identity [string map {. ,} "${name} - Farbton"]]
+	set ch5 [encoding convertfrom identity [string map {. ,} "${name} - Sättigung"]]
+	
+	set s "
+		object devices = dom.GetObject(ID_DEVICES);
+		if (devices) {
+			string id = '';
+			foreach(id, devices.EnumEnabledIDs()) {
+				object device = dom.GetObject(id);
+				if (device && (device.Address() == '${device}')) {
+					string channelId;
+					foreach(channelId, device.Channels()) {
+						object channel = dom.GetObject(channelId);
+						if ((channel.ChnNumber() >= 1) && (channel.ChnNumber() <= ${channels} + 1)) {
+							if (channel.ChnNumber() == 1) {
+								channel.Name('${ch1}');
+							}
+							elseif (channel.ChnNumber() == 2) {
+								channel.Name('${ch2}');
+							}
+							elseif (channel.ChnNumber() == 3) {
+								channel.Name('${ch3}');
+							}
+							elseif (channel.ChnNumber() == 4) {
+								channel.Name('${ch4}');
+							}
+							elseif (channel.ChnNumber() == 5) {
+								channel.Name('${ch5}');
+							}
+							WriteLine(channel.Name());
+						}
+					}
+				}
+			}
+		}
+	"
+	hue::write_log 4 "rega_script ${s}"
+	array set res [rega_script $s]
+	set stdout [encoding convertfrom utf-8 $res(STDOUT)]
+	hue::write_log 4 "${stdout}"
+	
+	return $device
+	
+	set s "
+		object devices = dom.GetObject(ID_DEVICES);
+		if (devices) {
+			string id = '';
+			foreach(id, devices.EnumEnabledIDs()) {
+				object device = dom.GetObject(id);
+				if (device && (device.Address() == '${device}') && (device.ReadyConfig() == false)) {
+					var devId = id;
+					Call('devices.fn::setReadyConfig()');
+					WriteLine(id);
+				}
+			}
+		}
+	"
+	##hue::write_log 4 "rega_script ${s}"
+	array set res [rega_script $s]
+	set device_id [string trim [encoding convertfrom utf-8 $res(STDOUT)]]
+	#puts $device_id
+	
+	return $device
+	
+	set s "
+		object devices = dom.GetObject(ID_DEVICES);
+		if (devices) {
+			string id = '';
+			foreach(id, devices.EnumEnabledIDs()) {
+				object device = dom.GetObject(id);
+				if (device && (device.Address() == '${device}') && (device.ReadyConfig() == false)) {
+					string channelId;
+					foreach(channelId, device.Channels()) {
+						object channel = dom.GetObject(channelId);
+						channel.ReadyConfig(true);
+					}
+					device.ReadyConfig(true, false);
+					WriteLine(id);
+				}
+			}
+		}
+	"
+	##hue::write_log 4 "rega_script ${s}"
+	array set res [rega_script $s]
+	set device_id [string trim [encoding convertfrom utf-8 $res(STDOUT)]]
+	#puts $device_id
+	
+	return $device
+}
+
+proc ::hue::delete_cuxd_device {id} {
+	set data "dselect=${id}"
+	set response [http_request "localhost" 80 "POST" "/addons/cuxd/index.ccc?m=4" $data "application/x-www-form-urlencoded"]
+	puts $response
+}
+
 hue::read_global_config
 
-#hue::api_register
+#puts [hue::get_free_cuxd_device_serial 28 2]
+#hue::create_cuxd_device 28 2 0 "Test Hue" "xxxxxxxxxxxxxxxxx" "light" 15 153 500 0
+#hue::create_cuxd_device
+#hue::delete_cuxd_device "2802010"
+#puts [hue::get_cuxd_channels_min_max "CUX2802003"]
 #puts [hue::request "PUT" "lights/1/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
 #puts [hue::request "PUT" "lights/2/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
 #puts [hue::request "PUT" "lights/1/state" "\{\"alert\":\"select\"\}"]

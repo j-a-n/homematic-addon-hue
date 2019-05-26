@@ -55,12 +55,12 @@ proc usage {} {
 	puts stderr "  light <light-id> \[parm:val\]...         control a light"
 	puts stderr "    light-id : id of the light to control"
 	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode,sleep"
+	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode,sleep,ct_min"
 	puts stderr ""
 	puts stderr "  group <group-id> \[parm:val\]...         control a group"
 	puts stderr "    group-id : id of the group to control"
 	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode,sleep"
+	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode,sleep,ct_min"
 }
 
 proc schedule_update {bridge_id obj num {delay_seconds 0}} {
@@ -83,6 +83,7 @@ proc main {} {
 	set num [lindex $argv 2]
 	set bri_mode "abs"
 	set sleep 0
+	set ct_min 153
 	
 	if {$cmd == "request"} {
 		if {$argc < 4} {
@@ -117,6 +118,8 @@ proc main {} {
 				lappend keys $k
 				if {$k == "sleep"} {
 					set sleep [expr {0 + $v}]
+				} elseif {$k == "ct_min"} {
+					set ct_min [expr {0 + $v}]
 				} elseif {$k == "bri_mode"} {
 					if {$v == "abs" || $v == "inc"} {
 						set bri_mode $v
@@ -190,9 +193,9 @@ proc main {} {
 					set val [expr {$val - $bri}]
 				}
 			} elseif {$chan == 3} {
-				set val [expr {$val + 153}]
+				set val [expr {$val + $ct_min}]
 				set key "ct"
-				# 153 - 500 mirek
+				# mirek, range depends on device (i.e. 153 - 500)
 			} elseif {$chan == 4} {
 				set key "hue"
 				# 0 - 65535

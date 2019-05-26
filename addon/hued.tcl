@@ -55,6 +55,8 @@ proc check_update {} {
 			set tmp [split $o "_"]
 			if {[catch {update_cuxd_device [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]} errmsg]} {
 				hue::write_log 2 "Failed to update [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]: $errmsg"
+				# Device deleted? => refresh device map
+				set last_schedule_update 0
 			}
 			if {$hue::poll_state_interval > 0} {
 				set update_schedule($o) [expr {[clock seconds] + $hue::poll_state_interval}]

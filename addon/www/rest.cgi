@@ -83,6 +83,24 @@ proc process {} {
 				}
 			}
 			return $config
+		} elseif {[lindex $path 1] == "create-cuxd-device"} {
+			regexp {\"dtype\"\s*:\s*(\d+)} $data match dtype
+			regexp {\"dtype2\"\s*:\s*(\d+)} $data match dtype2
+			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
+			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name
+			regexp {\"bridge_id\"\s*:\s*\"([^\"]+)\"} $data match bridge_id
+			regexp {\"obj\"\s*:\s*\"([^\"]+)\"} $data match obj
+			regexp {\"num\"\s*:\s*(\d+)} $data match num
+			regexp {\"ct_min\"\s*:\s*(\d+)} $data match ct_min
+			regexp {\"ct_max\"\s*:\s*(\d+)} $data match ct_max
+			regexp {\"color\"\s*:\s*(false|true)} $data match color
+			if {$color == "true"} {
+				set color 1
+			} else {
+				set color 0
+			}
+			set res [hue::create_cuxd_device $dtype $dtype2 $serial $name $bridge_id $obj $num $ct_min $ct_max $color]
+			return "\"${res}\""
 		} elseif {[lindex $path 1] == "config"} {
 			if {$plen == 1} {
 				if {$env(REQUEST_METHOD) == "GET"} {
