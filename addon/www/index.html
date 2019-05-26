@@ -418,14 +418,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								//console.info(light);
 								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Light ' + light_id));
 								
-								let div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-Dimmer</div>');
+								let div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-dimmer</div>');
 								div.data('light', light);
 								div.click(function() {
 									create_cuxd_device('dimmer', bridge_id, 'light', light_id, $(this).data('light'));
 								});
 								$('#bridge-info-content').append(div);
 								
-								div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-Switch</div>');
+								div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-switch</div>');
 								div.data('light', light);
 								div.click(function() {
 									create_cuxd_device('switch', bridge_id, 'light', light_id, $(this).data('light'));
@@ -438,14 +438,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								//console.info(group);
 								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Group ' + group_id));
 								
-								let div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-Dimmer</div>');
+								let div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-dimmer</div>');
 								div.data('group', group);
 								div.click(function() {
 									create_cuxd_device('dimmer', bridge_id, 'group', group_id, $(this).data('group'));
 								});
 								$('#bridge-info-content').append(div);
 								
-								div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-Switch</div>');
+								div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-switch</div>');
 								div.data('group', group);
 								div.click(function() {
 									create_cuxd_device('switch', bridge_id, 'group', group_id, $(this).data('group'));
