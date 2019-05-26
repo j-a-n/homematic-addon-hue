@@ -9,40 +9,12 @@
 * Open Philips Hue addon configuration in system control and add your Hue Bridges (http://ccu-ip/addons/hue/index.html)
 * Set a poll interval if you want to frequently update the state of the CUxD devices with the state from your hue bridge.
 * Click the bridge info button to see the list of lights, groups and scenes.
-* Click on "Create CUxD-Dimmmer" to create a new device.
+* Click on Create `CUxD-Dimmmer` or `Create CUxD-Switch` to create a new device.
 * Go to the device inbox in HomeMatic Web-UI to complete the device configuration.
 
-### Multi-DIM-Device
-* Create new (28) System device in CUxD for each group or light
-  * Function: Multi-DIM-Exec
-  * Serialnumber: choose a free one
-  * Name: choose one, i.e: `Hue Group 1`
-  * Device-Icon: some dimmer icon
-* Configure new device in HomeMatic Web-UI (device inbox)
-  * Channels: 4
-  * CMD_EXEC: `/usr/local/addons/hue/hue.tcl <bridge-id> group 1 transitiontime:0` (see usage for details)
-  * Ch.2 (brightness): DIMMER|MAX_VAL: 254
-  * Ch.3 (color temperature): DIMMER|MAX_VAL: 347 (or 301 for some tradfri devices)
-  * Ch.4 (hue): DIMMER|MAX_VAL: 65535
-  * Ch.5 (saturation): DIMMER|MAX_VAL: 254
-
+### Multi-DIM-Device (28)
 You can add the parameter `bri_mode:inc` to the command.
 This will keep the brightness difference of the lights in the group when using the dimmer.
-
-### Universal-Control-Device
-* Create new (40) 16-channel universal control device in CUxD
-  * Serialnumber: choose a free one
-  * Name: choose one, i.e: `Hue`
-  * Device-Icon: whatever you want
-  * Control: KEY
-* Configure new device in HomeMatic Web-UI (device inbox)
-  * CMD_EXEC: yes
-  * CMD_SHORT `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`
-
-#### Example for a simple on/off switch:
-* Control: SWITCH
-* CMD_SHORT `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:false`
-* CMD_LONG `/usr/local/addons/hue/hue.tcl 0234faae189721011 light 2 on:true`
 
 ## hue.tcl usage
 `/usr/local/addons/hue/hue.tcl <bridge-id> <command>`

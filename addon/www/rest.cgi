@@ -83,9 +83,7 @@ proc process {} {
 				}
 			}
 			return $config
-		} elseif {[lindex $path 1] == "create-cuxd-device"} {
-			regexp {\"dtype\"\s*:\s*(\d+)} $data match dtype
-			regexp {\"dtype2\"\s*:\s*(\d+)} $data match dtype2
+		} elseif {[lindex $path 1] == "create-cuxd-dimmer-device"} {
 			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
 			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name
 			regexp {\"bridge_id\"\s*:\s*\"([^\"]+)\"} $data match bridge_id
@@ -99,7 +97,15 @@ proc process {} {
 			} else {
 				set color 0
 			}
-			set res [hue::create_cuxd_device $dtype $dtype2 $serial $name $bridge_id $obj $num $ct_min $ct_max $color]
+			set res [hue::create_cuxd_dimmer_device $serial $name $bridge_id $obj $num $ct_min $ct_max $color]
+			return "\"${res}\""
+		} elseif {[lindex $path 1] == "create-cuxd-switch-device"} {
+			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
+			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name
+			regexp {\"bridge_id\"\s*:\s*\"([^\"]+)\"} $data match bridge_id
+			regexp {\"obj\"\s*:\s*\"([^\"]+)\"} $data match obj
+			regexp {\"num\"\s*:\s*(\d+)} $data match num
+			set res [hue::create_cuxd_switch_device $serial $name $bridge_id $obj $num]
 			return "\"${res}\""
 		} elseif {[lindex $path 1] == "config"} {
 			if {$plen == 1} {

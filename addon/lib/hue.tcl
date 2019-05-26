@@ -674,8 +674,11 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 }
 
 
-proc ::hue::get_free_cuxd_device_serial {dtype dtype2} {
-	set type "CUX[format %02s $dtype][format %02s $dtype2]"
+proc ::hue::get_free_cuxd_device_serial {dtype {dtype2 0}} {
+	set type "CUX[format %02s $dtype]"
+	if {$dtype2 > 0} {
+		set type "CUX[format %02s $dtype][format %02s $dtype2]"
+	}
 	set s "
 		string type = '${type}';
 		string deviceid;
@@ -715,14 +718,66 @@ proc ::hue::urlencode {string} {
 	return [subst -nocommand $string]
 }
 
-proc ::hue::create_cuxd_device {dtype dtype2 serial name bridge_id obj num ct_min ct_max {color 0}} {
+
+proc ::hue::create_cuxd_switch_device {serial name bridge_id obj num} {
 	variable cuxd_xmlrpc_url
+	set dtype 40
+	
+	if {$serial <= 0} {
+		set serial [get_free_cuxd_device_serial $dtype 0]
+	}
+	set serial [expr {0 + $serial}]
+	
+	set device "CUX[format %02s $dtype][format %05s $serial]"
+	set command_short "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:false"
+	set command_long "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:true"
+	
+	#set data "dtype=${dtype}&dserial=${serial}&dname=[urlencode $name]&dbase=10022&dcontrol=1"
+	set data "dtype=${dtype}&dserial=${serial}&dbase=10022&dcontrol=1"
+	set response [http_request "localhost" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
+	
+	set struct [list [list "CMD_EXEC" [list "bool" 1]] [list "CMD_SHORT" [list "string" $command_short]] [list "CMD_LONG" [list "string" $command_long]]]
+	xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:1"] [list string "MASTER"] [list struct $struct]
+	
+	after 5000
+	
+	set ch1 [encoding convertfrom identity [string map {. ,} "${name}"]]
+	
+	set s "
+		object devices = dom.GetObject(ID_DEVICES);
+		if (devices) {
+			string id = '';
+			foreach(id, devices.EnumEnabledIDs()) {
+				object device = dom.GetObject(id);
+				if (device && (device.Address() == '${device}')) {
+					string channelId;
+					foreach(channelId, device.Channels()) {
+						object channel = dom.GetObject(channelId);
+						if (channel.ChnNumber() == 1) {
+							channel.Name('${ch1}');
+							WriteLine(channel.Name());
+						}
+					}
+				}
+			}
+		}
+	"
+	hue::write_log 4 "rega_script ${s}"
+	array set res [rega_script $s]
+	set stdout [encoding convertfrom utf-8 $res(STDOUT)]
+	hue::write_log 4 "${stdout}"
+	
+	return $device
+}
+
+proc ::hue::create_cuxd_dimmer_device {serial name bridge_id obj num ct_min ct_max {color 0}} {
+	variable cuxd_xmlrpc_url
+	set dtype 28
+	set dtype2 2
 	
 	if {$serial <= 0} {
 		set serial [get_free_cuxd_device_serial $dtype $dtype2]
 	}
-	set dtype [expr {0 + $dtype}]
-	set dtype2 [expr {0 + $dtype2}]
 	set serial [expr {0 + $serial}]
 	
 	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
@@ -860,6 +915,7 @@ proc ::hue::delete_cuxd_device {id} {
 
 hue::read_global_config
 
+#hue::create_cuxd_switch_device 0 "test" "xxxxxxxxxxxx" "light" 15
 #puts [hue::get_free_cuxd_device_serial 28 2]
 #hue::create_cuxd_device 28 2 0 "Test Hue" "xxxxxxxxxxxxxxxxx" "light" 15 153 500 0
 #hue::create_cuxd_device

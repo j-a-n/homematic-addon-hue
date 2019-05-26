@@ -298,30 +298,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
-		function create_cuxd_device(bridge_id, obj_type, obj_id, obj) {
+		function create_cuxd_device(type, bridge_id, obj_type, obj_id, obj) {
 			$('.create-cuxd-dev').addClass('disabled');
 			$('.create-cuxd-dev').addClass('loading');
-			console.log(obj)
-			let ct_min = 153
-			let ct_max = 500
-			if (('capabilities' in obj) && ('control' in obj.capabilities) && ('ct' in obj.capabilities.control)) {
-				let ct_min = obj.capabilities.control.ct.min
-				let ct_max = obj.capabilities.control.ct.max
-			}
+			console.log(obj);
 			data = {
-				dtype: 28,
-				dtype2: 2,
 				serial: 0,
 				name: "Hue " + obj.name,
 				bridge_id: bridge_id,
 				obj: obj_type,
-				num: parseInt(obj_id),
-				ct_min: ct_min,
-				ct_max: ct_max,
-				color: ((obj_type == 'group') || (('capabilities' in obj) && ('colorgamut' in obj.capabilities)))
+				num: parseInt(obj_id)
+			};
+			if (type == 'dimmer') {
+				let ct_min = 153
+				let ct_max = 500
+				if (('capabilities' in obj) && ('control' in obj.capabilities) && ('ct' in obj.capabilities.control)) {
+					ct_min = obj.capabilities.control.ct.min
+					ct_max = obj.capabilities.control.ct.max
+				}
+				data.ct_min = ct_min;
+				data.ct_max = ct_max;
+				data.color = ((obj_type == 'group') || (('capabilities' in obj) && ('colorgamut' in obj.capabilities)));
 			};
 			console.log(data);
-			rest("POST", "/create-cuxd-device", JSON.stringify(data),
+			rest("POST", "/create-cuxd-" + type + "-device", JSON.stringify(data),
 				function(response) {
 					$('.create-cuxd-dev').removeClass('disabled');
 					$('.create-cuxd-dev').removeClass('loading');
@@ -417,23 +417,41 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							$.each(lights[bridge_id], function(light_id, light) {
 								//console.info(light);
 								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Light ' + light_id));
+								
 								let div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-Dimmer</div>');
 								div.data('light', light);
 								div.click(function() {
-									create_cuxd_device(bridge_id, 'light', light_id, $(this).data('light'));
+									create_cuxd_device('dimmer', bridge_id, 'light', light_id, $(this).data('light'));
 								});
 								$('#bridge-info-content').append(div);
+								
+								div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-Switch</div>');
+								div.data('light', light);
+								div.click(function() {
+									create_cuxd_device('switch', bridge_id, 'light', light_id, $(this).data('light'));
+								});
+								$('#bridge-info-content').append(div);
+								
 								$('#bridge-info-content').append(object_to_table(light));
 							});
 							$.each(groups[bridge_id], function(group_id, group) {
 								//console.info(group);
 								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Group ' + group_id));
+								
 								let div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-Dimmer</div>');
 								div.data('group', group);
 								div.click(function() {
-									create_cuxd_device(bridge_id, 'group', group_id, $(this).data('group'));
+									create_cuxd_device('dimmer', bridge_id, 'group', group_id, $(this).data('group'));
 								});
 								$('#bridge-info-content').append(div);
+								
+								div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-Switch</div>');
+								div.data('group', group);
+								div.click(function() {
+									create_cuxd_device('switch', bridge_id, 'group', group_id, $(this).data('group'));
+								});
+								$('#bridge-info-content').append(div);
+								
 								$('#bridge-info-content').append(object_to_table(group));
 							});
 							$.each(scenes[bridge_id], function(scene_id, scene) {
