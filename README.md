@@ -33,7 +33,7 @@ command        | description
 The `request` command can be use to send a raw api request.
 [Philips Hue API documentation](https://developers.meethue.com/philips-hue-api).
 
-You can add the parameter `sleep:ms` to delay light and group command for the given milliseconds.
+You can add the parameter `sleep:<ms>` to delay light and group command for the given milliseconds.
 
 
 ### Examples
