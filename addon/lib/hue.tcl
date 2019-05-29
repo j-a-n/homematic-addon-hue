@@ -556,16 +556,18 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 	set ct [ format "%.2f" [expr {double($ct - [lindex $mm 2]) / double([lindex $mm 3] - [lindex $mm 2])}] ]
 	if {$ct > 1.0} { set ct 1.0 }
 	
-	set hue 0.0
 	if {[lindex $mm 5] > 0} {
 		set hue [ format "%.2f" [expr {double($hue) / [lindex $mm 5]}] ]
 		if {$hue > 1.0} { set hue 1.0 }
+	} else {
+		set hue 0.0
 	}
 	
-	set sat 0.0
 	if {[lindex $mm 7] > 0} {
 		set sat [ format "%.2f" [expr {double($sat) / [lindex $mm 7]}] ]
 		if {$sat > 1.0} { set sat 1.0 }
+	} else {
+		set sat 0.0
 	}
 	
 	if {$reachable == "false" || $reachable == 0} {
