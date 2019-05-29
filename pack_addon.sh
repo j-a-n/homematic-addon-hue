@@ -9,5 +9,7 @@ for f in VERSION update_script addon ccu1 ccu2 ccurm hue; do
 done
 chmod 755 "${tmp_dir}/update_script"
 
+find $tmp_dir -iname "#*" -delete
 (cd ${tmp_dir}; tar --owner=root --group=root --exclude ".*~" -czvf "${addon_file}" .)
 rm -rf "${tmp_dir}"
+
