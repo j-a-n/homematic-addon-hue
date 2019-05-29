@@ -736,7 +736,7 @@ proc ::hue::create_cuxd_switch_device {serial name bridge_id obj num} {
 	
 	#set data "dtype=${dtype}&dserial=${serial}&dname=[urlencode $name]&dbase=10022&dcontrol=1"
 	set data "dtype=${dtype}&dserial=${serial}&dbase=10022&dcontrol=1"
-	set response [http_request "localhost" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
+	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
 	
 	set struct [list [list "CMD_EXEC" [list "bool" 1]] [list "CMD_SHORT" [list "string" $command_short]] [list "CMD_LONG" [list "string" $command_long]]]
 	xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:1"] [list string "MASTER"] [list struct $struct]
@@ -786,7 +786,7 @@ proc ::hue::create_cuxd_dimmer_device {serial name bridge_id obj num ct_min ct_m
 	set command "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} ct_min:${ct_min} transitiontime:0"
 	
 	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=10041"
-	set response [http_request "localhost" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
+	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
 	
 	set channels 2
 	if {$color} {
@@ -911,7 +911,7 @@ proc ::hue::create_cuxd_dimmer_device {serial name bridge_id obj num ct_min ct_m
 
 proc ::hue::delete_cuxd_device {id} {
 	set data "dselect=${id}"
-	set response [http_request "localhost" 80 "POST" "/addons/cuxd/index.ccc?m=4" $data "application/x-www-form-urlencoded"]
+	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?m=4" $data "application/x-www-form-urlencoded"]
 	puts $response
 }
 
