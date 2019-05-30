@@ -34,6 +34,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		var lights = {};
 		var groups = {};
 		var scenes = {};
+		var used_cuxd_device_serials = {
+			dimmer: [],
+			switch: []
+		};
 		var message_timer_id = null;
 		var establish_link_timer_id = null;
 		
@@ -298,6 +302,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function get_used_cuxd_device_serials() {
+			rest("POST", "/get-used-cuxd-device-serials", JSON.stringify({dtype: 28, dtype2: 2}),
+				function(response) {
+					used_cuxd_device_serials.dimmer = response;
+				}
+			);
+			rest("POST", "/get-used-cuxd-device-serials", JSON.stringify({dtype: 40}),
+				function(response) {
+					used_cuxd_device_serials.switch = response;
+				}
+			);
+		}
+		
 		function create_cuxd_device(type, bridge_id, obj_type, obj_id, obj) {
 			$('.create-cuxd-dev').addClass('disabled');
 			$('.create-cuxd-dev').addClass('loading');
@@ -318,19 +335,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 				data.ct_min = ct_min;
 				data.ct_max = ct_max;
-				data.color = ((obj_type == 'group') || (('capabilities' in obj) && ('colorgamut' in obj.capabilities)));
+				data.color = ((obj_type == 'group') || (('capabilities' in obj) && ('control' in obj.capabilities) && ('colorgamut' in obj.capabilities.control)));
 			};
 			console.log(data);
+			
 			rest("POST", "/create-cuxd-" + type + "-device", JSON.stringify(data),
 				function(response) {
 					$('.create-cuxd-dev').removeClass('disabled');
 					$('.create-cuxd-dev').removeClass('loading');
 					display_message('success', "CUxD device " + response + " created", 5000);
+					get_used_cuxd_device_serials();
 				},
 				function(xhr, ajaxOptions, thrownError) {
 					$('.create-cuxd-dev').removeClass('disabled');
 					$('.create-cuxd-dev').removeClass('loading');
 					default_error_callback(xhr, ajaxOptions, thrownError);
+					get_used_cuxd_device_serials();
 				}
 			);
 		}
@@ -603,6 +623,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		$(document).ready(function() {
+			get_used_cuxd_device_serials();
+			
 			$('#test-command').bind("keyup", function(event) {
 				if (event.keyCode === 13) {
 					execute_test_command();

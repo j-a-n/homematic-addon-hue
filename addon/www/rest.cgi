@@ -83,6 +83,13 @@ proc process {} {
 				}
 			}
 			return $config
+		} elseif {[lindex $path 1] == "get-used-cuxd-device-serials"} {
+			regexp {\"dtype\"\s*:\s*(\d+)} $data match dtype
+			set dtype2 0
+			regexp {\"dtype2\"\s*:\s*(\d+)} $data match dtype2
+			set serials [hue::get_used_cuxd_device_serials $dtype $dtype2]
+			set res [join $serials ", "]
+			return "\[${res}\]"
 		} elseif {[lindex $path 1] == "create-cuxd-dimmer-device"} {
 			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
 			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name

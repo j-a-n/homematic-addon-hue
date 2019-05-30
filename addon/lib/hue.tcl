@@ -676,7 +676,7 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 }
 
 
-proc ::hue::get_free_cuxd_device_serial {dtype {dtype2 0}} {
+proc ::hue::get_used_cuxd_device_serials {dtype {dtype2 0}} {
 	set type "CUX[format %02s $dtype]"
 	if {$dtype2 > 0} {
 		set type "CUX[format %02s $dtype][format %02s $dtype2]"
@@ -684,25 +684,34 @@ proc ::hue::get_free_cuxd_device_serial {dtype {dtype2 0}} {
 	set s "
 		string type = '${type}';
 		string deviceid;
-		integer maxSerial = 0;
 		foreach(deviceid, dom.GetObject(ID_DEVICES).EnumUsedIDs()) {
 			var device = dom.GetObject(deviceid);
 			if (device && device.Address().StartsWith(type)) {
 				integer serial = 0 + device.Address().Substr(7,8);
-				if (serial > maxSerial) {
-					maxSerial = serial;
-				}
+				WriteLine(serial);
 			}
 		}
-		WriteLine(maxSerial + 1);
 	"
 	hue::write_log 4 "rega_script ${s}"
 	array set res [rega_script $s]
-	set free_serial [string trim [encoding convertfrom utf-8 $res(STDOUT)]]
-	if {$free_serial >= 1000} {
-		error "No free serial found"
+	set serials [string trim [encoding convertfrom utf-8 $res(STDOUT)]]
+	#if {$free_serial >= 1000} {
+	#	error "No free serial found"
+	#}
+	#return [expr {0 + $free_serial}]
+	#puts [split $serials "\r\n"]
+	set serials [split [string map {"\r" ""} $serials] "\n"]
+	set serials [lsort -integer $serials]
+	return $serials
+}
+
+proc ::hue::get_free_cuxd_device_serial {dtype {dtype2 0}} {
+	set serials [get_used_cuxd_device_serials $dtype $dtype2]
+	set max_serial [lindex $serials end]
+	if {$max_serial == ""} {
+		set max_serial 0
 	}
-	return [expr {0 + $free_serial}]
+	return [expr {$max_serial + 1}]
 }
 
 proc ::hue::urlencode {string} {
@@ -917,8 +926,10 @@ proc ::hue::delete_cuxd_device {id} {
 
 hue::read_global_config
 
+#hue::get_used_cuxd_device_serials 28 2
+#puts [hue::get_free_cuxd_device_serial 40]
+
 #hue::create_cuxd_switch_device 0 "test" "xxxxxxxxxxxx" "light" 15
-#puts [hue::get_free_cuxd_device_serial 28 2]
 #hue::create_cuxd_device 28 2 0 "Test Hue" "xxxxxxxxxxxxxxxxx" "light" 15 153 500 0
 #hue::create_cuxd_device
 #hue::delete_cuxd_device "2802010"
