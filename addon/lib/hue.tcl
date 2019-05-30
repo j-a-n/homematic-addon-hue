@@ -28,6 +28,7 @@ namespace eval hue {
 	variable ini_file "/usr/local/addons/hue/etc/hue.conf"
 	variable log_file "/tmp/hue-addon-log.txt"
 	variable log_level 0
+	variable api_log "off"
 	variable lock_start_port 11200
 	variable lock_socket
 	variable lock_id_log_file 1
@@ -39,6 +40,8 @@ namespace eval hue {
 	variable curl "/usr/local/addons/cuxd/curl"
 	variable cuxd_ps "/usr/local/addons/cuxd/cuxd.ps"
 	variable cuxd_xmlrpc_url "xmlrpc_bin://127.0.0.1:8701"
+	variable hued_address "127.0.0.1"
+	variable hued_port 1919
 }
 
 
@@ -102,6 +105,7 @@ proc ::hue::acquire_lock {lock_id} {
 	set port [expr { $lock_start_port + $lock_id }]
 	set tn 0
 	# 'socket already in use' error will be our lock detection mechanism
+	#write_log 0 "acquire lock ${lock_id}" 0
 	while {1} {
 		set tn [expr {$tn + 1}]
 		if { [catch {socket -server dummy_accept $port} sock] } {
@@ -109,7 +113,7 @@ proc ::hue::acquire_lock {lock_id} {
 				write_log 1 "Failed to acquire lock ${lock_id} after 2500ms, ignoring lock" 0
 				break
 			}
-			after 25
+			after 5
 		} else {
 			set lock_socket($lock_id) $sock
 			break
@@ -143,6 +147,21 @@ proc ::hue::convert_string_to_hex {str} {
 	binary scan $str H* hex
 	return $hex
 }
+
+proc ::hue::hued_command {command {params {}}} {
+	variable hued_address
+	variable hued_port
+	set params [join $params " "]
+	hue::write_log 4 "Sending command to hued: ${command} ${params}"
+	set chan [socket $hued_address $hued_port]
+	puts $chan "${command} ${params}"
+	flush $chan
+	set res [gets $chan]
+	hue::write_log 4 "Command response from hued: $res"
+	close $chan
+	return $res
+}
+
 
 proc ::hue::discover_bridges {} {
 	variable curl
@@ -195,13 +214,14 @@ proc ::hue::get_config_bridge_ids {} {
 	return $bridge_ids
 }
 
-proc ::hue::update_global_config {log_level poll_state_interval ignore_unreachable} {
+proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable} {
 	variable ini_file
 	variable lock_id_ini_file
-	write_log 4 "Updating global config: log_level=${log_level} poll_state_interval=${poll_state_interval}"
+	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} ignore_unreachable=${ignore_unreachable}"
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r+]
 	ini::set $ini "global" "log_level" $log_level
+	ini::set $ini "global" "api_log" $api_log
 	ini::set $ini "global" "poll_state_interval" $poll_state_interval
 	if {$ignore_unreachable == "true" || $ignore_unreachable == "1"} {
 		ini::set $ini "global" "ignore_unreachable" "1"
@@ -216,13 +236,16 @@ proc ::hue::read_global_config {} {
 	variable ini_file
 	variable lock_id_ini_file
 	variable log_level
+	variable api_log
 	variable poll_state_interval
 	variable ignore_unreachable
+	
 	write_log 4 "Reading global config"
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
 	catch {
 		set log_level [expr { 0 + [::ini::value $ini "global" "log_level" $log_level] }]
+		set api_log [::ini::value $ini "global" "api_log" $api_log]
 		set poll_state_interval [expr { 0 + [::ini::value $ini "global" "poll_state_interval" $poll_state_interval] }]
 		set ignore_unreachable [expr { 0 + [::ini::value $ini "global" "ignore_unreachable" $ignore_unreachable] }]
 	}
@@ -234,15 +257,17 @@ proc ::hue::get_config_json {} {
 	variable ini_file
 	variable lock_id_ini_file
 	variable log_level
+	variable api_log
 	variable poll_state_interval
 	variable ignore_unreachable
+	
 	set iu "false"
 	if {$ignore_unreachable} {
 		set iu "true"
 	}
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
-	set json "\{\"global\":\{\"log_level\":${log_level},\"poll_state_interval\":${poll_state_interval},\"ignore_unreachable\":${iu}\},\"bridges\":\["
+	set json "\{\"global\":\{\"log_level\":${log_level},\"api_log\":\"${api_log}\"\,\"poll_state_interval\":${poll_state_interval},\"ignore_unreachable\":${iu}\},\"bridges\":\["
 	set count 0
 	foreach section [ini::sections $ini] {
 		set idx [string first "bridge_" $section]
@@ -373,16 +398,28 @@ proc ::hue::http_request {ip port method path {data ""} {content_type ""}} {
 	return $response
 }
 
-proc ::hue::api_request {ip port username method path {data ""}} {
+proc ::hue::api_request {type ip port username method path {data ""}} {
+	variable api_log
 	if {[string first "/" $path] == 0} {
 		set path [string range $path 1 end]
 	}
 	set path "/api/${username}/${path}"
-	return [http_request $ip $port $method $path $data "application/json"]
+	set log 0
+	if {$api_log == "all" || $type == $api_log} {
+		set log 1
+	}
+	if {$log} {
+		hue::write_log 0 "api request: ${ip} - ${method} - ${path} - ${data}"
+	}
+	set res [http_request $ip $port $method $path $data "application/json"]
+	if {$log} {
+		hue::write_log 0 "api response: ${res}"
+	}
+	return res
 }
 
 proc ::hue::api_establish_link {ip port} {
-	set response [http_request $ip $port "POST" "/api" "\{\"devicetype\":\"${hue::devicetype}\"\}" "application/json"]
+	set response [api_request "command" $ip $port "POST" "/api" "\{\"devicetype\":\"${hue::devicetype}\"\}"]
 	regexp {"success":.*"username"\s*:\s*"([a-zA-Z0-9]+)"} $response match username
 	if {[info exists username]} {
 		return $username
@@ -390,7 +427,7 @@ proc ::hue::api_establish_link {ip port} {
 	error $response
 }
 
-proc ::hue::request {bridge_id method path {data ""}} {
+proc ::hue::request {type bridge_id method path {data ""}} {
 	set abridge [get_bridge $bridge_id]
 	array set bridge $abridge
 	
@@ -403,7 +440,10 @@ proc ::hue::request {bridge_id method path {data ""}} {
 	if {$bridge(username) == ""} {
 		error "Hue bridge ${bridge_id} username not configured"
 	}
-	return [api_request $bridge(ip) $bridge(port) $bridge(username) $method $path $data]
+	#acquire_bridge_lock $bridge_id
+	set res [api_request $type $bridge(ip) $bridge(port) $bridge(username) $method $path $data]
+	#release_bridge_lock $bridge_id
+	return $res
 }
 
 proc ::hue::hue_command {bridge_id command args} {
@@ -414,7 +454,7 @@ proc ::hue::hue_command {bridge_id command args} {
 
 proc ::hue::get_scene_name_id_map {bridge_id} {
 	array set scenes {}
-	set data [hue::request $bridge_id "GET" "scenes"]
+	set data [hue::request "info" $bridge_id "GET" "scenes"]
 	while {1} {
 		if {[regexp {\"([a-zA-Z0-9\-]{15})\":\{.*?\"name\":\"([^\"]+)\"(.*)$} $data match id name data]} {
 			set scenes($name) $id
@@ -602,7 +642,7 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 
 proc ::hue::get_object_state {bridge_id obj_path} {
 	set calc_group_brightness 1
-	set data [request $bridge_id "GET" $obj_path]
+	set data [request "status" $bridge_id "GET" $obj_path]
 	#hue::write_log 4 "${obj_path}: ${data}"
 	set st [list]
 	regexp {\"reachable\"\s*:\s*(true|false)} $data match val
@@ -642,7 +682,7 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 			foreach light [split $lights ","] {
 				set light_num [expr {$light_num + 1}]
 				set light [string map {"\"" ""} $light]
-				set light_data [request $bridge_id "GET" "lights/${light}"]
+				set light_data [request "status" $bridge_id "GET" "lights/${light}"]
 				#hue::write_log 4 "Light ${light}: ${ldata}"
 				regexp {\"bri\"\s*:\s*(\d+)} $light_data match bri
 				set bri_sum [expr {$bri_sum + $bri}]
@@ -934,19 +974,19 @@ hue::read_global_config
 #hue::create_cuxd_device
 #hue::delete_cuxd_device "2802010"
 #puts [hue::get_cuxd_channels_min_max "CUX2802003"]
-#puts [hue::request "PUT" "lights/1/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
-#puts [hue::request "PUT" "lights/2/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
-#puts [hue::request "PUT" "lights/1/state" "\{\"alert\":\"select\"\}"]
-#puts [hue::request "PUT" "lights/2/state" "\{\"alert\":\"select\"\}"]
-#puts [hue::request "PUT" "lights/1/state" "\{\"effect\":\"colorloop\"\}"]
-#puts [hue::request "PUT" "lights/2/state" "\{\"effect\":\"colorloop\"\}"]
-#puts [hue::request "PUT" "lights/1/state" "\{\"effect\":\"none\"\}"]
-#puts [hue::request "PUT" "lights/2/state" "\{\"effect\":\"none\"\}"]
-#puts [hue::request "GET" "groups"]
-#puts [hue::request "GET" "groups/1"]
-#puts [hue::request "PUT" "groups/1/action" "\{\"on\":true\}"]
-#puts [hue::request "GET" "config"]
-#puts [hue::request "GET" "scenes"]
-#puts [hue::request "PUT" "groups/1/action" "\{\"scene\":\"jXTvbsXs9KO8PVw\"\}"]
+#puts [hue::request "" "PUT" "lights/1/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
+#puts [hue::request "" "PUT" "lights/2/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
+#puts [hue::request "" "PUT" "lights/1/state" "\{\"alert\":\"select\"\}"]
+#puts [hue::request "" "PUT" "lights/2/state" "\{\"alert\":\"select\"\}"]
+#puts [hue::request "" "PUT" "lights/1/state" "\{\"effect\":\"colorloop\"\}"]
+#puts [hue::request "" "PUT" "lights/2/state" "\{\"effect\":\"colorloop\"\}"]
+#puts [hue::request "" "PUT" "lights/1/state" "\{\"effect\":\"none\"\}"]
+#puts [hue::request "" "PUT" "lights/2/state" "\{\"effect\":\"none\"\}"]
+#puts [hue::request "" "GET" "groups"]
+#puts [hue::request "" "GET" "groups/1"]
+#puts [hue::request "" "PUT" "groups/1/action" "\{\"on\":true\}"]
+#puts [hue::request "" "GET" "config"]
+#puts [hue::request "" "GET" "scenes"]
+#puts [hue::request "" "PUT" "groups/1/action" "\{\"scene\":\"jXTvbsXs9KO8PVw\"\}"]
 #puts [hue::get_cuxd_device_map]
 #puts [hue::get_scene_name_id_map "xxxxxxxxxxxxxxxxxx"]

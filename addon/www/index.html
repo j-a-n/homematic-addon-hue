@@ -202,6 +202,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			form.form('set values', {
 				poll_state_interval: config.global.poll_state_interval,
 				log_level: config.global.log_level,
+				api_log: config.global.api_log,
 				ignore_unreachable: config.global.ignore_unreachable
 			});
 		}
@@ -656,6 +657,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							prompt: 'Please enter a valid log level.'
 						}]
 					},
+					api_log: {
+						identifier: 'api_log',
+					},
 					ignore_unreachable: {
 						identifier: 'ignore_unreachable',
 					}
@@ -794,8 +798,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<input name="poll_state_interval" placeholder="" type="text">
 			</div>
 			<div class="field">
-				<label>Log level (nothing=0, error=1, warning=2, info=3, debug=4)</label>
-				<input name="log_level" placeholder="" type="text">
+				<label>Log level</label>
+				<select class="ui fluid search dropdown" name="log_level">
+					<option value="0">nothing</option>
+					<option value="1">error</option>
+					<option value="2">warning</option>
+					<option value="3">info</option>
+					<option value="4">debug</option>
+				</select>
+			</div>
+			<div class="field">
+				<label>Log hue api requests and responses</label>
+				<select class="ui fluid search dropdown" name="api_log">
+					<option value="off">off</option>
+					<option value="command">command</option>
+					<option value="status">status</option>
+					<option value="info">info</option>
+					<option value="all">all</option>
+				</select>
 			</div>
 			<div class="field">
 				<label>Do not update state if device is unreachable</label>

@@ -24,8 +24,6 @@ variable current_object_state
 variable cuxd_device_map
 variable last_schedule_update 0
 variable schedule_update_interval 60
-variable server_address "127.0.0.1"
-variable server_port 1919
 
 proc bgerror message {
 	hue::write_log 1 "Unhandled error: ${message}"
@@ -133,11 +131,12 @@ proc update_cuxd_device {bridge_id obj num} {
 
 proc read_from_channel {channel} {
 	variable update_schedule
+	variable last_schedule_update
 	set len [gets $channel cmd]
+	set cmd [string trim $cmd]
 	hue::write_log 4 "Received command: $cmd"
-	regexp "^schedule_update (\[a-fA-F0-9\]+) (light|group) (\\d+) ?(\\d*)$" $cmd match bridge_id obj num delay_seconds
 	set response ""
-	if {[info exists match]} {
+	if {[regexp "^schedule_update (\[a-fA-F0-9\]+) (light|group) (\\d+) ?(\\d*)$" $cmd match bridge_id obj num delay_seconds]} {
 		set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
 		if {[llength $cuxd_devices] == 0} {
 			set response "Failed to get CUxD devices for ${bridge_id} ${obj} ${num}"
@@ -149,6 +148,9 @@ proc read_from_channel {channel} {
 			set update_schedule(${bridge_id}_${obj}_${num}) $time
 			set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
 		}
+	} elseif {[regexp "^reload$" $cmd match]} {
+		set last_schedule_update 0
+		set response "Reload scheduled"
 	} else {
 		set response "Invalid command"
 	}
@@ -182,20 +184,20 @@ proc update_config {} {
 }
 
 proc main {} {
-	variable server_address
-	variable server_port
+	variable hue::hued_address
+	variable hue::hued_port
 	if { [catch {
 		update_config
 	} errormsg] } {
 		hue::write_log 1 "Error: '${errormsg}'"
 	}
 	after 10 main_loop
-	if {$server_address == "0.0.0.0"} {
-		socket -server accept_connection $server_port
+	if {$hue::hued_address == "0.0.0.0"} {
+		socket -server accept_connection $hue::hued_port
 	} else {
-		socket -server accept_connection -myaddr $server_address $server_port
+		socket -server accept_connection -myaddr $hue::hued_address $hue::hued_port
 	}
-	hue::write_log 3 "Hue daemon is listening for connections on ${server_address}:${server_port}"
+	hue::write_log 3 "Hue daemon is listening for connections on ${hue::hued_address}:${hue::hued_port}"
 }
 
 if { "[lindex $argv 0 ]" != "daemon" } {

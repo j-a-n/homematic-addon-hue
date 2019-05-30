@@ -72,14 +72,14 @@ proc process {} {
 		} elseif {[lindex $path 1] == "establish-link"} {
 			regexp {\"ip\"\s*:\s*\"([^\"]+)\"} $data match ip
 			set username [hue::api_establish_link $ip 80]
-			set config [hue::api_request $ip 80 $username "GET" "config"]
+			set config [hue::api_request "info" $ip 80 $username "GET" "config"]
 			set config "\{\"username\":\"${username}\",[string range $config 1 end]"
-			set data [hue::api_request $ip 80 $username "GET" "lights"]
+			set data [hue::api_request "info" $ip 80 $username "GET" "lights"]
 			foreach d [split $data "\}"] {
 				set lid ""
 				regexp {"(\d+)"\s*:\s*\{} $d match lid
 				if { [info exists lid] && $lid != "" } {
-					hue::api_request $ip 80 $username "PUT" "lights/${lid}/state" "\{\"alert\":\"select\"\}"
+					hue::api_request "command" $ip 80 $username "PUT" "lights/${lid}/state" "\{\"alert\":\"select\"\}"
 				}
 			}
 			return $config
@@ -105,6 +105,7 @@ proc process {} {
 				set color 0
 			}
 			set res [hue::create_cuxd_dimmer_device $serial $name $bridge_id $obj $num $ct_min $ct_max $color]
+			hue::hued_command "reload"
 			return "\"${res}\""
 		} elseif {[lindex $path 1] == "create-cuxd-switch-device"} {
 			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
@@ -113,6 +114,7 @@ proc process {} {
 			regexp {\"obj\"\s*:\s*\"([^\"]+)\"} $data match obj
 			regexp {\"num\"\s*:\s*(\d+)} $data match num
 			set res [hue::create_cuxd_switch_device $serial $name $bridge_id $obj $num]
+			hue::hued_command "reload"
 			return "\"${res}\""
 		} elseif {[lindex $path 1] == "config"} {
 			if {$plen == 1} {
@@ -122,9 +124,11 @@ proc process {} {
 			} elseif {[lindex $path 2] == "global"} {
 				if {$env(REQUEST_METHOD) == "PUT"} {
 					regexp {\"log_level\"\s*:\s*\"([^\"]+)\"} $data match log_level
+					regexp {\"api_log\"\s*:\s*\"([^\"]+)\"} $data match api_log
 					regexp {\"poll_state_interval\"\s*:\s*\"([^\"]+)\"} $data match poll_state_interval
 					regexp {\"ignore_unreachable\"\s*:\s*(false|true)} $data match ignore_unreachable
-					hue::update_global_config $log_level $poll_state_interval $ignore_unreachable
+					hue::update_global_config $log_level $api_log $poll_state_interval $ignore_unreachable
+					hue::hued_command "reload"
 					return "\"Global config successfully updated\""
 				}
 			} elseif {[lindex $path 2] == "bridge"} {
@@ -154,7 +158,7 @@ proc process {} {
 					if {$data == "null"} {
 						set data ""
 					}
-					return [hue::request $id $method $path $data]
+					return [hue::request "command" $id $method $path $data]
 				}
 			}
 		} elseif {[lindex $path 1] == "hued"} {

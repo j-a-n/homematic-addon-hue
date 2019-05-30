@@ -36,7 +36,6 @@
 source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_device_channels_after 3
-variable server_port 1919
 
 proc usage {} {
 	set bridge_ids [hue::get_config_bridge_ids]
@@ -64,12 +63,7 @@ proc usage {} {
 }
 
 proc schedule_update {bridge_id obj num {delay_seconds 0}} {
-	variable server_port
-	set chan [socket 127.0.0.1 $server_port]
-	puts $chan "schedule_update ${bridge_id} ${obj} ${num} ${delay_seconds}"
-	flush $chan
-	hue::write_log 4 "schedule_update response: [gets $chan]"
-	close $chan
+	hue::hued_command "schedule_update" [list $bridge_id $obj $num $delay_seconds]
 }
 
 proc main {} {
@@ -91,7 +85,7 @@ proc main {} {
 			exit 1
 		}
 		hue::acquire_bridge_lock $bridge_id
-		puts [hue::request $bridge_id [lindex $argv 2] [lindex $argv 3] [lindex $argv 4]]
+		puts [hue::request "command" $bridge_id [lindex $argv 2] [lindex $argv 3] [lindex $argv 4]]
 		hue::release_bridge_lock $bridge_id
 	} else {
 		if {$argc < 3} {
@@ -220,7 +214,7 @@ proc main {} {
 		
 		#hue::acquire_bridge_lock $bridge_id
 		hue::write_log 4 "request: ${path} ${json}"
-		set res [hue::request $bridge_id "PUT" $path $json]
+		set res [hue::request "command" $bridge_id "PUT" $path $json]
 		hue::write_log 4 "response: ${res}"
 		puts $res
 		#hue::release_bridge_lock $bridge_id
