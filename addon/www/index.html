@@ -316,11 +316,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function create_cuxd_device(type, bridge_id, obj_type, obj_id, obj) {
-			$('.create-cuxd-dev').addClass('disabled');
-			$('.create-cuxd-dev').addClass('loading');
-			console.log(obj);
+			$('#modal-create-cuxd-device').modal('hide');
+			
+			let serial = Math.max.apply(null, used_cuxd_device_serials[type]);
+			if (!serial) {
+				serial = 0;
+			}
+			serial += 1;
+			
 			data = {
-				serial: 0,
+				type: type,
+				serial: serial,
 				name: "Hue " + obj.name,
 				bridge_id: bridge_id,
 				obj: obj_type,
@@ -337,22 +343,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				data.ct_max = ct_max;
 				data.color = ((obj_type == 'group') || (('capabilities' in obj) && ('control' in obj.capabilities) && ('colorgamut' in obj.capabilities.control)));
 			};
-			console.log(data);
+			$('#form-create-cuxd-device').data('params', data);
 			
-			rest("POST", "/create-cuxd-" + type + "-device", JSON.stringify(data),
-				function(response) {
-					$('.create-cuxd-dev').removeClass('disabled');
-					$('.create-cuxd-dev').removeClass('loading');
-					display_message('success', "CUxD device " + response + " created", 5000);
-					get_used_cuxd_device_serials();
-				},
-				function(xhr, ajaxOptions, thrownError) {
-					$('.create-cuxd-dev').removeClass('disabled');
-					$('.create-cuxd-dev').removeClass('loading');
-					default_error_callback(xhr, ajaxOptions, thrownError);
-					get_used_cuxd_device_serials();
-				}
-			);
+			if (type == 'dimmer') {
+				$('#modal-create-cuxd-device-header').text("Create CUxD-dimmer (28 02)");
+			}
+			else {
+				$('#modal-create-cuxd-device-header').text("Create CUxD-switch (40)");
+			}
+			$('#form-create-cuxd-device').form('clear')
+			.form('set values', {
+				name: data.name,
+				serial: data.serial
+			})
+			$('#modal-create-cuxd-device').modal({
+				allowMultiple: true,
+			})
+			.modal('show');
 		}
 		
 		function edit_config_bridge(id) {
@@ -666,6 +673,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			};
 			$('#form-global-config').form(form_global_config);
+			
 			var form_config = {
 				on: 'blur',
 				fields: {
@@ -704,6 +712,64 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					clear_message();
 				}
 			});
+			
+			$.fn.form.settings.rules.CUxDserial = function(serial) {
+				var type = $('#form-create-cuxd-device').data('params').type;
+				serial = parseInt(serial);
+				if ((!serial) || (serial <= 0)) {
+					return false;
+				}
+				if (((type == 'dimmer') && (serial > 999)) || ((type == 'switch') && (serial > 99999))) {
+					return false;
+				}
+				return (! used_cuxd_device_serials[type].includes(serial));
+			}
+			var create_cuxd_device_form_config = {
+				on: 'blur',
+				fields: {
+					name: {
+						identifier: 'name',
+						rules: [{
+							type: 'minLength[1]',
+							prompt: 'Please enter a valid name.'
+						}]
+					},
+					serial: {
+						identifier: 'serial',
+						rules: [{
+							type: 'CUxDserial',
+							prompt: 'Please enter a valid and unused serial.'
+						}]
+					}
+				},
+				onSuccess: function(event, fields) {
+					event.preventDefault();
+					
+					let data = $('#form-create-cuxd-device').data('params');
+					var form = $(event.currentTarget).form('get values');
+					data.serial = parseInt(form.serial);
+					data.name = form.name;
+					
+					$('.create-cuxd-dev').addClass('disabled');
+					$('.create-cuxd-dev').addClass('loading');
+					rest("POST", "/create-cuxd-" + data.type + "-device", JSON.stringify(data),
+						function(response) {
+							$('#modal-create-cuxd-device').modal('hide');
+							$('.create-cuxd-dev').removeClass('disabled');
+							$('.create-cuxd-dev').removeClass('loading');
+							display_message('success', "CUxD device " + response + " created", 5000);
+							get_used_cuxd_device_serials();
+						},
+						function(xhr, ajaxOptions, thrownError) {
+							$('.create-cuxd-dev').removeClass('disabled');
+							$('.create-cuxd-dev').removeClass('loading');
+							default_error_callback(xhr, ajaxOptions, thrownError);
+							get_used_cuxd_device_serials();
+						}
+					);
+				}
+			};
+			$('#form-create-cuxd-device').form(create_cuxd_device_form_config);
 		});
 	</script>
 </head>
@@ -928,6 +994,28 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			Info
 		</div>
 		<div id="bridge-info-content" class="content">
+		</div>
+	</div>
+	
+	<div id="modal-create-cuxd-device" class="ui modal">
+		<i class="close icon"></i>
+		<div class="header" id="modal-create-cuxd-device-header">
+			Create CUxD-device
+		</div>
+		<div class="content">
+			<form id="form-create-cuxd-device" class="ui form">
+				<div class="field">
+					<label>Serial</label>
+					<input type="text" name="serial">
+				</div>
+				<div class="field">
+					<label>Name</label>
+					<input type="text" name="name">
+				</div>
+				<div class="ui error message"></div>
+				<div class="ui button create-cuxd-dev" onclick="$('#modal-create-cuxd-device').modal('hide');">Cancel</div>
+				<div id="submit-create-cuxd-device" class="ui primary submit button create-cuxd-dev">Create device</div>
+			</form>
 		</div>
 	</div>
 	
