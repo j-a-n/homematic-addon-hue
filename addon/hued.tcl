@@ -20,10 +20,12 @@
 source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_schedule
+variable command_schedule
 variable current_object_state
 variable cuxd_device_map
 variable last_schedule_update 0
 variable schedule_update_interval 60
+variable group_command_repetition 3
 
 proc bgerror message {
 	hue::write_log 1 "Unhandled error: ${message}"
@@ -42,9 +44,26 @@ proc main_loop {} {
 
 proc check_update {} {
 	variable update_schedule
+	variable command_schedule
 	variable last_schedule_update
 	variable schedule_update_interval
 	variable cuxd_device_map
+	
+	foreach o [array names command_schedule] {
+		set cs $command_schedule($o)
+		set scheduled_time [lindex $cs 0]
+		if {[clock seconds] >= $scheduled_time} {
+			hue::write_log 0 "[lindex $cs 2] [lindex $cs 3] [lindex $cs 4] [lindex $cs 5] [lindex $cs 6]"
+			set response [hue::request [lindex $cs 2] [lindex $cs 3] [lindex $cs 4] [lindex $cs 5] [lindex $cs 6]]
+			set num [lindex $cs 1]
+			if {$num > 1} {
+				#hue::write_log 4 $cs
+				set command_schedule($o) [lreplace $cs 1 1 [expr {$num - 1}]]
+			} else {
+				unset command_schedule($o)
+			}
+		}
+	}
 	
 	foreach o [array names update_schedule] {
 		set scheduled_time $update_schedule($o)
@@ -131,23 +150,33 @@ proc update_cuxd_device {bridge_id obj num} {
 
 proc read_from_channel {channel} {
 	variable update_schedule
+	variable command_schedule
 	variable last_schedule_update
+	variable group_command_repetition
+	
 	set len [gets $channel cmd]
 	set cmd [string trim $cmd]
 	hue::write_log 4 "Received command: $cmd"
 	set response ""
-	if {[regexp "^schedule_update (\[a-fA-F0-9\]+) (light|group) (\\d+) ?(\\d*)$" $cmd match bridge_id obj num delay_seconds]} {
-		set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
-		if {[llength $cuxd_devices] == 0} {
-			set response "Failed to get CUxD devices for ${bridge_id} ${obj} ${num}"
-		} else {
-			if {$delay_seconds == ""} {
-				set delay_seconds 0
+	if {[regexp "^api_request\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(.*)" $cmd match type bridge_id obj num method path json]} {
+		set response [hue::request $type $bridge_id $method $path $json]
+		
+		if {$group_command_repetition > 0 && $obj == "group"} {
+			set o "${bridge_id}_${obj}_${num}"
+			if {[info exists command_schedule($o)]} {
+				unset command_schedule($o)
 			}
+			set delay_seconds 1
 			set time [expr {[clock seconds] + $delay_seconds}]
-			set update_schedule(${bridge_id}_${obj}_${num}) $time
-			set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
+			set command_schedule($o) [list $time $group_command_repetition $type $bridge_id $method $path $json]
 		}
+		
+		# The bridge needs some time until all values are up to date
+		set delay_seconds 1
+		set time [expr {[clock seconds] + $delay_seconds}]
+		set update_schedule($o) $time
+		set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
+		
 	} elseif {[regexp "^reload$" $cmd match]} {
 		set last_schedule_update 0
 		set response "Reload scheduled"
@@ -186,11 +215,14 @@ proc update_config {} {
 proc main {} {
 	variable hue::hued_address
 	variable hue::hued_port
+	variable cuxd_device_map
 	if { [catch {
 		update_config
 	} errormsg] } {
 		hue::write_log 1 "Error: '${errormsg}'"
 	}
+	set dmap [hue::get_cuxd_device_map]
+	array set cuxd_device_map $dmap
 	after 10 main_loop
 	if {$hue::hued_address == "0.0.0.0"} {
 		socket -server accept_connection $hue::hued_port

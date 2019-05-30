@@ -62,10 +62,6 @@ proc usage {} {
 	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode,sleep,ct_min"
 }
 
-proc schedule_update {bridge_id obj num {delay_seconds 0}} {
-	hue::hued_command "schedule_update" [list $bridge_id $obj $num $delay_seconds]
-}
-
 proc main {} {
 	global argc
 	global argv
@@ -212,17 +208,7 @@ proc main {} {
 			after $sleep
 		}
 		
-		#hue::acquire_bridge_lock $bridge_id
-		hue::write_log 4 "request: ${path} ${json}"
-		set res [hue::request "command" $bridge_id "PUT" $path $json]
-		hue::write_log 4 "response: ${res}"
-		puts $res
-		#hue::release_bridge_lock $bridge_id
-		
-		# The bridge needs some time until all values are up to date
-		if {$update_device_channels_after > 0} {
-			schedule_update $bridge_id $cmd $num $update_device_channels_after
-		}
+		hue::hued_command "api_request" [list "command" $bridge_id $cmd $num "PUT" $path $json]
 	}
 }
 

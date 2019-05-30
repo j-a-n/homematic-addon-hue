@@ -109,11 +109,11 @@ proc ::hue::acquire_lock {lock_id} {
 	while {1} {
 		set tn [expr {$tn + 1}]
 		if { [catch {socket -server dummy_accept $port} sock] } {
-			if {$tn > 10} {
+			if {$tn > 250} {
 				write_log 1 "Failed to acquire lock ${lock_id} after 2500ms, ignoring lock" 0
 				break
 			}
-			after 5
+			after 10
 		} else {
 			set lock_socket($lock_id) $sock
 			break
@@ -415,7 +415,7 @@ proc ::hue::api_request {type ip port username method path {data ""}} {
 	if {$log} {
 		hue::write_log 0 "api response: ${res}"
 	}
-	return res
+	return $res
 }
 
 proc ::hue::api_establish_link {ip port} {
