@@ -169,11 +169,6 @@ proc process {} {
 				}
 				return "\"${pid}\""
 			} elseif {[lindex $path 2] == "restart"} {
-				catch {
-					# Restart CUxD to update cuxd.ps
-					exec /usr/local/addons/cuxd/curl --silent "http://localhost/addons/cuxd/index.ccc?m=101"
-					after 500
-				}
 				exec /usr/local/addons/hue/hued.tcl
 				after 500
 				return "\"OK\""
