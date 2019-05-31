@@ -50,8 +50,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function display_message(type, text, millis) {
 			clear_message();
-			$('#message').contents().last()[0].textContent = text;
-			$('#message').attr('class', 'ui ' + type + ' message visible');
+			$('#message').html(text);
+			$('#message-container').attr('class', 'ui ' + type + ' message visible');
 			message_timer_id = setTimeout(clear_message, millis);
 		}
 		
@@ -60,8 +60,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				clearTimeout(message_timer_id);
 			}
 			message_timer_id = null;
-			$('#message').contents().last()[0].textContent = '';
-			$('#message').attr('class', 'ui message hidden');
+			$('#message').html('');
+			$('#message-container').attr('class', 'ui message hidden');
 		}
 		
 		function default_error_callback(xhr, ajaxOptions, thrownError) {
@@ -781,8 +781,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<div style="position: fixed; left: 50%; top: 2vh; z-index: 2000">
 		<div style="position: relative; left: -50%;">
 			<div class="ui container">
-				<div id="message" class="ui message hidden" style="margin-left: 100px; margin-right: 100px; min-height: 50px; min-width: 340px">
+				<div id="message-container" class="ui message hidden" style="margin-left: 100px; margin-right: 100px; min-height: 50px; min-width: 340px">
 					<i class="close icon" onclick="clear_message();"></i>
+					<div id="message"></div>
 				</div>
 			</div>
 		</div>
