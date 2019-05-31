@@ -419,7 +419,7 @@ proc ::hue::api_request {type ip port username method path {data ""}} {
 }
 
 proc ::hue::api_establish_link {ip port} {
-	set response [api_request "command" $ip $port "POST" "/api" "\{\"devicetype\":\"${hue::devicetype}\"\}"]
+	set response [http_request $ip $port "POST" "/api" "\{\"devicetype\":\"${hue::devicetype}\"\}" "application/json"]
 	regexp {"success":.*"username"\s*:\s*"([a-zA-Z0-9]+)"} $response match username
 	if {[info exists username]} {
 		return $username
