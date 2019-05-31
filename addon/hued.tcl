@@ -42,6 +42,7 @@ proc throttle_group_command {} {
 	set group_command_times $new
 	#hue::write_log 0 $group_command_times
 	if { [llength $group_command_times] > 6 } {
+		hue::write_log 3 "Throttling group commands, waiting for 1 second"
 		after 1000
 	}
 	set group_command_times [linsert $group_command_times 0 [clock seconds]]
@@ -73,11 +74,13 @@ proc check_update {} {
 				hue::write_log 2 "Failed to update [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]: $errmsg"
 				# Device deleted? => refresh device map
 				set last_schedule_update 0
-			}
-			if {$hue::poll_state_interval > 0} {
-				set update_schedule($o) [expr {[clock seconds] + $hue::poll_state_interval}]
-			} else {
 				unset update_schedule($o)
+			} else {
+				if {$hue::poll_state_interval > 0} {
+					set update_schedule($o) [expr {[clock seconds] + $hue::poll_state_interval}]
+				} else {
+					unset update_schedule($o)
+				}
 			}
 		}
 	}
@@ -159,13 +162,19 @@ proc read_from_channel {channel} {
 		set response [hue::request $type $bridge_id $method $path $json]
 		set o "${bridge_id}_${obj}_${num}"
 		
-		throttle_group_command
+		if {$obj == "group"} {
+			throttle_group_command
+		}
 		
 		# The bridge needs some time until all values are up to date
-		set delay_seconds 1
-		set time [expr {[clock seconds] + $delay_seconds}]
-		set update_schedule($o) $time
-		set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
+		set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
+		if {[llength $cuxd_devices] > 0} {
+			# Device is mapped to a CUxD device
+			set delay_seconds 1
+			set time [expr {[clock seconds] + $delay_seconds}]
+			set update_schedule($o) $time
+			set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
+		}
 		
 	} elseif {[regexp "^reload$" $cmd match]} {
 		set last_schedule_update 0
@@ -180,7 +189,7 @@ proc read_from_channel {channel} {
 }
 
 proc accept_connection {channel address port} {
-	hue::write_log 3 "Accepted connection from $address\:$port"
+	hue::write_log 4 "Accepted connection from $address\:$port"
 	fconfigure $channel -blocking 0
 	fconfigure $channel -buffersize 16
 	fileevent $channel readable "read_from_channel $channel"

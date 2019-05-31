@@ -478,7 +478,7 @@ proc ::hue::get_cuxd_channels_min_max {device} {
 	if {[regexp {ct_min:(\d+)} $command match val]} {
 		set ct_min [expr {0 + $val}]
 	} else {
-	hue::write_log 3 "device ${device} - ct_min not found in command, using default: ${ct_min}"
+	hue::write_log 4 "device ${device} - ct_min not found in command, using default: ${ct_min}"
 	}
 	set bri_max [expr {0 + [lindex [xmlrpc $cuxd_xmlrpc_url getParamset [list string $device:2] [list string "MASTER"]] 3]}]
 	set ct_max [expr {$ct_min + [lindex [xmlrpc $cuxd_xmlrpc_url getParamset [list string $device:3] [list string "MASTER"]] 3]}]
