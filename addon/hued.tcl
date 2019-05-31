@@ -220,9 +220,16 @@ proc main {} {
 	} errormsg] } {
 		hue::write_log 1 "Error: '${errormsg}'"
 	}
-	set dmap [hue::get_cuxd_device_map]
-	array set cuxd_device_map $dmap
+	
+	if { [catch {
+		set dmap [hue::get_cuxd_device_map]
+		array set cuxd_device_map $dmap
+	} errormsg] } {
+		hue::write_log 1 "Failed to get cuxd device map: ${errormsg}"
+	}
+	
 	after 10 main_loop
+	
 	if {$hue::hued_address == "0.0.0.0"} {
 		socket -server accept_connection $hue::hued_port
 	} else {
