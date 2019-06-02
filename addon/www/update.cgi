@@ -20,12 +20,21 @@
 set version_url "https://raw.githubusercontent.com/j-a-n/homematic-addon-hue/master/VERSION"
 set package_url "https://github.com/j-a-n/homematic-addon-hue/raw/master/hm-hue.tar.gz"
 
-set cmd ""
-if {[info exists env(QUERY_STRING)]} {
-	regexp {cmd=([^&]+)} $env(QUERY_STRING) match cmd
-}
-if {$cmd == "download"} {
-	puts "<html><head><meta http-equiv=\"refresh\" content=\"0; url=${package_url}\" /></head></html>"
-} else {
-	puts [exec /usr/bin/wget -q --no-check-certificate -O- "${version_url}"]
+if { [catch {
+	set latest_version [exec /usr/bin/wget -q --no-check-certificate -O- "${version_url}"]
+	set cmd ""
+	if {[info exists env(QUERY_STRING)]} {
+		regexp {cmd=([^&]+)} $env(QUERY_STRING) match cmd
+	}
+	if {$cmd == "download"} {
+		puts -nonewline "Content-Type: text/html; charset=utf-8\r\n\r\n"
+		puts -nonewline "<html><head><meta http-equiv=\"refresh\" content=\"0; url=${package_url}\" /></head><body>Downloading latest version ${latest_version} from <a href=\"${package_url}\">${package_url}</a></body></html>"
+	} else {
+		puts -nonewline "Content-Type: text/plain; charset=utf-8\r\n\r\n"
+		puts $latest_version
+	}
+
+} errormsg] } {
+	puts -nonewline "Content-Type: text/plain; charset=utf-8\r\n\r\n"
+	puts "Error: ${errormsg}"
 }
