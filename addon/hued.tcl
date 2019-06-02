@@ -39,11 +39,21 @@ proc throttle_group_command {} {
 			lappend new $t
 		}
 	}
+	
 	set group_command_times $new
 	#hue::write_log 0 $group_command_times
-	if { [llength $group_command_times] > 6 } {
-		hue::write_log 3 "Throttling group commands, waiting for 1 second"
-		after 1000
+	
+	set ms 0
+	set num [llength $group_command_times]
+	if {$num > 9} {
+		set ms 1700
+	} elseif {$num > 4} {
+		set ms 1000
+	}
+	
+	if {$ms > 0} {
+		hue::write_log 3 "Throttling group commands, waiting for ${ms} millis"
+		after $ms
 	}
 	set group_command_times [linsert $group_command_times 0 [clock seconds]]
 }
