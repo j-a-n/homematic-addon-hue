@@ -46,7 +46,8 @@ proc throttle_group_command {} {
 	set ms 0
 	set num [llength $group_command_times]
 	if {$num > 9} {
-		set ms 1700
+		# set ms 1700
+		set ms 2000
 	} elseif {$num > 4} {
 		set ms 1000
 	}
