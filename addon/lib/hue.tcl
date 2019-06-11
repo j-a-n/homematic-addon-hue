@@ -787,6 +787,7 @@ proc ::hue::create_cuxd_switch_device {serial name bridge_id obj num} {
 	
 	hue::write_log 4 "Creating cuxd switch device with serial ${serial}"
 	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
+	hue::write_log 4 "CUxD response: ${response}"
 	
 	set i 0
 	while {$i < 10} {
@@ -849,6 +850,7 @@ proc ::hue::create_cuxd_dimmer_device {serial name bridge_id obj num ct_min ct_m
 	
 	hue::write_log 4 "Creating cuxd dimmer device with serial ${serial}"
 	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
+	hue::write_log 4 "CUxD response: ${response}"
 	
 	set i 0
 	while {$i < 10} {
