@@ -770,7 +770,7 @@ proc ::hue::urlencode {string} {
 }
 
 
-proc ::hue::create_cuxd_switch_device {serial name bridge_id obj num} {
+proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num} {
 	variable cuxd_xmlrpc_url
 	set dtype 40
 	
@@ -786,7 +786,7 @@ proc ::hue::create_cuxd_switch_device {serial name bridge_id obj num} {
 	set data "dtype=${dtype}&dserial=${serial}&dbase=10022&dcontrol=1"
 	
 	hue::write_log 4 "Creating cuxd switch device with serial ${serial}"
-	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
+	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?sid=@${sid}@&m=3" $data "application/x-www-form-urlencoded"]
 	hue::write_log 4 "CUxD response: ${response}"
 	
 	set i 0
@@ -834,7 +834,7 @@ proc ::hue::create_cuxd_switch_device {serial name bridge_id obj num} {
 	return $device
 }
 
-proc ::hue::create_cuxd_dimmer_device {serial name bridge_id obj num ct_min ct_max {color 0}} {
+proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min ct_max {color 0}} {
 	variable cuxd_xmlrpc_url
 	set dtype 28
 	set dtype2 2
@@ -849,7 +849,7 @@ proc ::hue::create_cuxd_dimmer_device {serial name bridge_id obj num ct_min ct_m
 	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=10041"
 	
 	hue::write_log 4 "Creating cuxd dimmer device with serial ${serial}"
-	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?m=3" $data "application/x-www-form-urlencoded"]
+	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?sid=@${sid}@&m=3" $data "application/x-www-form-urlencoded"]
 	hue::write_log 4 "CUxD response: ${response}"
 	
 	set i 0

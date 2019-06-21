@@ -17,7 +17,9 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+load tclrega.so
 source /usr/local/addons/hue/lib/hue.tcl
+package require http
 
 proc json_string {str} {
 	set replace_map {
@@ -32,28 +34,100 @@ proc json_string {str} {
 	return "[string map $replace_map $str]"
 }
 
+proc get_http_header {request header_name} {
+	upvar $request req
+	set header_name [string toupper $header_name]
+	array set meta $req(meta)
+	foreach header [array names meta] {
+		if {$header_name == [string toupper $header] } then {
+			return $meta($header)
+		}
+	}
+	return ""
+}
+
+proc get_session {sid} {
+	if {[regexp {@([0-9a-zA-Z]{10})@} $sid match sidnr]} {
+		return [lindex [rega_script "Write(system.GetSessionVarStr('$sidnr'));"] 1]
+	}
+	return ""
+}
+
+proc check_session {sid} {
+	if {[get_session $sid] != ""} {
+		# renew session
+		set url "http://127.0.0.1/pages/index.htm?sid=$sid"
+		::http::cleanup [::http::geturl $url]
+		return 1
+	}
+	return 0
+}
+
+proc login {username password} {
+	set request [::http::geturl "http://127.0.0.1/login.htm" -query [::http::formatQuery tbUsername $username tbPassword $password]]
+	set code [::http::code $request]
+	set location [get_http_header $request "location"]
+	::http::cleanup $request
+	
+	if {[string first "error" $location] != -1} {
+		error "Invalid username oder password" "Unauthorized" 401
+	}
+	
+	if {![regexp {sid=@([0-9a-zA-Z]{10})@} $location match sid]} {
+		error "Too many sessions" "Service Unavailable" 503
+	}
+	return $sid
+}
+
 proc process {} {
 	global env
 	if { [info exists env(QUERY_STRING)] } {
 		set query $env(QUERY_STRING)
+		set sid ""
+		set pairs [split $query "&"]
+		foreach pair $pairs {
+			if {[regexp "^(\[^=\]+)=(.*)$" $pair match varname value]} {
+				if {$varname == "sid"} {
+					set sid $value
+				} elseif {$varname == "path"} {
+					set path [split $value "/"]
+				}
+			}
+		}
+		set plen [expr [llength $path] - 1]
+		
+		
+		if {[lindex $path 1] == "login"} {
+			set data [read stdin $env(CONTENT_LENGTH)]
+			regexp {\"username\"\s*:\s*\"([^\"]*)\"} $data match username
+			regexp {\"password\"\s*:\s*\"([^\"]*)\"} $data match password
+			set sid [login $username $password]
+			return "\"${sid}\""
+		}
+		
+		if {![check_session $sid]} {
+			error "Invalid session" "Unauthorized" 401
+		}
+		
 		set data ""
 		if { [info exists env(CONTENT_LENGTH)] } {
 			set data [read stdin $env(CONTENT_LENGTH)]
 		}
-		set path [split $query {/}]
-		set plen [expr [llength $path] - 1]
 		
-		if {[lindex $path 1] == "version"} {
+		if {[lindex $path 1] == "get_session"} {
+			return "\"[get_session $sid]\""
+		} elseif {[lindex $path 1] == "version"} {
 			return "\"[hue::version]\""
 		} elseif {[lindex $path 1] == "test-command"} {
+			regexp {\"command\"\s*:\s*\"(.*)\"} $data match command
 			set exitcode 0
 			set output ""
-			if {! [regexp {^/usr/local/addons/hue/hue.tcl( |$)[a-zA-Z0-9 \-:_/]*$} $data] } {
+			if {! [regexp {^/usr/local/addons/hue/hue.tcl( |$)[a-zA-Z0-9 \"'\-:_/]*$} $command] } {
 				set exitcode 1
-				set output "Invalid command"
+				set output "Invalid command: ${command}"
 			} else {
 				set exitcode [catch {
-					eval exec $data
+					eval exec $command
 				} output]
 				set output [json_string $output]
 			}
@@ -104,7 +178,7 @@ proc process {} {
 			} else {
 				set color 0
 			}
-			set res [hue::create_cuxd_dimmer_device $serial $name $bridge_id $obj $num $ct_min $ct_max $color]
+			set res [hue::create_cuxd_dimmer_device $sid $serial $name $bridge_id $obj $num $ct_min $ct_max $color]
 			hue::hued_command "reload"
 			return "\"${res}\""
 		} elseif {[lindex $path 1] == "create-cuxd-switch-device"} {
@@ -113,7 +187,7 @@ proc process {} {
 			regexp {\"bridge_id\"\s*:\s*\"([^\"]+)\"} $data match bridge_id
 			regexp {\"obj\"\s*:\s*\"([^\"]+)\"} $data match obj
 			regexp {\"num\"\s*:\s*(\d+)} $data match num
-			set res [hue::create_cuxd_switch_device $serial $name $bridge_id $obj $num]
+			set res [hue::create_cuxd_switch_device $sid $serial $name $bridge_id $obj $num]
 			hue::hued_command "reload"
 			return "\"${res}\""
 		} elseif {[lindex $path 1] == "config"} {
@@ -180,7 +254,7 @@ proc process {} {
 
 if [catch {process} result] {
 	set status 500
-	if { [info exists $errorCode] } {
+	if { $errorCode != "NONE" } {
 		set status $errorCode
 	}
 	puts "Content-Type: application/json"

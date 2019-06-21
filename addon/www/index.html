@@ -40,13 +40,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		};
 		var message_timer_id = null;
 		var establish_link_timer_id = null;
+		var sid = null;
 		
-		$(document).ready(function() {
-			get_config(function(data) {
-				update_view();
-			});
-			discover_bridges();
-		});
+		function get_url_vars() {
+			var vars = {};
+			var params = window.location.search.substring(1).split('&');
+			for(var i=0; i<params.length; i++) {
+				param = params[i].split('=');
+				if (param.length > 1) {
+					vars[param[0]] = param[1];
+				}
+			}
+			return vars;
+		}
+		
+		function get_url_var(name) {
+			return get_url_vars()[name];
+		}
 		
 		function display_message(type, text, millis) {
 			clear_message();
@@ -82,8 +92,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			if (!error_callback) {
 				error_callback = default_error_callback;
 			}
+			if (data != null) {
+				data = JSON.stringify(data);
+			}
 			$.ajax({
-				url: "rest.cgi?" + path,
+				url: "rest.cgi?sid=" + sid + "&path=" + path,
 				type: method,
 				data: data,
 				context: document.body,
@@ -93,7 +106,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function api_request(bridge_id, method, path, data, success_callback) {
-			rest("POST", "/bridges/" + bridge_id + '/request', JSON.stringify({"method": method, "path": path, "data": data}), function(data) {
+			rest("POST", "/bridges/" + bridge_id + '/request', {"method": method, "path": path, "data": data}, function(data) {
 				//display_message('info', data, 5000);
 				if (success_callback) {
 					success_callback(data);
@@ -104,7 +117,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function execute_test_command() {
 			var cmd = $('#test-command').val();
 			if (cmd) {
-				rest("PUT", "/test-command", cmd, function(data) {
+				rest("PUT", "/test-command", {"command": cmd}, function(data) {
 					$('#test-command-output').removeClass('hidden');
 					if (data.exitcode == 0) {
 						$('#test-command-output').removeClass('error');
@@ -120,7 +133,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function update_global_config(config) {
-			rest("PUT", "/config/global", JSON.stringify(config), function(data) {
+			rest("PUT", "/config/global", config, function(data) {
 				get_config();
 				display_message('success', 'Config successfully updated', 5000);
 			});
@@ -221,7 +234,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			//form.addClass('loading');
 			if (ip_or_hostname) {
 				display_message('info', 'Connecting to bridge, please press link button..', 15000);
-				rest("POST", "/establish-link", JSON.stringify({"ip": ip_or_hostname}),
+				rest("POST", "/establish-link", {"ip": ip_or_hostname},
 					function(config) {
 						console.log("link established");
 						config.bridgeid = config.bridgeid.toLowerCase();
@@ -295,7 +308,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function update_config_bridge(bridge) {
-			rest("PUT", "/config/bridge/" + bridge.id, JSON.stringify(bridge), function(data) {
+			rest("PUT", "/config/bridge/" + bridge.id, bridge, function(data) {
 				get_config(function(data) {
 					update_view();
 				});
@@ -304,12 +317,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function get_used_cuxd_device_serials() {
-			rest("POST", "/get-used-cuxd-device-serials", JSON.stringify({dtype: 28, dtype2: 2}),
+			rest("POST", "/get-used-cuxd-device-serials", {dtype: 28, dtype2: 2},
 				function(response) {
 					used_cuxd_device_serials.dimmer = response;
 				}
 			);
-			rest("POST", "/get-used-cuxd-device-serials", JSON.stringify({dtype: 40}),
+			rest("POST", "/get-used-cuxd-device-serials", {dtype: 40},
 				function(response) {
 					used_cuxd_device_serials.switch = response;
 				}
@@ -630,7 +643,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
-		$(document).ready(function() {
+		function init() {
+			$('#content').dimmer('hide');
+			
+			get_config(function(data) {
+				update_view();
+			});
+			discover_bridges();
+			
 			get_used_cuxd_device_serials();
 			
 			$('#test-command').bind("keyup", function(event) {
@@ -756,7 +776,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					
 					$('.create-cuxd-dev').addClass('disabled');
 					$('.create-cuxd-dev').addClass('loading');
-					rest("POST", "/create-cuxd-" + data.type + "-device", JSON.stringify(data),
+					rest("POST", "/create-cuxd-" + data.type + "-device", data,
 						function(response) {
 							$('#modal-create-cuxd-device').modal('hide');
 							$('.create-cuxd-dev').removeClass('disabled');
@@ -774,6 +794,50 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			};
 			$('#form-create-cuxd-device').form(create_cuxd_device_form_config);
+		}
+		
+		
+		$(document).ready(function() {
+			$('#content').dimmer('show');
+			sid = get_url_var('sid');
+			rest("GET", "/get_session", null,
+				function(data) {
+					init();
+				},
+				function(xhr, ajaxOptions, thrownError) {
+					if (xhr.status == 401) {
+						var form_config = {
+							on: 'blur',
+							fields: {
+								username: {
+									identifier: 'username'
+								},
+								password: {
+									identifier: 'password'
+								}
+							},
+							onSuccess: function(event, fields) {
+								event.preventDefault();
+								var username = $(event.currentTarget).form('get value', 'username');
+								var password = $(event.currentTarget).form('get value', 'password');
+								rest("POST", "/login", {"username": username, "password": password},
+									function(data) {
+										window.location.href = window.location.href.replace(/\?.*/, '') + '?sid=@' + data + '@';
+									},
+									function(xhr, ajaxOptions, thrownError) {
+										default_error_callback(xhr, ajaxOptions, thrownError);
+									}
+								);
+							}
+						};
+						$('#form-login').form(form_config);
+						$('#modal-login').modal('show');
+					}
+					else {
+						default_error_callback(xhr, ajaxOptions, thrownError);
+					}
+				}
+			);
 		});
 	</script>
 </head>
@@ -789,97 +853,99 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		</div>
 	</div>
 	
-	<div style="padding-top: 5vw" class="ui container">
-		<h1 class="ui header">Hue Addon Configuration</h1>
-		
-		<h2 class="ui dividing header">Global Config</h2>
-		<form id="form-global-config" class="ui form">
-			<div class="field">
-				<label>Interval in seconds which specifies how often the state of devices is retrieved from the bridge (0=do not poll)</label>
-				<input name="poll_state_interval" placeholder="" type="text">
-			</div>
-			<div class="field">
-				<label>Log level</label>
-				<select class="ui fluid search dropdown" name="log_level">
-					<option value="0">nothing</option>
-					<option value="1">error</option>
-					<option value="2">warning</option>
-					<option value="3">info</option>
-					<option value="4">debug</option>
-				</select>
-			</div>
-			<div class="field">
-				<label>Log hue api requests and responses</label>
-				<select class="ui fluid search dropdown" name="api_log">
-					<option value="off">off</option>
-					<option value="command">command</option>
-					<option value="status">status</option>
-					<option value="info">info</option>
-					<option value="all">all</option>
-				</select>
-			</div>
-			<div class="field">
-				<label>Do not update state if device is unreachable</label>
-				<div class="ui toggle checkbox">
-					<input name="ignore_unreachable" type="checkbox">
+	<div id="content" style="padding: 0; margin: 0; width: 100%">
+		<div style="padding-top: 5vw" class="ui container">
+			<h1 class="ui header">Hue Addon Configuration</h1>
+			
+			<h2 class="ui dividing header">Global Config</h2>
+			<form id="form-global-config" class="ui form">
+				<div class="field">
+					<label>Interval in seconds which specifies how often the state of devices is retrieved from the bridge (0=do not poll)</label>
+					<input name="poll_state_interval" placeholder="" type="text">
 				</div>
+				<div class="field">
+					<label>Log level</label>
+					<select class="ui fluid search dropdown" name="log_level">
+						<option value="0">nothing</option>
+						<option value="1">error</option>
+						<option value="2">warning</option>
+						<option value="3">info</option>
+						<option value="4">debug</option>
+					</select>
+				</div>
+				<div class="field">
+					<label>Log hue api requests and responses</label>
+					<select class="ui fluid search dropdown" name="api_log">
+						<option value="off">off</option>
+						<option value="command">command</option>
+						<option value="status">status</option>
+						<option value="info">info</option>
+						<option value="all">all</option>
+					</select>
+				</div>
+				<div class="field">
+					<label>Do not update state if device is unreachable</label>
+					<div class="ui toggle checkbox">
+						<input name="ignore_unreachable" type="checkbox">
+					</div>
+				</div>
+				<div id="submit-global-config" class="ui primary submit button">Submit</div>
+			</form>
+			
+			<h2 class="ui dividing header">Hue daemon</h2>
+			<div id="hued-info" class="ui message">
 			</div>
-			<div id="submit-global-config" class="ui primary submit button">Submit</div>
-		</form>
-		
-		<h2 class="ui dividing header">Hue daemon</h2>
-		<div id="hued-info" class="ui message">
-		</div>
-		<div id="restart-hued-button" onclick="restart_hued();" class="ui blue button">
-			<i class="repeat icon"></i>
-			Restart
-		</div>
-		
-		<h2 class="ui dividing header">Configured Hue Bridges</h2>
-		<table id="bridges" class="ui celled stackable table">
-			<thead>
-				<tr>
-					<th>ID</th>
-					<th>Name</th>
-					<th>IP-Address</th>
-					<th class="center aligned">Action</th>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
-		<div onclick="add_bridge();" class="ui blue basic button">
-		<i class="plus icon"></i>
-		Add Hue Bridge
-		</div>
-		
-		<h2 class="ui dividing header">Discovered Hue Bridges</h2>
-		<table id="discovered-bridges" class="ui celled stackable table">
-			<thead>
-				<tr>
-					<th>IP-Address</th>
-					<th class="center aligned">Action</th>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
-		
-		<h2 class="ui dividing header">Test command</h2>
-		<div style="width: 100%" class="ui action input">
-			<input id="test-command" type="text" value="/usr/local/addons/hue/hue.tcl"/>
-			<button id="execute-test-command" class="ui green right labeled icon button" onclick="execute_test_command();">
-				<i class="play icon"></i>
-				execute
-			</button>
-		</div>
-		<div id="test-command-output" class="ui message hidden"></div>
-		
-		<div style="margin-top:25px;" class="ui right aligned grid">
-			<div class="right floated right aligned twelve wide column">
-				<div onclick="show_log();" class="ui blue basic button">
-				<i class="file text outline icon"></i>
-				Show addon log
+			<div id="restart-hued-button" onclick="restart_hued();" class="ui blue button">
+				<i class="repeat icon"></i>
+				Restart
+			</div>
+			
+			<h2 class="ui dividing header">Configured Hue Bridges</h2>
+			<table id="bridges" class="ui celled stackable table">
+				<thead>
+					<tr>
+						<th>ID</th>
+						<th>Name</th>
+						<th>IP-Address</th>
+						<th class="center aligned">Action</th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+			<div onclick="add_bridge();" class="ui blue basic button">
+			<i class="plus icon"></i>
+			Add Hue Bridge
+			</div>
+			
+			<h2 class="ui dividing header">Discovered Hue Bridges</h2>
+			<table id="discovered-bridges" class="ui celled stackable table">
+				<thead>
+					<tr>
+						<th>IP-Address</th>
+						<th class="center aligned">Action</th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+			
+			<h2 class="ui dividing header">Test command</h2>
+			<div style="width: 100%" class="ui action input">
+				<input id="test-command" type="text" value="/usr/local/addons/hue/hue.tcl"/>
+				<button id="execute-test-command" class="ui green right labeled icon button" onclick="execute_test_command();">
+					<i class="play icon"></i>
+					execute
+				</button>
+			</div>
+			<div id="test-command-output" class="ui message hidden"></div>
+			
+			<div style="margin-top:25px;" class="ui right aligned grid">
+				<div class="right floated right aligned twelve wide column">
+					<div onclick="show_log();" class="ui blue basic button">
+					<i class="file text outline icon"></i>
+					Show addon log
+					</div>
 				</div>
 			</div>
 		</div>
@@ -1040,5 +1106,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		</div>
 	</div>
 	
+	<div id="modal-login" class="ui modal">
+		<i class="close icon"></i>
+		<div class="header">Login</div>
+		<div class="content">
+			<form id="form-login" class="ui form">
+				<div class="field">
+					<label>Username</label>
+					<input type="text" name="username" value="Admin">
+				</div>
+				<div class="field">
+					<label>Password</label>
+					<input type="password" name="password">
+				</div>
+				<div class="ui error message"></div>
+				<div id="submit-login" class="ui primary submit button">Login</div>
+			</form>
+		</div>
+	</div>
+
 </body>
 </html>
