@@ -157,6 +157,20 @@ proc process {} {
 				}
 			}
 			return $config
+		} elseif {[lindex $path 1] == "get-cuxd-device-map"} {
+			set dmap ""
+			array set cuxd_device_map [hue::get_cuxd_device_map]
+			foreach { cuxd_device o } [array get cuxd_device_map] {
+				set tmp [split $o "_"]
+				set bridge_id [lindex $tmp 0]
+				set type [lindex $tmp 1]
+				set id [lindex $tmp 2]
+				if {$dmap != ""} {
+					set dmap "${dmap},"
+				}
+				set dmap "${dmap}\{\"bridge_id\":\"${bridge_id}\",\"type\":\"${type}\",\"id\":\"${id}\",\"cuxd_device\":\"${cuxd_device}\"\}"
+			}
+			return "\[${dmap}\]"
 		} elseif {[lindex $path 1] == "get-used-cuxd-device-serials"} {
 			regexp {\"dtype\"\s*:\s*(\d+)} $data match dtype
 			set dtype2 0

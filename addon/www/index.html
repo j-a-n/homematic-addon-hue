@@ -2,7 +2,7 @@
 <!--
 HomeMatic addon to control Philips Hue Lighting
 
-Copyright (C) 2017  Jan Schneider <oss@janschneider.net>
+Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			dimmer: [],
 			switch: []
 		};
+		var cuxd_device_map = [];
 		var message_timer_id = null;
 		var establish_link_timer_id = null;
 		var sid = null;
@@ -446,61 +447,87 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#dimmer-bridge-info').addClass('active');
 			$('#bridge-info-content').empty();
 			
-			get_config(function(data) {
-				get_lights(bridge_id, function(data) {
-					get_groups(bridge_id, function(data) {
-						get_scenes(bridge_id, function(data) {
-							//console.log(config);
-							//console.log(lights);
-							$('#dimmer-bridge-info').removeClass('active');
-							$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Bridge ' + bridge_id));
-							$('#bridge-info-content').append(object_to_table(config));
-							$.each(lights[bridge_id], function(light_id, light) {
-								//console.info(light);
-								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Light ' + light_id));
-								
-								let div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-dimmer</div>');
-								div.data('light', light);
-								div.click(function() {
-									create_cuxd_device('dimmer', bridge_id, 'light', light_id, $(this).data('light'));
+			function get_mapping_div(bridge_id, type, id) {
+				let ul = $('<ul>');
+				cuxd_device_map.forEach(function(mapping) {
+					if (mapping.bridge_id == bridge_id && mapping.type == type && mapping.id == id) {
+						ul.append($('<li>').text(mapping.cuxd_device));
+					}
+				});
+				if (ul.children().length > 0) {
+					return $('<div>').append($('<h3>').text('Mapped CUxD-devices:'), ul);
+				}
+			}
+			
+			get_cuxd_device_map(function() {
+				get_config(function(data) {
+					get_lights(bridge_id, function(data) {
+						get_groups(bridge_id, function(data) {
+							get_scenes(bridge_id, function(data) {
+								//console.log(config);
+								//console.log(lights);
+								$('#dimmer-bridge-info').removeClass('active');
+								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Bridge ' + bridge_id));
+								$('#bridge-info-content').append(object_to_table(config));
+								$.each(lights[bridge_id], function(light_id, light) {
+									//console.info(light);
+									$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Light ' + light_id));
+									
+									let div = get_mapping_div(bridge_id, 'light', light_id);
+									if (div) {
+										$('#bridge-info-content').append(div);
+									}
+									
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-dimmer</div>');
+									div.data('light', light);
+									div.click(function() {
+										create_cuxd_device('dimmer', bridge_id, 'light', light_id, $(this).data('light'));
+									});
+									$('#bridge-info-content').append(div);
+									
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-switch</div>');
+									div.data('light', light);
+									div.click(function() {
+										create_cuxd_device('switch', bridge_id, 'light', light_id, $(this).data('light'));
+									});
+									$('#bridge-info-content').append(div);
+									
+									$('#bridge-info-content').append($('<h3>').text('Properties:'));
+									$('#bridge-info-content').append(object_to_table(light));
 								});
-								$('#bridge-info-content').append(div);
-								
-								div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-switch</div>');
-								div.data('light', light);
-								div.click(function() {
-									create_cuxd_device('switch', bridge_id, 'light', light_id, $(this).data('light'));
+								$.each(groups[bridge_id], function(group_id, group) {
+									//console.info(group);
+									$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Group ' + group_id));
+									
+									let div = get_mapping_div(bridge_id, 'group', group_id);
+									if (div) {
+										$('#bridge-info-content').append(div);
+									}
+									
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-dimmer</div>');
+									div.data('group', group);
+									div.click(function() {
+										create_cuxd_device('dimmer', bridge_id, 'group', group_id, $(this).data('group'));
+									});
+									$('#bridge-info-content').append(div);
+									
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-switch</div>');
+									div.data('group', group);
+									div.click(function() {
+										create_cuxd_device('switch', bridge_id, 'group', group_id, $(this).data('group'));
+									});
+									$('#bridge-info-content').append(div);
+									
+									$('#bridge-info-content').append($('<h3>').text('Properties:'));
+									$('#bridge-info-content').append(object_to_table(group));
 								});
-								$('#bridge-info-content').append(div);
-								
-								$('#bridge-info-content').append(object_to_table(light));
-							});
-							$.each(groups[bridge_id], function(group_id, group) {
-								//console.info(group);
-								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Group ' + group_id));
-								
-								let div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-dimmer</div>');
-								div.data('group', group);
-								div.click(function() {
-									create_cuxd_device('dimmer', bridge_id, 'group', group_id, $(this).data('group'));
+								$.each(scenes[bridge_id], function(scene_id, scene) {
+									//console.info(scene);
+									$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Scene ' + scene_id));
+									$('#bridge-info-content').append(object_to_table(scene));
 								});
-								$('#bridge-info-content').append(div);
-								
-								div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-switch</div>');
-								div.data('group', group);
-								div.click(function() {
-									create_cuxd_device('switch', bridge_id, 'group', group_id, $(this).data('group'));
-								});
-								$('#bridge-info-content').append(div);
-								
-								$('#bridge-info-content').append(object_to_table(group));
-							});
-							$.each(scenes[bridge_id], function(scene_id, scene) {
-								//console.info(scene);
-								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Scene ' + scene_id));
-								$('#bridge-info-content').append(object_to_table(scene));
-							});
-							$('#modal-bridge-info').modal('refresh');
+								$('#modal-bridge-info').modal('refresh');
+							}, error_callback);
 						}, error_callback);
 					}, error_callback);
 				}, error_callback);
@@ -622,11 +649,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				var info = "Hue daemon is not running";
 				if (data) {
 					info = "Hue daemon is running (pid: " + data + ")";
-					$('#restart-hued-button').text("Restart");
+					$('#restart-hued-button').html('<i class="redo icon"></i>Restart');
 					$("#hued-info").attr('class', 'ui message visible success');
 				}
 				else {
-					$('#restart-hued-button').text("Start");
+					$('#restart-hued-button').html('<i class="play icon"></i>Start');
 					$("#hued-info").attr('class', 'ui message visible warning');
 				}
 				$("#hued-info").html(info);
@@ -641,6 +668,50 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("PUT", "/hued/restart", null, function(data) {
 				get_hued_info();
 			});
+		}
+		
+		
+		function get_cuxd_device_map(callback = null, error_callback = null) {
+			rest("GET", "/get-cuxd-device-map", null, function(response) {
+				//console.log(response);
+				response.sort(function compare(a, b) {
+					if (a.cuxd_device < b.cuxd_device) {
+						return -1
+					}
+					else if (a.cuxd_device > b.cuxd_device) {
+						return 1;
+					}
+					return 0;
+				});
+				cuxd_device_map = response;
+				if (callback) {
+					callback();
+				}
+			}, error_callback);
+		}
+		
+		function show_cuxd_device_map_info() {
+			var error_callback = function(xhr, ajaxOptions, thrownError) {
+				console.error(xhr);
+				$('#dimmer-cuxd-device-map-info').removeClass('active');
+				$('#modal-cuxd-device-map-info').modal('hide');
+			}
+			$('#modal-cuxd-device-map-info').modal('show');
+			$('#dimmer-cuxd-device-map-info').addClass('active');
+			$('#cuxd-device-map tbody').empty();
+			
+			get_cuxd_device_map(function() {
+					cuxd_device_map.forEach(function(mapping) {
+						$("#cuxd-device-map tbody").append($('<tr>').append(
+							$('<td>').text(mapping.cuxd_device),
+							$('<td>').text(mapping.bridge_id),
+							$('<td>').text(mapping.type),
+							$('<td>').text(mapping.id)
+						));
+					});
+					$('#dimmer-cuxd-device-map-info').removeClass('active');
+				}
+			);
 		}
 		
 		function init() {
@@ -783,6 +854,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							$('.create-cuxd-dev').removeClass('loading');
 							display_message('success', "CUxD device " + response + " created", 5000);
 							get_used_cuxd_device_serials();
+							show_bridge_info(data.bridge_id);
 						},
 						function(xhr, ajaxOptions, thrownError) {
 							$('.create-cuxd-dev').removeClass('disabled');
@@ -889,14 +961,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						<input name="ignore_unreachable" type="checkbox">
 					</div>
 				</div>
-				<div id="submit-global-config" class="ui primary submit button">Submit</div>
+				<div id="submit-global-config" class="ui primary basic submit button"><i class="save icon"></i>Save config</div>
 			</form>
 			
 			<h2 class="ui dividing header">Hue daemon</h2>
 			<div id="hued-info" class="ui message">
 			</div>
-			<div id="restart-hued-button" onclick="restart_hued();" class="ui blue button">
-				<i class="repeat icon"></i>
+			
+			<div id="show-cuxd-device-map-info-button" onclick="show_cuxd_device_map_info();" class="ui blue basic button">
+				<i class="info icon"></i>
+				Show CUxD device mappings
+			</div>
+			<div id="restart-hued-button" onclick="restart_hued();" class="ui blue basic button">
+				<i class="redo icon"></i>
 				Restart
 			</div>
 			
@@ -1081,6 +1158,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			Info
 		</div>
 		<div id="bridge-info-content" class="content">
+		</div>
+	</div>
+	
+	<div id="modal-cuxd-device-map-info" class="ui modal">
+		<i class="close icon"></i>
+		<div id="dimmer-cuxd-device-map-info" class="ui inverted dimmer">
+			<div class="ui text loader">Loading</div>
+		</div>
+		<div class="header">
+			CUxD device mappings
+		</div>
+		<div class="content">
+			<table id="cuxd-device-map" class="ui celled stackable table">
+				<thead>
+					<tr>
+						<th>CUxD device</th>
+						<th>Bridge ID</th>
+						<th>Device type</th>
+						<th>Device ID</th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
 		</div>
 	</div>
 	
