@@ -57,7 +57,12 @@ proc check_session {sid} {
 	if {[get_session $sid] != ""} {
 		# renew session
 		set url "http://127.0.0.1/pages/index.htm?sid=$sid"
-		::http::cleanup [::http::geturl $url]
+		set request [::http::geturl $url]
+		set code [::http::code $request]
+		::http::cleanup $request
+		if {[lindex $code 1] == 200} {
+			return 1
+		}
 		return 1
 	}
 	return 0
