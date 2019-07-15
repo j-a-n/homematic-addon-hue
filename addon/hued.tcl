@@ -62,8 +62,8 @@ proc throttle_group_command {} {
 proc main_loop {} {
 	if { [catch {
 		check_update
-	} errormsg] } {
-		hue::write_log 1 "Error: '${errormsg}'"
+	} errmsg] } {
+		hue::write_log 1 "Error: ${errmsg} - ${::errorCode} - ${::errorInfo}"
 		after 30000 main_loop
 	} else {
 		after 1000 main_loop
@@ -82,7 +82,7 @@ proc check_update {} {
 		if {[clock seconds] >= $scheduled_time} {
 			set tmp [split $o "_"]
 			if {[catch {update_cuxd_device [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]} errmsg]} {
-				hue::write_log 2 "Failed to update [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]: $errmsg"
+				hue::write_log 2 "Failed to update [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]: $errmsg - ${::errorCode} - ${::errorInfo}"
 				# Device deleted? => refresh device map
 				set last_schedule_update 0
 				unset update_schedule($o)
@@ -228,15 +228,15 @@ proc main {} {
 	variable cuxd_device_map
 	if { [catch {
 		update_config
-	} errormsg] } {
-		hue::write_log 1 "Error: '${errormsg}'"
+	} errmsg] } {
+		hue::write_log 1 "Error: ${errmsg} - ${::errorCode} - ${::errorInfo}"
 	}
 	
 	if { [catch {
 		set dmap [hue::get_cuxd_device_map]
 		array set cuxd_device_map $dmap
-	} errormsg] } {
-		hue::write_log 1 "Failed to get cuxd device map: ${errormsg}"
+	} errmsg] } {
+		hue::write_log 1 "Failed to get cuxd device map: ${errmsg} - ${::errorCode} - ${::errorInfo}"
 	}
 	
 	after 10 main_loop
