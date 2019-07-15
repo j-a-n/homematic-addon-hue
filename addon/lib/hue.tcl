@@ -1,6 +1,6 @@
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -85,17 +85,25 @@ proc ::hue::read_log {} {
 	if { ![file exist $log_file] } {
 		return ""
 	}
-	set fp [open $log_file r]
-	set data [read $fp]
-	close $fp
+	set fd [open $log_file "r"]
+	set data [read $fd]
+	close $fd
 	return $data
+}
+
+proc ::hue::truncate_log {} {
+	variable log_file
+	variable lock_id_log_file
+	acquire_lock $lock_id_log_file
+	close [open $log_file "w"]
+	release_lock $lock_id_log_file
 }
 
 proc ::hue::version {} {
 	variable version_file
-	set fp [open $version_file r]
-	set data [read $fp]
-	close $fp
+	set fd [open $version_file r]
+	set data [read $fd]
+	close $fd
 	return [string trim $data]
 }
 

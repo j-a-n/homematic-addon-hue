@@ -613,12 +613,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					values[attr] = val;
 				}
 			});
-			console.log(values);
+			//console.log(values);
 			$('#message-light-control-request').html('<div class="header">Request</div><pre>' + JSON.stringify(values, null, 2) + '</pre>');
 			$('#message-light-control-request').attr('class', 'ui message info visible');
 			api_request(bridge_id, "PUT", resource, values,
 				function(data) {
-					console.log(data);
+					//console.log(data);
 					var data_str = JSON.stringify(data, null, 2); // spacing level = 2
 					$('#message-light-control-response').html('<div class="header">Response</div><pre>' + data_str + '</pre>');
 					$('#message-light-control-response').attr('class', 'ui message info visible');
@@ -638,6 +638,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function show_log() {
 			var win = window.open('log.cgi', '_blank');
 			win.focus();
+		}
+		
+		function truncate_log() {
+			rest("GET", "/truncate-log", null, function(data) {
+				display_message('success', 'Log file truncated', 5000);
+			});
 		}
 		
 		function bridge_test(bridge_id) {
@@ -1019,9 +1025,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			
 			<div style="margin-top:25px;" class="ui right aligned grid">
 				<div class="right floated right aligned twelve wide column">
+					<div onclick="truncate_log();" class="ui blue basic button">
+						<i class="recycle icon"></i>
+						Truncate addon log
+					</div>
 					<div onclick="show_log();" class="ui blue basic button">
-					<i class="file text outline icon"></i>
-					Show addon log
+						<i class="file text outline icon"></i>
+						Show addon log
 					</div>
 				</div>
 			</div>

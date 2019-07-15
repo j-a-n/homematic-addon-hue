@@ -266,6 +266,9 @@ proc process {} {
 				after 500
 				return "\"OK\""
 			}
+		} elseif {[lindex $path 1] == "truncate-log"} {
+			hue::truncate_log
+			return "\"OK\""
 		}
 	}
 	error "invalid request" "Not found" 404
