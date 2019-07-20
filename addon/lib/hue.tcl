@@ -377,7 +377,7 @@ proc ::hue::delete_bridge {bridge_id} {
 	release_lock $lock_id_ini_file
 }
 
-proc ::hue::http_request {ip port method path {data ""} {content_type ""}} {
+proc ::hue::_http_request {ip port method path {data ""} {content_type ""}} {
 	set sock [socket $ip $port]
 	puts $sock "${method} ${path} HTTP/1.1"
 	puts $sock "Host: ${ip}:${port}"
@@ -404,6 +404,27 @@ proc ::hue::http_request {ip port method path {data ""} {content_type ""}} {
 	}
 	catch { close $sock }
 	return $response
+}
+
+proc ::hue::http_request {ip port method path {data ""} {content_type ""}} {
+	set response ""
+	set trynum 0
+	while {1} {
+		incr trynum
+		if { [catch {
+			set response [_http_request $ip $port $method $path $data $content_type]
+		} errmsg] } {
+			write_log 2 "HTTP request failed (trynum ${trynum}): ${errmsg} - ${::errorCode}"
+			if {[string first "connection timed out" $errmsg] == -1} {
+				error $errmsg $::errorInfo
+			}
+			if {$trynum >= 3} {
+				error $errmsg $::errorInfo
+			}
+		} else {
+			return $response
+		}
+	}
 }
 
 proc ::hue::api_request {type ip port username method path {data ""}} {
