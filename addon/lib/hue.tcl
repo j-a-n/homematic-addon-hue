@@ -29,6 +29,7 @@ namespace eval hue {
 	variable log_file "/tmp/hue-addon-log.txt"
 	variable log_level 0
 	variable api_log "off"
+	variable api_connect_timeout 1000
 	variable lock_start_port 11200
 	variable lock_socket
 	variable lock_id_log_file 1
@@ -377,8 +378,22 @@ proc ::hue::delete_bridge {bridge_id} {
 	release_lock $lock_id_ini_file
 }
 
-proc ::hue::_http_request {ip port method path {data ""} {content_type ""}} {
-	set sock [socket $ip $port]
+proc ::hue::timeout_socket {ip port timeout} {
+	global connected
+	after $timeout { set connected "timeout" }
+	set sock [socket -async $ip $port]
+	fileevent $sock w { set connected "ok" }
+	vwait connected
+	if {$connected == "timeout"} {
+		error "connection timed out after ${timeout} milliseconds"
+	} else {
+		return $sock
+	}
+}
+
+proc ::hue::_http_request {ip port method path {data ""} {content_type ""} {timeout 5000}} {
+	#set sock [socket $ip $port]
+	set sock [timeout_socket $ip $port $timeout]
 	puts $sock "${method} ${path} HTTP/1.1"
 	puts $sock "Host: ${ip}:${port}"
 	puts $sock "User-Agent: cuxd"
@@ -406,13 +421,13 @@ proc ::hue::_http_request {ip port method path {data ""} {content_type ""}} {
 	return $response
 }
 
-proc ::hue::http_request {ip port method path {data ""} {content_type ""}} {
+proc ::hue::http_request {ip port method path {data ""} {content_type ""} {timeout 5000}} {
 	set response ""
 	set trynum 0
 	while {1} {
 		incr trynum
 		if { [catch {
-			set response [_http_request $ip $port $method $path $data $content_type]
+			set response [_http_request $ip $port $method $path $data $content_type $timeout]
 		} errmsg] } {
 			write_log 2 "HTTP request failed (trynum ${trynum}): ${errmsg} - ${::errorCode}"
 			if {[string first "connection timed out" $errmsg] == -1} {
@@ -432,6 +447,7 @@ proc ::hue::http_request {ip port method path {data ""} {content_type ""}} {
 
 proc ::hue::api_request {type ip port username method path {data ""}} {
 	variable api_log
+	variable api_connect_timeout
 	if {[string first "/" $path] == 0} {
 		set path [string range $path 1 end]
 	}
@@ -441,9 +457,9 @@ proc ::hue::api_request {type ip port username method path {data ""}} {
 		set log 1
 	}
 	if {$log} {
-		hue::write_log 0 "api request: ${ip} - ${method} - ${path} - ${data}"
+		write_log 0 "api request: ${ip} - ${method} - ${path} - ${data}"
 	}
-	set res [http_request $ip $port $method $path $data "application/json"]
+	set res [http_request $ip $port $method $path $data "application/json" $api_connect_timeout]
 	if {$log} {
 		hue::write_log 0 "api response: ${res}"
 	}
