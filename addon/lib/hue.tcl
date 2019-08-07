@@ -422,6 +422,9 @@ proc ::hue::http_request {ip port method path {data ""} {content_type ""}} {
 				error $errmsg $::errorInfo
 			}
 		} else {
+			if {$trynum > 1} {
+				write_log 3 "HTTP request succeeded on trynum ${trynum}"
+			}
 			return $response
 		}
 	}
