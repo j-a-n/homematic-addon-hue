@@ -29,7 +29,7 @@ namespace eval hue {
 	variable log_file "/tmp/hue-addon-log.txt"
 	variable log_level 0
 	variable api_log "off"
-	variable api_connect_timeout 1000
+	variable api_connect_timeout 3000
 	variable lock_start_port 11200
 	variable lock_socket
 	variable lock_id_log_file 1
