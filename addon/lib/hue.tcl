@@ -29,7 +29,8 @@ namespace eval hue {
 	variable log_file "/tmp/hue-addon-log.txt"
 	variable log_level 0
 	variable api_log "off"
-	variable api_connect_timeout 3000
+	# api_connect_timeout in milliseconds, 0=default tcl behaviour
+	variable api_connect_timeout 0
 	variable lock_start_port 11200
 	variable lock_socket
 	variable lock_id_log_file 1
@@ -391,9 +392,13 @@ proc ::hue::timeout_socket {ip port timeout} {
 	}
 }
 
-proc ::hue::_http_request {ip port method path {data ""} {content_type ""} {timeout 5000}} {
-	#set sock [socket $ip $port]
-	set sock [timeout_socket $ip $port $timeout]
+proc ::hue::_http_request {ip port method path {data ""} {content_type ""} {timeout 0}} {
+	set sock ""
+	if {$timeout > 0} {
+		set sock [timeout_socket $ip $port $timeout]
+	} else {
+		set sock [socket $ip $port]
+	}
 	puts $sock "${method} ${path} HTTP/1.1"
 	puts $sock "Host: ${ip}:${port}"
 	puts $sock "User-Agent: cuxd"
@@ -421,7 +426,7 @@ proc ::hue::_http_request {ip port method path {data ""} {content_type ""} {time
 	return $response
 }
 
-proc ::hue::http_request {ip port method path {data ""} {content_type ""} {timeout 5000}} {
+proc ::hue::http_request {ip port method path {data ""} {content_type ""} {timeout 0}} {
 	set response ""
 	set trynum 0
 	while {1} {
