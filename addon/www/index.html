@@ -217,6 +217,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				poll_state_interval: config.global.poll_state_interval,
 				log_level: config.global.log_level,
 				api_log: config.global.api_log,
+				api_connect_timeout: config.global.api_connect_timeout,
 				ignore_unreachable: config.global.ignore_unreachable
 			});
 		}
@@ -757,6 +758,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					api_log: {
 						identifier: 'api_log',
 					},
+					api_connect_timeout: {
+						rules: [{
+							type: 'integer[0..30000]',
+							prompt: 'Please enter a valid integer for the api connection timeout.'
+						}]
+					},
 					ignore_unreachable: {
 						identifier: 'ignore_unreachable',
 					}
@@ -940,6 +947,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<div class="field">
 					<label>Interval in seconds which specifies how often the state of devices is retrieved from the bridge (0=do not poll)</label>
 					<input name="poll_state_interval" placeholder="" type="text">
+				</div>
+				<div class="field">
+					<label>Timeout in milliseconds for hue api connects (0=default tcl socket behaviour)</label>
+					<input name="api_connect_timeout" placeholder="" type="text">
 				</div>
 				<div class="field">
 					<label>Log level</label>

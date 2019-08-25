@@ -2,7 +2,7 @@
 
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2017  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -218,9 +218,10 @@ proc process {} {
 				if {$env(REQUEST_METHOD) == "PUT"} {
 					regexp {\"log_level\"\s*:\s*\"([^\"]+)\"} $data match log_level
 					regexp {\"api_log\"\s*:\s*\"([^\"]+)\"} $data match api_log
+					regexp {\"api_connect_timeout\"\s*:\s*\"([^\"]+)\"} $data match api_connect_timeout
 					regexp {\"poll_state_interval\"\s*:\s*\"([^\"]+)\"} $data match poll_state_interval
 					regexp {\"ignore_unreachable\"\s*:\s*(false|true)} $data match ignore_unreachable
-					hue::update_global_config $log_level $api_log $poll_state_interval $ignore_unreachable
+					hue::update_global_config $log_level $api_log $poll_state_interval $ignore_unreachable $api_connect_timeout
 					hue::hued_command "reload"
 					return "\"Global config successfully updated\""
 				}

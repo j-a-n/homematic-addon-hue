@@ -224,14 +224,15 @@ proc ::hue::get_config_bridge_ids {} {
 	return $bridge_ids
 }
 
-proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable} {
+proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable api_connect_timeout} {
 	variable ini_file
 	variable lock_id_ini_file
-	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} ignore_unreachable=${ignore_unreachable}"
+	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} ignore_unreachable=${ignore_unreachable} api_connect_timeout=${api_connect_timeout}"
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r+]
 	ini::set $ini "global" "log_level" $log_level
 	ini::set $ini "global" "api_log" $api_log
+	ini::set $ini "global" "api_connect_timeout" $api_connect_timeout
 	ini::set $ini "global" "poll_state_interval" $poll_state_interval
 	if {$ignore_unreachable == "true" || $ignore_unreachable == "1"} {
 		ini::set $ini "global" "ignore_unreachable" "1"
@@ -247,6 +248,7 @@ proc ::hue::read_global_config {} {
 	variable lock_id_ini_file
 	variable log_level
 	variable api_log
+	variable api_connect_timeout
 	variable poll_state_interval
 	variable ignore_unreachable
 	
@@ -256,6 +258,7 @@ proc ::hue::read_global_config {} {
 	catch {
 		set log_level [expr { 0 + [::ini::value $ini "global" "log_level" $log_level] }]
 		set api_log [::ini::value $ini "global" "api_log" $api_log]
+		set api_connect_timeout [expr { 0 + [::ini::value $ini "global" "api_connect_timeout" $api_connect_timeout] }]
 		set poll_state_interval [expr { 0 + [::ini::value $ini "global" "poll_state_interval" $poll_state_interval] }]
 		set ignore_unreachable [expr { 0 + [::ini::value $ini "global" "ignore_unreachable" $ignore_unreachable] }]
 	}
@@ -268,6 +271,7 @@ proc ::hue::get_config_json {} {
 	variable lock_id_ini_file
 	variable log_level
 	variable api_log
+	variable api_connect_timeout
 	variable poll_state_interval
 	variable ignore_unreachable
 	
@@ -277,7 +281,7 @@ proc ::hue::get_config_json {} {
 	}
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
-	set json "\{\"global\":\{\"log_level\":${log_level},\"api_log\":\"${api_log}\"\,\"poll_state_interval\":${poll_state_interval},\"ignore_unreachable\":${iu}\},\"bridges\":\["
+	set json "\{\"global\":\{\"log_level\":${log_level},\"api_log\":\"${api_log}\",\"api_connect_timeout\":${api_connect_timeout},\"poll_state_interval\":${poll_state_interval},\"ignore_unreachable\":${iu}\},\"bridges\":\["
 	set count 0
 	foreach section [ini::sections $ini] {
 		set idx [string first "bridge_" $section]
