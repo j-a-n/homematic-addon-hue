@@ -261,6 +261,11 @@ proc process {} {
 				catch {
 					set pid [exec pidof hued.tcl]
 				}
+				if {$pid == ""} {
+					catch {
+						set pid [exec pidof -x hued.tcl]
+					}
+				}
 				return "\"${pid}\""
 			} elseif {[lindex $path 2] == "restart"} {
 				exec /usr/local/addons/hue/hued.tcl
