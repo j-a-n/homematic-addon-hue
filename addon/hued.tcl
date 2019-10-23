@@ -170,23 +170,26 @@ proc read_from_channel {channel} {
 	hue::write_log 4 "Received command: $cmd"
 	set response ""
 	if {[regexp "^api_request\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(.*)" $cmd match type bridge_id obj num method path json]} {
-		set response [hue::request $type $bridge_id $method $path $json]
-		set o "${bridge_id}_${obj}_${num}"
-		
-		if {$obj == "group"} {
-			throttle_group_command
+		if { [catch {
+			set response [hue::request $type $bridge_id $method $path $json]
+			set o "${bridge_id}_${obj}_${num}"
+			
+			if {$obj == "group"} {
+				throttle_group_command
+			}
+			
+			# The bridge needs some time until all values are up to date
+			set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
+			if {[llength $cuxd_devices] > 0} {
+				# Device is mapped to a CUxD device
+				set delay_seconds 1
+				set time [expr {[clock seconds] + $delay_seconds}]
+				set update_schedule($o) $time
+				#set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
+			}
+		} errmsg] } {
+			set response "ERROR: ${errmsg}"
 		}
-		
-		# The bridge needs some time until all values are up to date
-		set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
-		if {[llength $cuxd_devices] > 0} {
-			# Device is mapped to a CUxD device
-			set delay_seconds 1
-			set time [expr {[clock seconds] + $delay_seconds}]
-			set update_schedule($o) $time
-			set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
-		}
-		
 	} elseif {[regexp "^reload$" $cmd match]} {
 		set last_schedule_update 0
 		set response "Reload scheduled"
