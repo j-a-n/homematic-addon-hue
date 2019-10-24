@@ -208,7 +208,7 @@ proc main {} {
 			after $sleep
 		}
 		
-		hue::hued_command "api_request" [list "command" $bridge_id $cmd $num "PUT" $path $json]
+		puts [hue::hued_command "api_request" [list "command" $bridge_id $cmd $num "PUT" $path $json]]
 	}
 }
 
