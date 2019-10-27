@@ -840,11 +840,17 @@ proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num} {
 	}
 	set serial [expr {0 + $serial}]
 	
+	set dbase 10022
+	set response [http_request "127.0.0.1" 80 "GET" "/addons/cuxd/index.ccc?sid=@${sid}@&m=2${dtype}&dtype2=0"]
+	if {[regexp {option\s+(selected)?\s*value\D+(\d+)\D+Fernbedienung 19 Tasten} $response match tmp value]} {
+		set dbase $value
+	}
+	
 	set device "CUX[format %02s $dtype][format %05s $serial]"
 	set command_short "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:false"
 	set command_long "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:true"
-	#set data "dtype=${dtype}&dserial=${serial}&dname=[urlencode $name]&dbase=10022&dcontrol=1"
-	set data "dtype=${dtype}&dserial=${serial}&dbase=10022&dcontrol=1"
+	#set data "dtype=${dtype}&dserial=${serial}&dname=[urlencode $name]&dbase=${dbase}&dcontrol=1"
+	set data "dtype=${dtype}&dserial=${serial}&dbase=${dbase}&dcontrol=1"
 	
 	hue::write_log 4 "Creating cuxd switch device with serial ${serial}"
 	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?sid=@${sid}@&m=3" $data "application/x-www-form-urlencoded"]
@@ -905,9 +911,15 @@ proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min 
 	}
 	set serial [expr {0 + $serial}]
 	
+	set dbase 10042
+	set response [http_request "127.0.0.1" 80 "GET" "/addons/cuxd/index.ccc?sid=@${sid}@&m=2${dtype}&dtype2=${dtype2}"]
+	if {[regexp {option\s+(selected)?\s*value\D+(\d+)\D+Dimmaktor 1fach Unterputz} $response match tmp value]} {
+		set dbase $value
+	}
+	
 	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
 	set command "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} ct_min:${ct_min} transitiontime:0"
-	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=10042"
+	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=${dbase}"
 	
 	hue::write_log 4 "Creating cuxd dimmer device with serial ${serial}"
 	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?sid=@${sid}@&m=3" $data "application/x-www-form-urlencoded"]
@@ -1056,7 +1068,8 @@ hue::read_global_config
 #hue::get_used_cuxd_device_serials 28 2
 #puts [hue::get_free_cuxd_device_serial 40]
 #hue::create_cuxd_switch_device 0 "test" "xxxxxxxxx" "light" 15
-#hue::create_cuxd_dimmer_device 20 "test" "xxxxxxxxx" "light" 15 0 255
+#puts [hue::create_cuxd_switch_device "7vfpOdgtD0" 0 "test" "xxxxxxxxx" "light" 15]
+#puts [hue::create_cuxd_dimmer_device "7vfpOdgtD0" 20 "test" "xxxxxxxxx" "light" 15 0 255]
 #hue::delete_cuxd_device "2802010"
 #puts [hue::get_cuxd_channels_min_max "CUX2802003"]
 #puts [hue::request "" "PUT" "lights/1/state" "\{\"on\":true,\"sat\":254,\"bri\":254,\"hue\":1000\}"]
