@@ -907,7 +907,7 @@ proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min 
 	
 	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
 	set command "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} ct_min:${ct_min} transitiontime:0"
-	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=10041"
+	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=10042"
 	
 	hue::write_log 4 "Creating cuxd dimmer device with serial ${serial}"
 	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?sid=@${sid}@&m=3" $data "application/x-www-form-urlencoded"]
