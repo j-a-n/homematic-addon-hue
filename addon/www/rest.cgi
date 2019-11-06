@@ -153,14 +153,7 @@ proc process {} {
 			set username [hue::api_establish_link $ip 80]
 			set config [hue::api_request "info" $ip 80 $username "GET" "config"]
 			set config "\{\"username\":\"${username}\",[string range $config 1 end]"
-			set data [hue::api_request "info" $ip 80 $username "GET" "lights"]
-			foreach d [split $data "\}"] {
-				set lid ""
-				regexp {"(\d+)"\s*:\s*\{} $d match lid
-				if { [info exists lid] && $lid != "" } {
-					hue::api_request "command" $ip 80 $username "PUT" "lights/${lid}/state" "\{\"alert\":\"select\"\}"
-				}
-			}
+			hue::api_request "command" $ip 80 $username "PUT" "groups/0/action" "\{\"alert\":\"select\"\}"
 			return $config
 		} elseif {[lindex $path 1] == "get-cuxd-device-map"} {
 			set dmap ""
