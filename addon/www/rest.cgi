@@ -152,9 +152,10 @@ proc process {} {
 			regexp {\"ip\"\s*:\s*\"([^\"]+)\"} $data match ip
 			set username [hue::api_establish_link $ip 80]
 			set config [hue::api_request "info" $ip 80 $username "GET" "config"]
-			set config "\{\"username\":\"${username}\",[string range $config 1 end]"
+			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $config match name
+			regexp {\"bridgeid\"\s*:\s*\"([^\"]+)\"} $config match bridgeid
 			hue::api_request "command" $ip 80 $username "PUT" "groups/0/action" "\{\"alert\":\"select\"\}"
-			return $config
+			return "\{\"username\":\"${username}\",\"name\":\"${name}\"\,\"bridgeid\":\"${bridgeid}\"\}"
 		} elseif {[lindex $path 1] == "get-cuxd-device-map"} {
 			set dmap ""
 			array set cuxd_device_map [hue::get_cuxd_device_map]
