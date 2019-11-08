@@ -155,6 +155,9 @@ proc process {} {
 			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $config match name
 			regexp {\"bridgeid\"\s*:\s*\"([^\"]+)\"} $config match bridgeid
 			hue::api_request "command" $ip 80 $username "PUT" "groups/0/action" "\{\"alert\":\"select\"\}"
+			set username [json_string $username]
+			set name [json_string $name]
+			set bridgeid [json_string $bridgeid]
 			return "\{\"username\":\"${username}\",\"name\":\"${name}\"\,\"bridgeid\":\"${bridgeid}\"\}"
 		} elseif {[lindex $path 1] == "get-cuxd-device-map"} {
 			set dmap ""
