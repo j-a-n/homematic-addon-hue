@@ -29,6 +29,7 @@ namespace eval hue {
 	variable log_file "/tmp/hue-addon-log.txt"
 	variable log_level 0
 	variable api_log "off"
+	variable max_log_size 1000000
 	# api_connect_timeout in milliseconds, 0=default tcl behaviour
 	variable api_connect_timeout 0
 	variable lock_start_port 11200
@@ -65,6 +66,7 @@ proc ::hue::write_log {lvl str {lock 1}} {
 	variable log_level
 	variable log_file
 	variable lock_id_log_file
+	variable max_log_size
 	if {$lvl <= $log_level} {
 		if {$lock == 1} {
 			acquire_lock $lock_id_log_file
@@ -76,6 +78,18 @@ proc ::hue::write_log {lvl str {lock 1}} {
 		puts $fd "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
 		close $fd
 		#puts "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
+		if {[file size $log_file] > $max_log_size} {
+			set fd [open $log_file r]
+			seek $fd [expr {$max_log_size / 4}]
+			set data [read $fd]
+			close $fd
+			
+			set data [string range $data [expr {[string first "\n" $data] + 1}] end]
+			
+			set fd [open $log_file "w"]
+			puts -nonewline $fd $data
+			close $fd
+		}
 		if {$lock == 1} {
 			release_lock $lock_id_log_file
 		}
