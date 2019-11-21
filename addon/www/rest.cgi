@@ -132,6 +132,8 @@ proc process {} {
 				set output "Invalid command: ${command}"
 			} else {
 				set exitcode [catch {
+					regexp {\"language\"\s*:\s*\"([^\"]+)\"} $data match language
+					set ::env(LANGUAGE) $language
 					eval exec $command
 				} output]
 				set output [json_string $output]

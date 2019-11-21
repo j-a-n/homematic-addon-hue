@@ -23,13 +23,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<script src="js/jquery-3.3.1.min.js"></script>
+	<script src="js/i18next-13.0.0.min.js"></script>
+	<script src="js/jquery-i18next-1.2.1.min.js"></script>
 	<script src="js/semantic-2.4.2.min.js"></script>
 	<link rel="stylesheet" href="css/semantic-2.4.2.min.css" />
 	<style>
 	</style>
 	
-	<title>Hue Addon</title>
+	<title data-i18n="title">Hue Addon</title>
 	<script>
+		var language = navigator.language || navigator.userLanguage;
 		var config = {};
 		var lights = {};
 		var groups = {};
@@ -86,7 +89,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 			catch(e) {
 			}
-			display_message('error', 'An error occurred: ' + err, 10000);
+			display_message('error', i18next.t('error_occurred', {'error': err}), 10000);
 		}
 		
 		function rest(method, path, data, success_callback, error_callback) {
@@ -118,7 +121,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function execute_test_command() {
 			var cmd = $('#test-command').val();
 			if (cmd) {
-				rest("PUT", "/test-command", {"command": cmd}, function(data) {
+				rest("PUT", "/test-command", {"language": language, "command": cmd}, function(data) {
 					$('#test-command-output').removeClass('hidden');
 					if (data.exitcode == 0) {
 						$('#test-command-output').removeClass('error');
@@ -136,7 +139,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function update_global_config(config) {
 			rest("PUT", "/config/global", config, function(data) {
 				get_config();
-				display_message('success', 'Config successfully updated', 5000);
+				display_message('success', i18next.t('config_successfully_updated'), 5000);
 			});
 		}
 		
@@ -179,11 +182,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#bridges tbody').empty();
 			config.bridges.forEach(function(bridge) {
 				//console.log(bridge);
-				var bedit = $('<button class="ui grey basic button">').attr('data-id', bridge.id).text('edit');
+				var bedit = $('<button class="ui grey basic button">').attr('data-id', bridge.id).text(i18next.t('edit'));
 				bedit.click(function() {
 					edit_config_bridge(this.getAttribute('data-id'));
 				});
-				var bdel = $('<button class="ui red basic button">').attr('data-id', bridge.id).text('delete');
+				var bdel = $('<button class="ui red basic button">').attr('data-id', bridge.id).text(i18next.t('delete'));
 				bdel.click(function() {
 					$("#confirm-delete").modal({
 						onApprove: function() {
@@ -191,15 +194,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						}
 					}).modal('show').attr('data-id', bridge.id);
 				});
-				var binfo = $('<button class="ui grey basic button">').attr('data-id', bridge.id).text('info');
+				var binfo = $('<button class="ui grey basic button">').attr('data-id', bridge.id).text(i18next.t('info'));
 				binfo.click(function() {
 					show_bridge_info(this.getAttribute('data-id'));
 				});
-				var btest = $('<button class="ui blue basic button">').attr('data-id', bridge.id).text('test');
+				var btest = $('<button class="ui blue basic button">').attr('data-id', bridge.id).text(i18next.t('test'));
 				btest.click(function() {
 					bridge_test(this.getAttribute('data-id'));
 				});
-				var bcontrol = $('<button class="ui blue basic button">').attr('data-id', bridge.id).text('control');
+				var bcontrol = $('<button class="ui blue basic button">').attr('data-id', bridge.id).text(i18next.t('control'));
 				bcontrol.click(function() {
 					open_light_control(this.getAttribute('data-id'));
 				});
@@ -235,12 +238,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			var ip_or_hostname = form.form('get value', 'ip');
 			//form.addClass('loading');
 			if (ip_or_hostname) {
-				display_message('info', 'Connecting to bridge, please press link button..', 15000);
+				display_message('info', i18next.t('connecting_to_bridge'), 15000);
 				rest("POST", "/establish-link", {"ip": ip_or_hostname},
 					function(config) {
 						console.log("link established");
 						config.bridgeid = config.bridgeid.toLowerCase();
-						display_message('success', 'Link to bridge ' + config.bridgeid + ' established', 5000);
+						display_message('success', i18next.t('link_to_bridge_established', {bridgeid: config.bridgeid}), 5000);
 						form.form('set values', {
 							id: config.bridgeid || '',
 							name: config.name || '',
@@ -257,11 +260,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						}
 						catch(e) {
 						}
-						var msg = 'Failed to establish connection to bridge: ' + err;
+						var msg = i18next.t('link_to_bridge_failed', {error: err});
 						msg += '<ul>';
-						msg += '<li>Ensure that the Hue Bridge is turned on and connected to your network.</li>';
-						msg += '<li>Test that the smartphone app can control the lights.</li>';
-						msg += '<li>Please press link button on Bridge.</li>';
+						msg += '<li>' + i18next.t('ensure_bridge_on_and_connected') + '</li>';
+						msg += '<li>' + i18next.t('test_smartphone_app') + '</li>';
+						msg += '<li>' + i18next.t('press_link_button') + '</li>';
 						msg += '</ul>';
 						display_message('error', msg, 15000);
 						establish_link_timer_id = setTimeout(establish_link, 5000);
@@ -271,13 +274,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function discover_bridges() {
-			display_message('info', 'Searching for Hue Bridges...', 15000);
+			display_message('info', i18next.t('search_bridges'), 15000);
 			rest("GET", "/discover-bridges", null, function(data) {
 				console.log("bridges: " + data);
-				display_message('success', data.length + ' Hue Bridge(s) discovered', 5000);
+				display_message('success', i18next.t('bridges_discovered', {count: data.length}), 5000);
 				$('#discovered-bridges tbody').empty();
 				data.forEach(function(ip) {
-					var badd = $('<button class="ui grey basic button">').attr('data-ip', ip).text('add');
+					var badd = $('<button class="ui grey basic button">').attr('data-ip', ip).text(i18next.t('add'));
 					badd.click(function() {
 							add_bridge(this.getAttribute('data-ip'));
 					});
@@ -298,7 +301,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						get_config(function(data) {
 							update_view();
 						});
-						display_message('success', 'Hue Bridge successfully deleted', 5000);
+						display_message('success', i18next.t('bridge_deleted'), 5000);
 					});
 				}
 				else {
@@ -314,7 +317,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				get_config(function(data) {
 					update_view();
 				});
-				display_message('success', 'Hue Bridge successfully updated', 5000);
+				display_message('success', i18next.t('bridge_updated'), 5000);
 			});
 		}
 		
@@ -362,10 +365,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#form-create-cuxd-device').data('params', data);
 			
 			if (type == 'dimmer') {
-				$('#modal-create-cuxd-device-header').text("Create CUxD-dimmer (28 02)");
+				$('#modal-create-cuxd-device-header').text(i18next.t('create_cuxd_dimmer'));
 			}
 			else {
-				$('#modal-create-cuxd-device-header').text("Create CUxD-switch (40)");
+				$('#modal-create-cuxd-device-header').text(i18next.t('create_cuxd_switch'));
 			}
 			$('#form-create-cuxd-device').form('clear')
 			.form('set values', {
@@ -431,8 +434,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			};
 			return $('<table class="ui celled stackable table">').append(
 				$('<thead>').append('<tr>').append(
-					$('<th>').text('Name'),
-					$('<th>').text('Value')
+					$('<th>').text(i18next.t('name')),
+					$('<th>').text(i18next.t('value'))
 				),
 				tbody
 			);
@@ -456,7 +459,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					}
 				});
 				if (ul.children().length > 0) {
-					return $('<div>').append($('<h3>').text('Mapped CUxD-devices:'), ul);
+					return $('<div>').append($('<h3>').text(i18next.t('mapped_cuxd_devices')), ul);
 				}
 			}
 			
@@ -468,63 +471,63 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								//console.log(config);
 								//console.log(lights);
 								$('#dimmer-bridge-info').removeClass('active');
-								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Bridge ' + bridge_id));
+								$('#bridge-info-content').append($('<h2 class="ui dividing header">').text(i18next.t('bridge', {bridge_id: bridge_id})));
 								$('#bridge-info-content').append(object_to_table(config));
 								$.each(lights[bridge_id], function(light_id, light) {
 									//console.info(light);
-									$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Light ' + light_id));
+									$('#bridge-info-content').append($('<h2 class="ui dividing header">').text(i18next.t('light', {light_id: light_id})));
 									
 									let div = get_mapping_div(bridge_id, 'light', light_id);
 									if (div) {
 										$('#bridge-info-content').append(div);
 									}
 									
-									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-dimmer</div>');
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_dimmer') + '</div>');
 									div.data('light', light);
 									div.click(function() {
 										create_cuxd_device('dimmer', bridge_id, 'light', light_id, $(this).data('light'));
 									});
 									$('#bridge-info-content').append(div);
 									
-									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-switch</div>');
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>' + i18next.t('create_cuxd_switch') + '</div>');
 									div.data('light', light);
 									div.click(function() {
 										create_cuxd_device('switch', bridge_id, 'light', light_id, $(this).data('light'));
 									});
 									$('#bridge-info-content').append(div);
 									
-									$('#bridge-info-content').append($('<h3>').text('Properties:'));
+									$('#bridge-info-content').append($('<h3>').text(i18next.t('properties')));
 									$('#bridge-info-content').append(object_to_table(light));
 								});
 								$.each(groups[bridge_id], function(group_id, group) {
 									//console.info(group);
-									$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Group ' + group_id));
+									$('#bridge-info-content').append($('<h2 class="ui dividing header">').text(i18next.t('group', {group_id: group_id})));
 									
 									let div = get_mapping_div(bridge_id, 'group', group_id);
 									if (div) {
 										$('#bridge-info-content').append(div);
 									}
 									
-									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>Create CUxD-dimmer</div>');
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_dimmer') + '</div>');
 									div.data('group', group);
 									div.click(function() {
 										create_cuxd_device('dimmer', bridge_id, 'group', group_id, $(this).data('group'));
 									});
 									$('#bridge-info-content').append(div);
 									
-									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>Create CUxD-switch</div>');
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>' + i18next.t('create_cuxd_switch') + '</div>');
 									div.data('group', group);
 									div.click(function() {
 										create_cuxd_device('switch', bridge_id, 'group', group_id, $(this).data('group'));
 									});
 									$('#bridge-info-content').append(div);
 									
-									$('#bridge-info-content').append($('<h3>').text('Properties:'));
+									$('#bridge-info-content').append($('<h3>').text(i18next.t('properties')));
 									$('#bridge-info-content').append(object_to_table(group));
 								});
 								$.each(scenes[bridge_id], function(scene_id, scene) {
 									//console.info(scene);
-									$('#bridge-info-content').append($('<h2 class="ui dividing header">').text('Scene ' + scene_id));
+									$('#bridge-info-content').append($('<h2 class="ui dividing header">').text(i18next.t('scene', {scene_id: scene_id})));
 									$('#bridge-info-content').append(object_to_table(scene));
 								});
 								$('#modal-bridge-info').modal('refresh');
@@ -558,10 +561,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					$('#light-control-target').empty();
 					$('#light-control-target').append('<option>');
 					$.each(lights[bridge_id], function(light_id, light) {
-						$('#light-control-target').append($('<option>').text('Light ' + light_id + ' - ' + light['name']).data('bridge_id', bridge_id).data('light_id', light_id));
+						$('#light-control-target').append($('<option>').text(i18next.t('light_id_name', {light_id: light_id, light_name: light['name']})).data('bridge_id', bridge_id).data('light_id', light_id));
 					});
 					$.each(groups[bridge_id], function(group_id, group) {
-						$('#light-control-target').append($('<option>').text('Group ' + group_id + ' - ' + group['name']).data('bridge_id', bridge_id).data('group_id', group_id));
+						$('#light-control-target').append($('<option>').text(i18next.t('group_id_name', {group_id: group_id, group_name: group['name']})).data('bridge_id', bridge_id).data('group_id', group_id));
 					});
 					$('#modal-light-control').modal('refresh');
 				}, error_callback);
@@ -579,7 +582,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			func(bridge_id, function(data) {
 				var state = (light_id ? lights[bridge_id][light_id]['state'] : groups[bridge_id][group_id]['action']);
 				if (state) {
-					$('#message-light-control-state').html('<div class="header">State</div><pre>' + JSON.stringify(state, null, 2) + '</pre>');
+					$('#message-light-control-state').html('<div class="header">' + i18next.t('status') + '</div><pre>' + JSON.stringify(state, null, 2) + '</pre>');
 					$('#message-light-control-state').attr('class', 'ui message info visible');
 					$('#modal-light-control').modal('refresh');
 				}
@@ -615,13 +618,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			});
 			//console.log(values);
-			$('#message-light-control-request').html('<div class="header">Request</div><pre>' + JSON.stringify(values, null, 2) + '</pre>');
+			$('#message-light-control-request').html('<div class="header">' + i18next.t('request') + '</div><pre>' + JSON.stringify(values, null, 2) + '</pre>');
 			$('#message-light-control-request').attr('class', 'ui message info visible');
 			api_request(bridge_id, "PUT", resource, values,
 				function(data) {
 					//console.log(data);
 					var data_str = JSON.stringify(data, null, 2); // spacing level = 2
-					$('#message-light-control-response').html('<div class="header">Response</div><pre>' + data_str + '</pre>');
+					$('#message-light-control-response').html('<div class="header">' + i18next.t('response') + '</div><pre>' + data_str + '</pre>');
 					$('#message-light-control-response').attr('class', 'ui message info visible');
 					$('#modal-light-control').modal('refresh');
 					get_control_target_state();
@@ -643,7 +646,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function truncate_log() {
 			rest("GET", "/truncate-log", null, function(data) {
-				display_message('success', 'Log file truncated', 5000);
+				display_message('success', i18next.t('log_truncated'), 5000);
 			});
 		}
 		
@@ -653,14 +656,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function get_hued_info() {
 			rest("GET", "/hued/pid", null, function(data) {
-				var info = "Hue daemon is not running";
+				var info = i18next.t('hued_not_running');
 				if (data) {
-					info = "Hue daemon is running (pid: " + data + ")";
-					$('#restart-hued-button').html('<i class="redo icon"></i>Restart');
+					info = i18next.t('hued_running', {pid: data});
+					$('#restart-hued-button').html('<i class="redo icon"></i>' + i18next.t('restart'));
 					$("#hued-info").attr('class', 'ui message visible success');
 				}
 				else {
-					$('#restart-hued-button').html('<i class="play icon"></i>Start');
+					$('#restart-hued-button').html('<i class="play icon"></i>' + i18next.t('start'));
 					$("#hued-info").attr('class', 'ui message visible warning');
 				}
 				$("#hued-info").html(info);
@@ -746,13 +749,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					poll_state_interval: {
 						rules: [{
 							type: 'integer[0..10000]',
-							prompt: 'Please enter a valid integer for the poll interval.'
+							prompt: i18next.t('invalid_poll_interval')
 						}]
 					},
 					log_level: {
 						rules: [{
 							type: 'integer[0..4]',
-							prompt: 'Please enter a valid log level.'
+							prompt: i18next.t('log_level_prompt')
 						}]
 					},
 					api_log: {
@@ -761,7 +764,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					api_connect_timeout: {
 						rules: [{
 							type: 'integer[0..30000]',
-							prompt: 'Please enter a valid integer for the api connection timeout.'
+							prompt: i18next.t('api_con_timeout_prompt')
 						}]
 					},
 					ignore_unreachable: {
@@ -792,14 +795,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						identifier: 'name',
 						rules: [{
 							type: 'regExp[/^[A-Za-z0-9-\. ]+$/]',
-							prompt: 'Please enter a valid name'
+							prompt: i18next.t('name_prompt')
 						}]
 					},
 					ip: {
 						identifier: 'ip',
 						rules: [{
 							type: 'regExp[/^[a-z0-9-\.]+$/]',
-							prompt: 'Please enter a valid hostname or ip address'
+							prompt: i18next.t('address_prompt')
 						}]
 					},
 					username: {
@@ -839,14 +842,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						identifier: 'name',
 						rules: [{
 							type: 'minLength[1]',
-							prompt: 'Please enter a valid name.'
+							prompt: i18next.t('name_prompt')
 						}]
 					},
 					serial: {
 						identifier: 'serial',
 						rules: [{
 							type: 'CUxDserial',
-							prompt: 'Please enter a valid and unused serial.'
+							prompt: i18next.t('serial_prompt')
 						}]
 					}
 				},
@@ -865,7 +868,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							$('#modal-create-cuxd-device').modal('hide');
 							$('.create-cuxd-dev').removeClass('disabled');
 							$('.create-cuxd-dev').removeClass('loading');
-							display_message('success', "CUxD device " + response + " created", 5000);
+							display_message('success', i18next.t('cuxd_device_created' ,{device: response}), 5000);
 							get_used_cuxd_device_serials();
 							show_bridge_info(data.bridge_id);
 						},
@@ -883,6 +886,236 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		
 		$(document).ready(function() {
+			
+			i18next.init({
+				lng: language,
+				fallbackLng: 'en',
+				resources: {
+					en: {
+						translation: {
+							title: 'Hue Addon',
+							error_occurred: 'An error occurred: {{error}}',
+							config_successfully_updated: 'Config successfully updated',
+							edit: 'edit',
+							delete: 'delete',
+							info: 'info',
+							test: 'test',
+							control: 'control',
+							connecting_to_bridge: 'Connecting to bridge, please press link button..',
+							link_to_bridge_established: 'Link to bridge {{bridgeid}} established',
+							link_to_bridge_failed: 'Failed to establish connection to bridge: {{error}}',
+							ensure_bridge_on_and_connected: 'Ensure that the Hue Bridge is turned on and connected to your network.',
+							test_smartphone_app: 'Test if the smartphone app can control the lights.',
+							press_link_button: 'Please press link button on Bridge.',
+							search_bridges: 'Searching for Hue Bridges...',
+							bridges_discovered: '{{count}} Hue Bridge(s) discovered',
+							bridge_deleted: 'Hue Bridge successfully deleted',
+							bridge_updated: 'Hue Bridge successfully updated',
+							create_cuxd_dimmer: 'Create CUxD-dimmer (28 02)',
+							create_cuxd_switch: 'Create CUxD-switch (40)',
+							mapped_cuxd_devices: 'Mapped CUxD-devices:',
+							bridge: 'Bridge {{bridge_id}}',
+							light: 'Light {{light_id}}',
+							group: 'Group {{group_id}}',
+							scene: 'Scene {{scene_id}}',
+							light_id_name: 'Light {{light_id}} - {{light_name}}',
+							group_id_name: 'Group {{group_id}} - {{group_name}}',
+							properties: 'Properties:',
+							status: 'Status',
+							request: 'Request',
+							response: 'Response',
+							log_truncated: 'Log file truncated',
+							hued_not_running: 'Hue daemon is not running',
+							hued_running: 'Hue daemon is running (pid: {{pid}})',
+							restart: 'Restart',
+							start: 'Start',
+							poll_interval_prompt: 'Please enter a valid integer for the poll interval.',
+							log_level_prompt: 'Please enter a valid log level.',
+							api_con_timeout_prompt: 'Please enter a valid integer for the api connection timeout.',
+							name_prompt: 'Please enter a valid name.',
+							address_prompt: 'Please enter a valid hostname or ip address.',
+							serial_prompt: 'Please enter a valid and unused serial.',
+							cuxd_device_created: 'CUxD device {{device}} created',
+							addon_config: 'Hue Addon configuration',
+							global_config: 'Global config',
+							poll_interval_label: 'Interval in seconds which specifies how often the state of devices is retrieved from the bridge (0=do not poll)',
+							api_con_timeout_label: 'Timeout in milliseconds for hue api connects (0=default tcl socket behaviour)',
+							log_level_label: 'Log level',
+							log_hue_api_label: 'Log hue api requests and responses',
+							update_unreachable_label: 'Do not update state if device is unreachable',
+							save_config: 'Save config',
+							hue_daemon: 'Hue daemon',
+							show_mappings: 'Show CUxD device mappings',
+							configured_hue_bridges: 'Configured Hue Bridges',
+							id: 'ID',
+							name: 'Name',
+							ip_address: 'IP-Address',
+							action: 'Action',
+							add_hue_bridge: 'Add Hue Bridge',
+							discovered_hue_bridges: 'Discovered Hue Bridges',
+							test_command: 'Test command',
+							execute: 'Execute',
+							truncate_log: 'Truncate log',
+							show_log: 'Show log',
+							hue_bridge: 'Hue Bridge',
+							ip_address_or_hostname: 'IP-Address or Hostname',
+							username: 'Username',
+							loading: 'Loading',
+							cancel: 'Cancel',
+							submit: 'Submit',
+							control_light_group: 'Control Light / Group',
+							light_group: 'Light / Group',
+							on: 'On',
+							true: 'true',
+							false: 'false',
+							brightness: 'Brightness',
+							transitiontime: 'Transitiontime',
+							alert: 'Alert',
+							effect: 'Effect',
+							hue: 'Hue',
+							saturation: 'Saturation',
+							color_temperature: 'Color temperature',
+							xy: 'XY',
+							delete_bridge: 'Do you really want to delete this Bridge?',
+							yes: 'Yes',
+							no: 'No',
+							info: 'Info',
+							cuxd_device: 'CUxD device',
+							bride_id: 'Bridge ID',
+							device_tpe: 'Device type',
+							device_id: 'Device ID',
+							create_cuxd_device: 'Create CUxD-device',
+							serial: 'Serial',
+							create_device: 'Create device',
+							password: 'Password',
+							login: 'Login',
+							value: 'Value',
+							add: 'Add',
+						}
+					},
+					de: {
+						translation: {
+							title: 'Hue Addon',
+							error_occurred: 'Ein Fehler ist aufgetreten: {{error}}',
+							config_successfully_updated: 'Konfiguration erfolgreich aktualisiert',
+							edit: 'Editieren',
+							delete: 'Löschen',
+							info: 'Info',
+							test: 'Test',
+							control: 'Steuern',
+							connecting_to_bridge: 'Verbinde mit der Bridge wird hergestellt, bitte den Link-Button drücken..',
+							link_to_bridge_established: 'Verbindung zur Bridge {{bridgeid}} hergestellt',
+							link_to_bridge_failed: 'Verbindung zur Bridge fehlgeschlagen: {{error}}',
+							ensure_bridge_on_and_connected: 'Stellen Sie sicher, dass die Hue Bridge eingeschaltet und mit dem Netzwerk verbunden ist.',
+							test_smartphone_app: 'Testen Sie, ob die Smartphone-App die Lampen steuern kann.',
+							press_link_button: 'Bitte den Link-Button der Bridge drücken.',
+							search_bridges: 'Suche nach Hue Bridges...',
+							bridges_discovered: '{{count}} Hue Bridge(s) gefunden',
+							bridge_deleted: 'Hue Bridge erfolgreich gelöscht',
+							bridge_updated: 'Hue Bridge erfolgreich aktualisiert',
+							create_cuxd_dimmer: 'CUxD-Dimmer erzeugen (28 02)',
+							create_cuxd_switch: 'CUxD-Schalter erzeugen (40)',
+							mapped_cuxd_devices: 'Zugeordnete CUxD-Geräte:',
+							bridge: 'Bridge {{bridge_id}}',
+							light: 'Lampe {{light_id}}',
+							group: 'Gruppe {{group_id}}',
+							scene: 'Szene {{scene_id}}',
+							light_id_name: 'Lampe {{light_id}} - {{light_name}}',
+							group_id_name: 'Gruppe {{group_id}} - {{group_name}}',
+							properties: 'Eigenschaften:',
+							status: 'Status',
+							request: 'Anfrage',
+							response: 'Antwort',
+							log_truncated: 'Log-Datei geleert',
+							hued_not_running: 'Hue-Daemon läuft nicht',
+							hued_running: 'Hue-Daemon läuft (pid: {{pid}})',
+							restart: 'Neu starten',
+							start: 'Starten',
+							poll_interval_prompt: 'Bitte einen gültige Zahl für das Poll-Intervall eingeben.',
+							log_level_prompt: 'Bitte einen gültigen Log-Level eingeben.',
+							api_con_timeout_prompt: 'Bitte eine gültige Zahl für den API-Verbindungs-Timeout eingeben.',
+							name_prompt: 'Bitte einen gültigen Namen eingeben.',
+							address_prompt: 'Bitte einen gültigen Hostnamen oder eine gültige IP-Adresse eingeben.',
+							serial_prompt: 'Bitte eine gültige und freie Seriennummer eingeben.',
+							cuxd_device_created: 'CUxD-Gerät {{device}} angelegt',
+							addon_config: 'Hue-Addon-Konfiguration',
+							global_config: 'Allgemeine Konfiguration',
+							poll_interval_label: 'Intervall in Sekunden, das angibt wie oft der Geräte-Status von der Bridge abgefragt wird (0=Abfrage deaktiviert)',
+							api_con_timeout_label: 'Timeout in Millisekunden für API-Verbindungen (0=Standard TCL-Socket-Verhalten)',
+							log_level_label: 'Log-Level',
+							log_hue_api_label: 'Hue-API-Anfragen und -Antworten protokollieren',
+							update_unreachable_label: 'Status nicht aktualisieren wenn ein Gerät nicht erreichbar ist',
+							save_config: 'Konfiguration speichern',
+							hue_daemon: 'Hue-Daemon',
+							show_mappings: 'CUxD-Geräte-Zuordnungen anzeigen',
+							configured_hue_bridges: 'Konfigurierte Hue Bridges',
+							id: 'ID',
+							name: 'Name',
+							ip_address: 'IP-Adresse',
+							action: 'Aktion',
+							add_hue_bridge: 'Hue Bridge hinzufügen',
+							discovered_hue_bridges: 'Gefundene Hue Bridges',
+							test_command: 'Befehl testen',
+							execute: 'Ausführen',
+							truncate_log: 'Log leeren',
+							show_log: 'Log anzeigen',
+							hue_bridge: 'Hue Bridge',
+							ip_address_or_hostname: 'IP-Adresse oder Hostname',
+							username: 'Benutzername',
+							loading: 'Lade',
+							cancel: 'Abbrechen',
+							submit: 'Absenden',
+							control_light_group: 'Lampe / Gruppe steuern',
+							light_group: 'Lampe / Gruppe',
+							on: 'An',
+							true: 'ja',
+							false: 'nein',
+							brightness: 'Helligkeit',
+							transitiontime: 'Übergangszeit',
+							alert: 'ALarm',
+							effect: 'Effekt',
+							hue: 'Farbton',
+							saturation: 'Sättigung',
+							color_temperature: 'Farbtemperatur',
+							xy: 'XY',
+							delete_bridge: 'Wollen Sie die Bridge wirklich löschen?',
+							yes: 'Ja',
+							no: 'Nein',
+							info: 'Info',
+							cuxd_device: 'CUxD-Gerät',
+							bride_id: 'Bridge-ID',
+							device_tpe: 'Gerätetyp',
+							device_id: 'Geräte-ID',
+							create_cuxd_device: 'CUxD-Gerät erzeugen',
+							serial: 'Seriennummer',
+							create_device: 'Gerät erzeugen',
+							password: 'Passwort',
+							login: 'Anmeldung',
+							value: 'Wert',
+							add: 'Hinzufügen',
+						}
+					}
+				}
+			}, function(err, t) {
+				jqueryI18next.init(i18next, $);
+				$('title').localize();
+				$('h1').localize();
+				$('h2').localize();
+				$('div').localize();
+				$('th').localize();
+				$('label').localize();
+				$('#submit-global-config').contents().last()[0].textContent = i18next.t('save_config');
+				$('#show-cuxd-device-map-info-button').contents().last()[0].textContent = i18next.t('show_mappings');
+				$('#restart-hued-button').contents().last()[0].textContent = i18next.t('restart');
+				$('#add-bridge-button').contents().last()[0].textContent = i18next.t('add_hue_bridge');
+				$('#execute-test-command').contents().last()[0].textContent = i18next.t('execute');
+				$('#truncate-log-button').contents().last()[0].textContent = i18next.t('truncate_log');
+				$('#show-log-button').contents().last()[0].textContent = i18next.t('show_log');
+				$('#cancel-delete-bridge-button').contents().last()[0].textContent = i18next.t('no');
+				$('#confirm-delete-bridge-button').contents().last()[0].textContent = i18next.t('yes');
+			});
+			
+			
 			$('#content').dimmer('show');
 			sid = get_url_var('sid');
 			rest("GET", "/get_session", null,
@@ -940,20 +1173,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	
 	<div id="content" style="padding: 0; margin: 0; width: 100%">
 		<div style="padding-top: 5vw" class="ui container">
-			<h1 class="ui header">Hue Addon Configuration</h1>
+			<h1 class="ui header" data-i18n="addon_config"></h1>
 			
-			<h2 class="ui dividing header">Global Config</h2>
+			<h2 class="ui dividing header" data-i18n="global_config"></h2>
 			<form id="form-global-config" class="ui form">
 				<div class="field">
-					<label>Interval in seconds which specifies how often the state of devices is retrieved from the bridge (0=do not poll)</label>
+					<label data-i18n="poll_interval_label"></label>
 					<input name="poll_state_interval" placeholder="" type="text">
 				</div>
 				<div class="field">
-					<label>Timeout in milliseconds for hue api connects (0=default tcl socket behaviour)</label>
+					<label data-i18n="api_con_timeout_label"></label>
 					<input name="api_connect_timeout" placeholder="" type="text">
 				</div>
 				<div class="field">
-					<label>Log level</label>
+					<label data-i18n="log_level_label"></label>
 					<select class="ui fluid search dropdown" name="log_level">
 						<option value="0">nothing</option>
 						<option value="1">error</option>
@@ -963,7 +1196,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					</select>
 				</div>
 				<div class="field">
-					<label>Log hue api requests and responses</label>
+					<label data-i18n="log_hue_api_label"></label>
 					<select class="ui fluid search dropdown" name="api_log">
 						<option value="off">off</option>
 						<option value="command">command</option>
@@ -973,58 +1206,58 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					</select>
 				</div>
 				<div class="field">
-					<label>Do not update state if device is unreachable</label>
+					<label data-i18n="update_unreachable_label"></label>
 					<div class="ui toggle checkbox">
 						<input name="ignore_unreachable" type="checkbox">
 					</div>
 				</div>
-				<div id="submit-global-config" class="ui primary basic submit button"><i class="save icon"></i>Save config</div>
+				<div id="submit-global-config" class="ui primary basic submit button"><i class="save icon"></i>save_config</div>
 			</form>
 			
-			<h2 class="ui dividing header">Hue daemon</h2>
+			<h2 class="ui dividing header" data-i18n="hue_daemon"></h2>
 			<div id="hued-info" class="ui message">
 			</div>
 			
 			<div id="show-cuxd-device-map-info-button" onclick="show_cuxd_device_map_info();" class="ui blue basic button">
 				<i class="info icon"></i>
-				Show CUxD device mappings
+				show_mappings
 			</div>
 			<div id="restart-hued-button" onclick="restart_hued();" class="ui blue basic button">
 				<i class="redo icon"></i>
-				Restart
+				restart
 			</div>
 			
-			<h2 class="ui dividing header">Configured Hue Bridges</h2>
+			<h2 class="ui dividing header" data-i18n="configured_hue_bridges"></h2>
 			<table id="bridges" class="ui celled stackable table">
 				<thead>
 					<tr>
-						<th>ID</th>
-						<th>Name</th>
-						<th>IP-Address</th>
-						<th class="center aligned">Action</th>
+						<th data-i18n="id"></th>
+						<th data-i18n="name"></th>
+						<th data-i18n="ip_address"></th>
+						<th class="center aligned" data-i18n="action"></th>
 					</tr>
 				</thead>
 				<tbody>
 				</tbody>
 			</table>
-			<div onclick="add_bridge();" class="ui blue basic button">
+			<div id="add-bridge-button" onclick="add_bridge();" class="ui blue basic button">
 			<i class="plus icon"></i>
-			Add Hue Bridge
+			add_hue_bridge
 			</div>
 			
-			<h2 class="ui dividing header">Discovered Hue Bridges</h2>
+			<h2 class="ui dividing header" data-i18n="discovered_hue_bridges"></h2>
 			<table id="discovered-bridges" class="ui celled stackable table">
 				<thead>
 					<tr>
-						<th>IP-Address</th>
-						<th class="center aligned">Action</th>
+						<th data-i18n="ip_address"></th>
+						<th class="center aligned" data-i18n="action"></th>
 					</tr>
 				</thead>
 				<tbody>
 				</tbody>
 			</table>
 			
-			<h2 class="ui dividing header">Test command</h2>
+			<h2 class="ui dividing header" data-i18n="test_command"></h2>
 			<div style="width: 100%" class="ui action input">
 				<input id="test-command" type="text" value="/usr/local/addons/hue/hue.tcl"/>
 				<button id="execute-test-command" class="ui green right labeled icon button" onclick="execute_test_command();">
@@ -1036,13 +1269,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			
 			<div style="margin-top:25px;" class="ui right aligned grid">
 				<div class="right floated right aligned twelve wide column">
-					<div onclick="truncate_log();" class="ui blue basic button">
+					<div id="truncate-log-button" onclick="truncate_log();" class="ui blue basic button">
 						<i class="recycle icon"></i>
-						Truncate addon log
+						truncate_log
 					</div>
-					<div onclick="show_log();" class="ui blue basic button">
+					<div id="show-log-button" onclick="show_log();" class="ui blue basic button">
 						<i class="file text outline icon"></i>
-						Show addon log
+						show_log
 					</div>
 				</div>
 			</div>
@@ -1051,30 +1284,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	
 	<div id="modal-edit-bridge" class="ui modal">
 		<i class="close icon"></i>
-		<div class="header">
-			Hue Bridge
+		<div data-i18n="hue_bridge" class="header">
 		</div>
 		<div class="content">
 			<form id="form-edit-bridge" class="ui form">
 				<div class="disabled field">
-					<label>ID</label>
+					<label data-i18n="id"></label>
 					<input name="id" placeholder="ID" type="text">
 				</div>
 				<div class="field">
-					<label>IP-Address or Hostname</label>
-					<input name="ip" placeholder="IP-Address" type="text" onchange='establish_link();'>
+					<label data-i18n="ip_address_or_hostname"></label>
+					<input name="ip" placeholder="" type="text" onchange='establish_link();'>
 				</div>
 				<div class="field">
-					<label>Name</label>
-					<input name="name" placeholder="Name" type="text">
+					<label data-i18n="name"></label>
+					<input name="name" placeholder="" type="text">
 				</div>
 				<div class="field">
-					<label>Username</label>
-					<input name="username" placeholder="Username" type="text">
+					<label data-i18n="username"></label>
+					<input name="username" placeholder="" type="text">
 				</div>
 				<div class="ui error message"></div>
-				<div class="ui button" onclick="$('#modal-edit-bridge').modal('hide');">Cancel</div>
-				<div id="submit-edit-bridge" class="ui primary submit button">Submit</div>
+				<div class="ui button" onclick="$('#modal-edit-bridge').modal('hide');" data-i18n="cancel"></div>
+				<div id="submit-edit-bridge" class="ui primary submit button" data-i18n="submit"></div>
 			</form>
 		</div>
 	</div>
@@ -1082,66 +1314,65 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<div id="modal-light-control" class="ui modal">
 		<i class="close icon"></i>
 		<div id="dimmer-light-control" class="ui inverted dimmer">
-			<div class="ui text loader">Loading</div>
+			<div class="ui text loader" data-i18n="loading"></div>
 		</div>
-		<div class="header">
-			Control Light / Group
+		<div class="header" data-i18n="control_light_group">
 		</div>
 		<div class="content">
 			<form id="form-light-control" class="ui form">
 				<div class="field">
-					<label>Light / Group</label>
+					<label data-i18n="light_group"></label>
 					<select id="light-control-target" name="target" class="ui fluid dropdown" onchange="get_control_target_state();">
 						<option></option>
 					</select>
 				</div>
 				<div class="fields">
 					<div class="field">
-						<label>On</label>
+						<label data-i18n="on"></label>
 						<select name="on" class="ui fluid dropdown">
 							<option value=""></option>
-							<option value="true">true</option>
-							<option value="false">false</option>
+							<option value="true" data-i18n="true"></option>
+							<option value="false" data-i18n="false"></option>
 						</select>
 					</div>
 					<div class="field">
-						<label>Brightness</label>
+						<label data-i18n="brightness"></label>
 						<input name="bri" placeholder="0-254" type="text">
 					</div>
 					<div class="field">
-						<label>Transitiontime</label>
-						<input name="transitiontime" placeholder="Transitiontime" type="text">
+						<label data-i18n="transitiontime"></label>
+						<input name="transitiontime" placeholder="" type="text">
 					</div>
 					<div class="field">
-						<label>Alert</label>
+						<label data-i18n="alert"></label>
 						<input name="alert" placeholder="select / lselect / none" type="text">
 					</div>
 					<div class="field">
-						<label>Effect</label>
+						<label data-i18n="effect"></label>
 						<input name="effect" placeholder="colorloop / none" type="text">
 					</div>
 				</div>
 				<div class="fields">
 					<div class="field">
-						<label>Hue</label>
+						<label data-i18n="hue"></label>
 						<input name="hue" placeholder="0-65535" type="text">
 					</div>
 					<div class="field">
-						<label>Saturation</label>
+						<label data-i18n="saturation"></label>
 						<input name="sat" placeholder="0-254" type="text">
 					</div>
 					<div class="field">
-						<label>Color temperature</label>
+						<label data-i18n="color_temperature"></label>
 						<input name="ct" placeholder="153-500" type="text">
 					</div>
 					<div class="field">
-						<label>XY</label>
+						<label data-i18n="xy"></label>
 						<input name="xy" placeholder="0.0-1.0, 0.0-1.0" type="text">
 					</div>
 				</div>
 				<div class="ui error message"></div>
-				<div class="ui button" onclick="$('#modal-light-control').modal('hide');">Cancel</div>
-				<div class="ui primary submit button" onclick="on_submit_control();">Submit</div>
+				<div data-i18n="cancel" class="ui button" onclick="$('#modal-light-control').modal('hide');"></div>
+				<div data-i18n="submit" class="ui primary submit button" onclick="on_submit_control();"></div>
 			</form>
 			<div id="message-light-control-state" class="ui message hidden">
 			</div>
@@ -1155,16 +1386,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<div class="ui dimmer modals page transition">
 		<div id="confirm-delete" class="ui small basic modal transition">
 			<div class="content">
-				<p>Do you really want to delete this Bridge?</p>
+				<p data-i18n="delete_bridge"></p>
 			</div>
 			<div class="actions">
-				<div class="ui red cancel inverted button">
+				<div id="cancel-delete-bridge-button" class="ui red cancel inverted button">
 					<i class="remove icon"></i>
-					No
 				</div>
-				<div class="ui green ok inverted button">
+				<div id="confirm-delete-bridge-button" class="ui green ok inverted button">
 					<i class="checkmark icon"></i>
-					Yes
 				</div>
 			</div>
 		</div>
@@ -1173,10 +1402,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<div id="modal-bridge-info" class="ui modal">
 		<i class="close icon"></i>
 		<div id="dimmer-bridge-info" class="ui inverted dimmer">
-			<div class="ui text loader">Loading</div>
+			<div class="ui text loader" data-i18n="loading"></div>
 		</div>
-		<div class="header">
-			Info
+		<div class="header" data-i18n="info" >
 		</div>
 		<div id="bridge-info-content" class="content">
 		</div>
@@ -1185,19 +1413,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<div id="modal-cuxd-device-map-info" class="ui modal">
 		<i class="close icon"></i>
 		<div id="dimmer-cuxd-device-map-info" class="ui inverted dimmer">
-			<div class="ui text loader">Loading</div>
+			<div class="ui text loader" data-i18n="loading"></div>
 		</div>
-		<div class="header">
-			CUxD device mappings
+		<div class="header" data-i18n="mapped_cuxd_devices">
 		</div>
 		<div class="content">
 			<table id="cuxd-device-map" class="ui celled stackable table">
 				<thead>
 					<tr>
-						<th>CUxD device</th>
-						<th>Bridge ID</th>
-						<th>Device type</th>
-						<th>Device ID</th>
+						<th data-i18n="cuxd_device"></th>
+						<th data-i18n="bride_id"></th>
+						<th data-i18n="device_tpe"></th>
+						<th data-i18n="device_id"></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -1208,37 +1435,36 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	
 	<div id="modal-create-cuxd-device" class="ui modal">
 		<i class="close icon"></i>
-		<div class="header" id="modal-create-cuxd-device-header">
-			Create CUxD-device
+		<div class="header" id="modal-create-cuxd-device-header" data-i18n="create_cuxd_device">
 		</div>
 		<div class="content">
 			<form id="form-create-cuxd-device" class="ui form">
 				<div class="field">
-					<label>Serial</label>
+					<label data-i18n="serial"></label>
 					<input type="text" name="serial">
 				</div>
 				<div class="field">
-					<label>Name</label>
+					<label data-i18n="name"></label>
 					<input type="text" name="name">
 				</div>
 				<div class="ui error message"></div>
-				<div class="ui button create-cuxd-dev" onclick="$('#modal-create-cuxd-device').modal('hide');">Cancel</div>
-				<div id="submit-create-cuxd-device" class="ui primary submit button create-cuxd-dev">Create device</div>
+				<div class="ui button create-cuxd-dev" onclick="$('#modal-create-cuxd-device').modal('hide');" data-i18n="cancel"></div>
+				<div id="submit-create-cuxd-device" class="ui primary submit button create-cuxd-dev" data-i18n="create_device"></div>
 			</form>
 		</div>
 	</div>
 	
 	<div id="modal-login" class="ui modal">
 		<i class="close icon"></i>
-		<div class="header">Login</div>
+		<div class="header" data-i18n="login"></div>
 		<div class="content">
 			<form id="form-login" class="ui form">
 				<div class="field">
-					<label>Username</label>
+					<label data-i18n="username"></label>
 					<input type="text" name="username" value="Admin">
 				</div>
 				<div class="field">
-					<label>Password</label>
+					<label data-i18n="password"></label>
 					<input type="password" name="password">
 				</div>
 				<div class="ui error message"></div>

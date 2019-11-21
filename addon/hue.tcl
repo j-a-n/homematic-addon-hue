@@ -2,7 +2,7 @@
 
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -37,29 +37,58 @@ source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_device_channels_after 3
 
+set language "en-US"
+catch {
+	set language $::env(LANGUAGE)
+}
+set language [string range $language 0 1]
+
 proc usage {} {
 	set bridge_ids [hue::get_config_bridge_ids]
 	global argv0
-	puts stderr ""
-	puts stderr "usage: ${argv0} <bridge-id> <command>"
-	puts stderr ""
-	puts stderr "bridge ids: ${bridge_ids}"
-	puts stderr ""
-	puts stderr "possible commands:"
-	puts stderr "  request <method> <resource> \[data\]     send a request to rest api"
-	puts stderr "    method   : one of GET,POST,PUT,DELETE"
-	puts stderr "    resource : URL path"
-	puts stderr "    data     : optional json data"
-	puts stderr ""
-	puts stderr "  light <light-id> \[parm:val\]...         control a light"
-	puts stderr "    light-id : id of the light to control"
-	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode,sleep,ct_min"
-	puts stderr ""
-	puts stderr "  group <group-id> \[parm:val\]...         control a group"
-	puts stderr "    group-id : id of the group to control"
-	puts stderr "    parm:val : parameter and value pairs separated by a colon"
-	puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode,sleep,ct_min"
+	variable language
+	
+	if {$language == "de"} {
+		puts stderr "Aufruf: ${argv0} <Bridge-ID> <Befehl>"
+		puts stderr ""
+		puts stderr "Verfügbare Bridge-IDs: ${bridge_ids}"
+		puts stderr ""
+		puts stderr "Verfügbare Befehle:"
+		puts stderr "  request <Methode> <Ressource> \[Daten\]     Eine Anfrage an die Rest-API senden"
+		puts stderr "    Methode   : GET,POST,PUT oder DELETE"
+		puts stderr "    Ressource : URL-Pfad"
+		puts stderr "    Daten     : optionale JSON-Daten"
+		puts stderr ""
+		puts stderr "  light <Lampen-ID> \[Parameter:Wert\]...     Eine Lampe steuern"
+		puts stderr "    Lampen-ID      : ID der Lampe die gesteuert werden soll"
+		puts stderr "    Parameter:Wert : Komma-getrennte Parameter:Wert-Paare"
+		puts stderr "                     Mögliche Parameter sind: on,sat,bri,hue,xy,ct,transition_time,bri_mode,sleep,ct_min"
+		puts stderr ""
+		puts stderr "  group <Gruppen-ID> \[Parameter:Wert\]...    Eine Gruppe steuen"
+		puts stderr "    Gruppen-ID     : ID der Gruppe die gesteuert werden soll"
+		puts stderr "    Parameter:Wert : Komma-getrennte Parameter:Wert-Paare"
+		puts stderr "                     Mögliche Parameter sind: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode,sleep,ct_min"
+	} else {
+		puts stderr "usage: ${argv0} <bridge-id> <command>"
+		puts stderr ""
+		puts stderr "available bridge ids: ${bridge_ids}"
+		puts stderr ""
+		puts stderr "possible commands:"
+		puts stderr "  request <method> <resource> \[data\]     send a request to rest api"
+		puts stderr "    method   : one of GET,POST,PUT,DELETE"
+		puts stderr "    resource : URL path"
+		puts stderr "    data     : optional json data"
+		puts stderr ""
+		puts stderr "  light <light-id> \[parm:val\]...         control a light"
+		puts stderr "    light-id : id of the light to control"
+		puts stderr "    parm:val : parameter:value pairs separated by a colon"
+		puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode,sleep,ct_min"
+		puts stderr ""
+		puts stderr "  group <group-id> \[parm:val\]...         control a group"
+		puts stderr "    group-id : id of the group to control"
+		puts stderr "    parm:val : parameter and value pairs separated by a colon"
+		puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode,sleep,ct_min"
+	}
 }
 
 proc main {} {
@@ -67,6 +96,7 @@ proc main {} {
 	global argv
 	global env
 	variable update_device_channels_after
+	variable language
 	
 	set bridge_id [string tolower [lindex $argv 0]]
 	set cmd [string tolower [lindex $argv 1]]
@@ -123,7 +153,11 @@ proc main {} {
 						if [catch {
 							set v $scene_map($v)
 						} err] {
-							error "Failed to find scene with name ${v}."
+							if {$language == "de"} {
+								error "Szene mit Namen ${v} nicht gefunden."
+							} else {
+								error "Failed to find scene with name ${v}."
+							}
 						}
 					}
 					append json "\"${k}\":\"${v}\","
