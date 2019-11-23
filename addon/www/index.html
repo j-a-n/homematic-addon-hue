@@ -360,7 +360,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 				data.ct_min = ct_min;
 				data.ct_max = ct_max;
-				data.color = ((obj_type == 'group') || (('capabilities' in obj) && ('control' in obj.capabilities) && ('colorgamut' in obj.capabilities.control)));
+				data.color = ((obj_type == 'group') || (('capabilities' in obj) && ('control' in obj.capabilities) && ('colorgamuttype' in obj.capabilities.control)));
 			};
 			$('#form-create-cuxd-device').data('params', data);
 			
