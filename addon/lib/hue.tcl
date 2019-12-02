@@ -845,7 +845,7 @@ proc ::hue::urlencode {string} {
 }
 
 
-proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num} {
+proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num transitiontime} {
 	variable cuxd_xmlrpc_url
 	set dtype 40
 	
@@ -861,8 +861,8 @@ proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num} {
 	}
 	
 	set device "CUX[format %02s $dtype][format %05s $serial]"
-	set command_short "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:false"
-	set command_long "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:true"
+	set command_short "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:false transitiontime:${transitiontime}"
+	set command_long "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:true transitiontime:${transitiontime}"
 	#set data "dtype=${dtype}&dserial=${serial}&dname=[urlencode $name]&dbase=${dbase}&dcontrol=1"
 	set data "dtype=${dtype}&dserial=${serial}&dbase=${dbase}&dcontrol=1"
 	
@@ -915,7 +915,7 @@ proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num} {
 	return $device
 }
 
-proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min ct_max {color 0}} {
+proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min ct_max {color 0} {transitiontime 0}} {
 	variable cuxd_xmlrpc_url
 	set dtype 28
 	set dtype2 2
@@ -932,7 +932,7 @@ proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min 
 	}
 	
 	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
-	set command "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} ct_min:${ct_min} transitiontime:0"
+	set command "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} ct_min:${ct_min} transitiontime:${transitiontime}"
 	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=${dbase}"
 	
 	hue::write_log 4 "Creating cuxd dimmer device with serial ${serial}"

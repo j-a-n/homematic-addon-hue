@@ -62,12 +62,12 @@ proc usage {} {
 		puts stderr "  light <Lampen-ID> \[Parameter:Wert\]...     Eine Lampe steuern"
 		puts stderr "    Lampen-ID      : ID der Lampe die gesteuert werden soll"
 		puts stderr "    Parameter:Wert : Komma-getrennte Parameter:Wert-Paare"
-		puts stderr "                     Mögliche Parameter sind: on,sat,bri,hue,xy,ct,transition_time,bri_mode,sleep,ct_min"
+		puts stderr "                     Mögliche Parameter sind: on,sat,bri,hue,xy,ct,transitiontime,bri_mode,sleep,ct_min"
 		puts stderr ""
 		puts stderr "  group <Gruppen-ID> \[Parameter:Wert\]...    Eine Gruppe steuen"
 		puts stderr "    Gruppen-ID     : ID der Gruppe die gesteuert werden soll"
 		puts stderr "    Parameter:Wert : Komma-getrennte Parameter:Wert-Paare"
-		puts stderr "                     Mögliche Parameter sind: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode,sleep,ct_min"
+		puts stderr "                     Mögliche Parameter sind: on,sat,bri,hue,xy,ct,scene,transitiontime,bri_mode,sleep,ct_min"
 	} else {
 		puts stderr "usage: ${argv0} <bridge-id> <command>"
 		puts stderr ""
@@ -82,12 +82,12 @@ proc usage {} {
 		puts stderr "  light <light-id> \[parm:val\]...         control a light"
 		puts stderr "    light-id : id of the light to control"
 		puts stderr "    parm:val : parameter:value pairs separated by a colon"
-		puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,transition_time,bri_mode,sleep,ct_min"
+		puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,transitiontime,bri_mode,sleep,ct_min"
 		puts stderr ""
 		puts stderr "  group <group-id> \[parm:val\]...         control a group"
 		puts stderr "    group-id : id of the group to control"
 		puts stderr "    parm:val : parameter and value pairs separated by a colon"
-		puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transition_time,bri_mode,sleep,ct_min"
+		puts stderr "               some of the possible paramers are: on,sat,bri,hue,xy,ct,scene,transitiontime,bri_mode,sleep,ct_min"
 	}
 }
 

@@ -334,9 +334,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			);
 		}
 		
-		function create_cuxd_device(type, bridge_id, obj_type, obj_id, obj) {
+		function create_cuxd_device(type, bridge_id, obj_type, obj_id, obj, transitiontime) {
 			$('#modal-create-cuxd-device').modal('hide');
-			
+			if (!transitiontime) {
+				transitiontime = 0;
+			}
 			let serial = Math.max.apply(null, used_cuxd_device_serials[type]);
 			if (!serial) {
 				serial = 0;
@@ -349,7 +351,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				name: "Hue " + obj.name,
 				bridge_id: bridge_id,
 				obj: obj_type,
-				num: parseInt(obj_id)
+				num: parseInt(obj_id),
+				transitiontime: transitiontime
 			};
 			if (type == 'dimmer') {
 				let ct_min = 153
@@ -373,7 +376,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#form-create-cuxd-device').form('clear')
 			.form('set values', {
 				name: data.name,
-				serial: data.serial
+				serial: data.serial,
+				transitiontime: data.transitiontime
 			})
 			$('#modal-create-cuxd-device').modal({
 				allowMultiple: true,
@@ -851,6 +855,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							type: 'CUxDserial',
 							prompt: i18next.t('serial_prompt')
 						}]
+					},
+					transitiontime: {
+						identifier: 'transitiontime',
+						rules: [{
+							type: 'integer[0..100]',
+							prompt: i18next.t('transitiontime')
+						}]
 					}
 				},
 				onSuccess: function(event, fields) {
@@ -859,6 +870,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					let data = $('#form-create-cuxd-device').data('params');
 					var form = $(event.currentTarget).form('get values');
 					data.serial = parseInt(form.serial);
+					data.transitiontime = parseInt(form.transitiontime);
 					data.name = form.name;
 					
 					$('.create-cuxd-dev').addClass('disabled');
@@ -970,6 +982,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							false: 'false',
 							brightness: 'Brightness',
 							transitiontime: 'Transitiontime',
+							transitiontime_label: 'Transitiontime (multiple of 100ms)',
 							alert: 'Alert',
 							effect: 'Effect',
 							hue: 'Hue',
@@ -1072,6 +1085,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							false: 'nein',
 							brightness: 'Helligkeit',
 							transitiontime: 'Übergangszeit',
+							transitiontime_label: 'Übergangszeit (in Schritten von 100ms)',
 							alert: 'ALarm',
 							effect: 'Effekt',
 							hue: 'Farbton',
@@ -1446,6 +1460,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<div class="field">
 					<label data-i18n="name"></label>
 					<input type="text" name="name">
+				</div>
+				<div class="field">
+					<label data-i18n="transitiontime_label"></label>
+					<input type="text" name="transitiontime">
 				</div>
 				<div class="ui error message"></div>
 				<div class="ui button create-cuxd-dev" onclick="$('#modal-create-cuxd-device').modal('hide');" data-i18n="cancel"></div>
