@@ -340,7 +340,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				transitiontime = 0;
 			}
 			let serial = Math.max.apply(null, used_cuxd_device_serials[type]);
-			if (!serial) {
+			if ((!serial) || serial === -Infinity) {
 				serial = 0;
 			}
 			serial += 1;
