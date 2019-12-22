@@ -30,7 +30,7 @@ proc get_session {sid} {
 
 proc check_session {sid} {
 	if {[get_session $sid] != ""} {
-		# renew session
+		# check and renew session
 		set url "http://127.0.0.1/pages/index.htm?sid=$sid"
 		set request [::http::geturl $url]
 		set code [::http::code $request]
@@ -38,7 +38,6 @@ proc check_session {sid} {
 		if {[lindex $code 1] == 200} {
 			return 1
 		}
-		return 1
 	}
 	return 0
 }
