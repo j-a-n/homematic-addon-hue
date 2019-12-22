@@ -98,6 +98,15 @@ proc main {} {
 	variable update_device_channels_after
 	variable language
 	
+	if {[string tolower [lindex $argv 0]] == "hued_command"} {
+		if {$argc < 2} {
+			usage
+			exit 1
+		}
+		puts [hue::hued_command [lindex $argv 1]]
+		return
+	}
+	
 	set bridge_id [string tolower [lindex $argv 0]]
 	set cmd [string tolower [lindex $argv 1]]
 	set num [lindex $argv 2]

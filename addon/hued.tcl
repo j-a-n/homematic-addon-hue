@@ -2,7 +2,7 @@
 
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -163,14 +163,18 @@ proc update_cuxd_device {bridge_id obj num} {
 
 proc read_from_channel {channel} {
 	variable update_schedule
+	variable current_object_state
+	variable cuxd_device_map
 	variable last_schedule_update
+	variable schedule_update_interval
+	variable group_command_times
 	
 	set len [gets $channel cmd]
 	set cmd [string trim $cmd]
 	hue::write_log 4 "Received command: $cmd"
 	set response ""
-	if {[regexp "^api_request\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(.*)" $cmd match type bridge_id obj num method path json]} {
-		if { [catch {
+	if { [catch {
+		if {[regexp "^api_request\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(.*)" $cmd match type bridge_id obj num method path json]} {
 			set response [hue::request $type $bridge_id $method $path $json]
 			set o "${bridge_id}_${obj}_${num}"
 			
@@ -187,14 +191,32 @@ proc read_from_channel {channel} {
 				set update_schedule($o) $time
 				#set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
 			}
-		} errmsg] } {
-			set response "ERROR: ${errmsg}"
+		} elseif {[regexp "^reload$" $cmd match]} {
+			set last_schedule_update 0
+			set response "Reload scheduled"
+		} elseif {[regexp "^status$" $cmd match]} {
+			set response ""
+			set tmp [clock seconds]
+			append response "time: ${tmp}\n"
+			set tmp [array get update_schedule]
+			set tmp [join $tmp " "]
+			append response "update_schedule: ${tmp}\n"
+			set tmp [array get current_object_state]
+			set tmp [join $tmp " "]
+			append response "current_object_state: ${tmp}\n"
+			set tmp [array get cuxd_device_map]
+			set tmp [join $tmp " "]
+			append response "cuxd_device_map: ${tmp}\n"
+			append response "last_schedule_update: ${last_schedule_update}\n"
+			append response "schedule_update_interval: ${schedule_update_interval}\n"
+			set tmp [join $group_command_times " "]
+			append response "group_command_times: ${tmp}\n"
+		} else {
+			set response "ERROR: Invalid command"
 		}
-	} elseif {[regexp "^reload$" $cmd match]} {
-		set last_schedule_update 0
-		set response "Reload scheduled"
-	} else {
-		set response "Invalid command"
+	} errmsg] } {
+		hue::write_log 1 "${errmsg} - ${::errorCode} - ${::errorInfo}"
+		set response "ERROR: ${errmsg}"
 	}
 	hue::write_log 4 "Sending response: $response"
 	puts $channel $response

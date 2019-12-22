@@ -172,6 +172,87 @@ proc ::hue::convert_string_to_hex {str} {
 	return $hex
 }
 
+proc ::hue::get_debug_data {} {
+	variable ini_file
+	variable version_file
+	
+	set data ""
+	
+	append data "=== df ==========================================================================\n"
+	if { [catch {
+		append data [exec df]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
+	append data "=== ps aux ======================================================================\n"
+	if { [catch {
+		append data [exec ps aux]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
+	append data "=== lsof ========================================================================\n"
+	if { [catch {
+		append data [exec lsof]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
+	append data "=== dmesg =======================================================================\n"
+	if { [catch {
+		append data [exec dmesg]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
+	append data "=== /var/log/messages ===========================================================\n"
+	if { [catch {
+		append data [exec cat /var/log/messages]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
+	append data "=== VERSION =====================================================================\n"
+	if { [catch {
+		append data [exec cat $version_file]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
+	append data "=== hue.conf ====================================================================\n"
+	if { [catch {
+		append data [exec cat $ini_file]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
+	append data "=== hue-addon.log ===============================================================\n"
+	if { [catch {
+		append data [read_log]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
+	append data "=== hued status =================================================================\n"
+	if { [catch {
+		append data [hue::hued_command "status"]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
+	return $data
+}
+
 proc ::hue::hued_command {command {params {}}} {
 	variable hued_address
 	variable hued_port
@@ -180,7 +261,7 @@ proc ::hue::hued_command {command {params {}}} {
 	set chan [socket $hued_address $hued_port]
 	puts $chan "${command} ${params}"
 	flush $chan
-	set res [gets $chan]
+	set res [read $chan]
 	hue::write_log 4 "Command response from hued: $res"
 	close $chan
 	return $res
@@ -1079,6 +1160,7 @@ proc ::hue::delete_cuxd_device {id} {
 
 hue::read_global_config
 
+#puts [hue::get_debug_data]
 #hue::get_used_cuxd_device_serials 28 2
 #puts [hue::get_free_cuxd_device_serial 40]
 #hue::create_cuxd_switch_device 0 "test" "xxxxxxxxx" "light" 15

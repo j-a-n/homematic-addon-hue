@@ -648,6 +648,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			win.focus();
 		}
 		
+		function get_debug_data() {
+			var win = window.open('debug.cgi?sid=' + sid, '_blank');
+			win.focus();
+		}
+		
 		function truncate_log() {
 			rest("GET", "/truncate-log", null, function(data) {
 				display_message('success', i18next.t('log_truncated'), 5000);
@@ -969,6 +974,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							execute: 'Execute',
 							truncate_log: 'Truncate log',
 							show_log: 'Show log',
+							get_debug_data: 'Get debug data',
 							hue_bridge: 'Hue Bridge',
 							ip_address_or_hostname: 'IP-Address or Hostname',
 							username: 'Username',
@@ -1072,6 +1078,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							execute: 'Ausführen',
 							truncate_log: 'Log leeren',
 							show_log: 'Log anzeigen',
+							get_debug_data: 'Debug-Daten abrufen',
 							hue_bridge: 'Hue Bridge',
 							ip_address_or_hostname: 'IP-Adresse oder Hostname',
 							username: 'Benutzername',
@@ -1125,6 +1132,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('#execute-test-command').contents().last()[0].textContent = i18next.t('execute');
 				$('#truncate-log-button').contents().last()[0].textContent = i18next.t('truncate_log');
 				$('#show-log-button').contents().last()[0].textContent = i18next.t('show_log');
+				$('#get-debug-data-button').contents().last()[0].textContent = i18next.t('get_debug_data');
 				$('#cancel-delete-bridge-button').contents().last()[0].textContent = i18next.t('no');
 				$('#confirm-delete-bridge-button').contents().last()[0].textContent = i18next.t('yes');
 			});
@@ -1290,6 +1298,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					<div id="show-log-button" onclick="show_log();" class="ui blue basic button">
 						<i class="file text outline icon"></i>
 						show_log
+					</div>
+					<div id="get-debug-data-button" onclick="get_debug_data();" class="ui orange basic button">
+						<i class="file text outline icon"></i>
+						get_debug_data
 					</div>
 				</div>
 			</div>
