@@ -194,6 +194,14 @@ proc ::hue::get_debug_data {} {
 	}
 	append data "\n\n"
 	
+	append data "=== top -Hb -n1 =================================================================\n"
+	if { [catch {
+		append data [exec top -Hb -n1]
+	} errmsg] } {
+		append data "ERROR: ${errmsg} - ${::errorCode} - ${::errorInfo}"
+	}
+	append data "\n\n"
+	
 	append data "=== lsof ========================================================================\n"
 	if { [catch {
 		append data [exec lsof]

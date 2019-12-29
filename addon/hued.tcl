@@ -76,9 +76,11 @@ proc check_update {} {
 	variable schedule_update_interval
 	variable cuxd_device_map
 	
+	hue::write_log 4 "Check update"
+	
 	foreach o [array names update_schedule] {
 		set scheduled_time $update_schedule($o)
-		#hue::write_log 4 "Update of ${o} cheduled for ${scheduled_time}"
+		hue::write_log 4 "Update of ${o} cheduled for ${scheduled_time}"
 		if {[clock seconds] >= $scheduled_time} {
 			set tmp [split $o "_"]
 			if {[catch {update_cuxd_device [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]} errmsg]} {
