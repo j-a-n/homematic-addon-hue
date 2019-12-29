@@ -149,6 +149,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				if (success_callback) {
 					success_callback(data);
 				}
+				if (!config.cuxd_version) {
+					setTimeout(function() {
+						display_message('error', i18next.t('cuxd_not_installed'), 300000);
+					}, 5000);
+				}
 			}, error_callback);
 		}
 		
@@ -1010,6 +1015,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							login: 'Login',
 							value: 'Value',
 							add: 'Add',
+							cuxd_not_installed: 'CUx-Daemon is not installed. Please install the latest CUxD-Addon.',
 						}
 					},
 					de: {
@@ -1114,6 +1120,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							login: 'Anmeldung',
 							value: 'Wert',
 							add: 'Hinzufügen',
+							cuxd_not_installed: 'CUx-Daemon ist nicht installiert. Bitte das neueste CUxD-Addon installieren.',
 						}
 					}
 				}
