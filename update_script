@@ -71,6 +71,9 @@ if [ "$1" = "" ]; then
 	while true; do
 		sleep 1
 	done
+else
+	echo "(re)starting hued"
+	/usr/local/addons/hue/hued.tcl
 fi
 
 exit 0
