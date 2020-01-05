@@ -25,6 +25,7 @@ variable cuxd_device_map
 variable last_schedule_update 0
 variable schedule_update_interval 60
 variable group_command_times [list]
+variable set_sysvars_reachable 1
 
 proc bgerror message {
 	hue::write_log 1 "Unhandled error: ${message}"
@@ -135,8 +136,31 @@ proc get_cuxd_devices_from_map {bridge_id obj num} {
 	return $cuxd_devices
 }
 
+proc update_sysvars_reachable {name reachable} {
+	array set res [rega_script "Write(dom.GetObject(\"${name}\").Value())"]
+	set val ""
+	if {$res(STDOUT) == "false"} {
+		if {$reachable == 1 || $reachable == "true"} {
+			set val "true"
+		}
+	} elseif {$res(STDOUT) == "true"} {
+		if {$reachable == 0 || $reachable == "false"} {
+			set val "false"
+		}
+	} else {
+		hue::write_log 4 "Sysvar ${name} does not exist"
+	}
+	
+	if {$val != ""} {
+		hue::write_log 3 "Setting sysvar ${name} to ${val}"
+		rega_script "dom.GetObject(\"${name}\").State(${val})"
+	}
+}
+
 proc update_cuxd_device {bridge_id obj num} {
 	variable current_object_state
+	variable set_sysvars_reachable
+	
 	set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
 	if {[llength $cuxd_devices] == 0} {
 		error "Failed to get CUxD devices for ${bridge_id} ${obj} ${num}"
@@ -156,6 +180,10 @@ proc update_cuxd_device {bridge_id obj num} {
 			}
 			set current_object_state($cuxd_device) $st
 			hue::write_log 3 "Update of ${bridge_id} ${obj} ${num} successful (reachable=[lindex $st 0] on=[lindex $st 1] bri=[lindex $st 2] ct=[lindex $st 3] hue=[lindex $st 4] sat=[lindex $st 5])"
+			if {$set_sysvars_reachable == 1} {
+				update_sysvars_reachable "Hue_reachable_${cuxd_device}" [lindex $st 0]
+				update_sysvars_reachable "Hue_reachable_${bridge_id}_${obj}_${num}" [lindex $st 0]
+			}
 		} else {
 			hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} not required, state is unchanged"
 		}
