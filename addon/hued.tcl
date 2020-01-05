@@ -137,7 +137,7 @@ proc get_cuxd_devices_from_map {bridge_id obj num} {
 }
 
 proc update_sysvars_reachable {name reachable} {
-	array set res [rega_script "Write(dom.GetObject(\"${name}\").Value())"]
+	array set res [rega_script "var s = dom.GetObject(\"${name}\"); if (s) { Write(s.Value()); }"]
 	set val ""
 	if {$res(STDOUT) == "false"} {
 		if {$reachable == 1 || $reachable == "true"} {
