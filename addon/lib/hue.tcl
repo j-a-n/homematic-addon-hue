@@ -828,32 +828,27 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 	set data [request "status" $bridge_id "GET" $obj_path]
 	#hue::write_log 4 "${obj_path}: ${data}"
 	set st [list]
-	regexp {\"reachable\"\s*:\s*(true|false)} $data match val
-	if { [info exists val] && $val != "" } {
+	
+	if { [regexp {\"reachable\"\s*:\s*(true|false)} $data match val] } {
 		lappend st $val
-		unset val
 	} else {
-		regexp {\"error\"(.*)} $data match val
-		if { [info exists val] && $val != "" } {
+		if {[regexp {\"error\"(.*)} $data match val]} {
 			lappend st "false"
-			unset val
 		} else {
 			lappend st "true"
 		}
 	}
-	regexp {\"any_on\"\s*:\s*(true|false)} $data match val
-	if { [info exists val] && $val != "" } {
+	
+	if { [regexp {\"any_on\"\s*:\s*(true|false)} $data match val] } {
 		lappend st $val
-		unset val
 	} else {
-		regexp {\"on\"\s*:\s*(true|false)} $data match val
-		if { [info exists val] && $val != "" } {
+		if { [regexp {\"on\"\s*:\s*(true|false)} $data match val] } {
 			lappend st $val
-			unset val
 		} else {
 			lappend st "false"
 		}
 	}
+	
 	set val 0
 	if {[regexp {^groups} $obj_path] && $calc_group_brightness} {
 		#"lights":["11","10","9"]
