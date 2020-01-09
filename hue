@@ -24,7 +24,7 @@ case "$1" in
 	info)
 		version=$(cat ${ADDON_DIR}/VERSION)
 		echo "Info: <b>${ADDON_NAME} addon</b><br>"
-		echo "Info: <a href='https://github.com/j-a-n/homematic-addon-hue'>https://github.com/j-a-n/homematic-addon-hue</a>"
+		echo "Info: <a href='https://github.com/j-a-n/homematic-addon-hue' target='_blank'>https://github.com/j-a-n/homematic-addon-hue</a>"
 		echo "Name: Philips Hue"
 		echo "Version: ${version}"
 		echo "Operations: uninstall"
