@@ -864,11 +864,13 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 				#hue::write_log 4 "Light ${light}: ${ldata}"
 				if [regexp {\"bri\"\s*:\s*(\d+)} $light_data match bri] {
 					set bri_sum [expr {$bri_sum + $bri}]
-					if {$any_reachable == 0} {
-						if {[regexp {\"reachable\"\s*:\s*(true|false)} $light_data match reachable]} {
-							if {$reachable == "true"} {
-								set any_reachable 1
-							}
+				} elseif [regexp {\"on\"\s*:\s*true} $data match on] {
+					set bri_sum [expr {$bri_sum + 254}]
+				}
+				if {$any_reachable == 0} {
+					if {[regexp {\"reachable\"\s*:\s*(true|false)} $light_data match reachable]} {
+						if {$reachable == "true"} {
+							set any_reachable 1
 						}
 					}
 				}
