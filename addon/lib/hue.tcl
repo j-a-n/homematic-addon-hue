@@ -862,12 +862,13 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 				set light [string map {"\"" ""} $light]
 				set light_data [request "status" $bridge_id "GET" "lights/${light}"]
 				#hue::write_log 4 "Light ${light}: ${ldata}"
-				regexp {\"bri\"\s*:\s*(\d+)} $light_data match bri
-				set bri_sum [expr {$bri_sum + $bri}]
-				if {$any_reachable == 0} {
-					if {[regexp {\"reachable\"\s*:\s*(true|false)} $light_data match reachable]} {
-						if {$reachable == "true"} {
-							set any_reachable 1
+				if [regexp {\"bri\"\s*:\s*(\d+)} $light_data match bri] {
+					set bri_sum [expr {$bri_sum + $bri}]
+					if {$any_reachable == 0} {
+						if {[regexp {\"reachable\"\s*:\s*(true|false)} $light_data match reachable]} {
+							if {$reachable == "true"} {
+								set any_reachable 1
+							}
 						}
 					}
 				}
