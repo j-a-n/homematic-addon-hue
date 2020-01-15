@@ -40,7 +40,6 @@ namespace eval hue {
 	variable poll_state_interval 5
 	variable ignore_unreachable 0
 	variable devicetype "homematic-addon-hue#ccu"
-	variable curl "/usr/local/addons/cuxd/curl"
 	variable cuxd_ps "/usr/local/addons/cuxd/cuxd.ps"
 	variable cuxd_xmlrpc_url "xmlrpc_bin://127.0.0.1:8701"
 	variable hued_address "127.0.0.1"
@@ -277,7 +276,10 @@ proc ::hue::hued_command {command {params {}}} {
 
 
 proc ::hue::discover_bridges {} {
-	variable curl
+	set curl "/usr/bin/curl"
+	if { [file exists $curl] == 0 } {
+		set curl "/usr/local/addons/cuxd/curl"
+	}
 	set bridge_ips [list]
 	set data [exec $curl --silent --insecure https://www.meethue.com/api/nupnp]
 	foreach d [split $data "\}"] {
