@@ -60,7 +60,11 @@ fi
 
 echo "add menu entry" >>$LOG_FILE
 touch "${CONFIG_DIR}/hm_addons.cfg"
-"/usr/local/addons/cuxd/update_addon" ${ADDON_NAME} "${ADDON_DIR}/etc/${ADDON_NAME}-addon.cfg"
+if [ -x /bin/updateAddonConfig.tcl ]; then
+	/bin/updateAddonConfig.tcl -a hue -url /addons/hue/index.html -name "Philips Hue" -de "Philips Hue Steuerung" -en "Philips Hue control"
+else
+	"/usr/local/addons/cuxd/update_addon" ${ADDON_NAME} "${ADDON_DIR}/etc/${ADDON_NAME}-addon.cfg"
+fi
 
 sync
 
