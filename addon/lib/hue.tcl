@@ -547,10 +547,10 @@ proc ::hue::_http_request {ip port method path {data ""} {content_type ""} {time
 			set response [read $sock]
 		}
 	}
+	catch { close $sock }
 	if {$response == ""} {
 		error "Failed to connect to server at address $ip"
 	}
-	catch { close $sock }
 	return $response
 }
 
