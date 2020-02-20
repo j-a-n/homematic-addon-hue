@@ -281,12 +281,12 @@ proc ::hue::reverse_gamma_correction {val} {
 # https://github.com/home-assistant/home-assistant/blob/dev/homeassistant/util/color.py
 # https://developers.meethue.com/develop/application-design-guidance/color-conversion-formulas-rgb-to-xy-and-back/
 proc ::hue::rgb_to_xybri {red green blue {scale_bri 1}} {
-	set r 0
-	set g 0
-	set b 0
-	if {$red   != ""} { set r $red   }
-	if {$green != ""} { set g $green }
-	if {$blue  != ""} { set b $blue  }
+	if {$red   == ""} { set red   0 }
+	if {$green == ""} { set green 0 }
+	if {$blue  == ""} { set blue  0 }
+	set r $red
+	set g $green
+	set b $blue
 	if {[expr {$red + $green + $blue}] == 0} {
 		return [list 0.0 0.0 0]
 	}
