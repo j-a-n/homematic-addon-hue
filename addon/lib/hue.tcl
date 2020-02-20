@@ -171,6 +171,221 @@ proc ::hue::convert_string_to_hex {str} {
 	return $hex
 }
 
+proc ::hue::cross_product {point1 point2} {
+	return [expr { [lindex $point1 0] * [lindex $point2 1] - [lindex $point1 1] * [lindex $point2 0] }]
+}
+
+proc ::hue::get_gamut {colorgamuttype} {
+	set gamut_A [list [list 0.703 0.296] [list 0.214 0.709] [list 0.139 0.081]]
+	set gamut_B [list [list 0.674 0.322] [list 0.408 0.517] [list 0.168 0.041]]
+	set gamut_C [list [list 0.692 0.308] [list 0.17 0.7] [list 0.153 0.048]]
+	set gamut_DEF [list [list 1.0 0.0] [list 0.0 1.0] [list 0.0 0.0]]
+	
+	if {$colorgamuttype == "A"} {
+		return $gamut_A
+	} elseif {$colorgamuttype == "B"} {
+		return $gamut_B
+	} elseif {$colorgamuttype == "C"} {
+		return $gamut_C
+	}
+	return $gamut_DEF
+}
+
+# Check if the provided XYPoint can be recreated by a Hue lamp
+proc ::hue::check_xy_in_lamps_reach {x y gamut} {
+	set r [lindex $gamut 0]
+	set g [lindex $gamut 1]
+	set b [lindex $gamut 2]
+	
+	set v1 [list [expr {[lindex $g 0] - [lindex $r 0]}] [expr {[lindex $g 1] - [lindex $r 1]}]]
+	set v2 [list [expr {[lindex $b 0] - [lindex $r 0]}] [expr {[lindex $b 1] - [lindex $r 1]}]]
+	set q [list [expr {$x - [lindex $r 0]}] [expr {$y - [lindex $r 1]}]]
+	set s [expr {[cross_product $q $v2] / [cross_product $v1 $v2]}]
+	set t [expr {[cross_product $v1 $q] / [cross_product $v1 $v2]}]
+	
+	if {$s >= 0.0 && $t >= 0.0 && [expr {$s + $t}] <= 1.0} {
+		return 1
+	}
+	return 0
+}
+
+proc ::hue::get_closest_point_to_line {point line_a line_b} {
+	set APx [expr {[lindex $point 0] - [lindex $line_a 0]}]
+	set APy [expr {[lindex $point 1] - [lindex $line_a 1]}]
+	set ABx [expr {[lindex $line_b 0] - [lindex $line_a 0]}]
+	set ABy [expr {[lindex $line_b 1] - [lindex $line_a 1]}]
+	set ab2 [expr {$ABx * $ABx + $ABy * $ABy}]
+	set ap_ab [expr {$APx * $ABx + $APy * $ABy}]
+	set t [expr {$ap_ab / $ab2}]
+	if {$t < 0.0} {
+		set t 0.0
+	} elseif {$t > 1.0} {
+		set t 1.0
+	}
+	return [ list [expr {[lindex $line_a 0] + $ABx * $t}] [expr {[lindex $line_a 1] + $ABy * $t}] ]
+}
+
+# Calculate the distance between two XYPoints
+proc ::hue::get_distance_between_two_points {point1 point2} {
+	set dx [expr { [lindex $point1 0] - [lindex $point2 0] }]
+	set dy [expr { [lindex $point1 1] - [lindex $point2 1] }]
+	return [expr { sqrt($dx * $dx + $dy * $dy) }]
+}
+
+proc ::hue::get_closest_xy {x y gamut} {
+	set point_xy [list $x $y]
+	set pAB [get_closest_point_to_line $point_xy [lindex $gamut 0] [lindex $gamut 1]]
+	set pAC [get_closest_point_to_line $point_xy [lindex $gamut 2] [lindex $gamut 0]]
+	set pBC [get_closest_point_to_line $point_xy [lindex $gamut 1] [lindex $gamut 2]]
+	
+	set dAB [get_distance_between_two_points $point_xy $pAB]
+	set dAC [get_distance_between_two_points $point_xy $pAC]
+	set dBC [get_distance_between_two_points $point_xy $pBC]
+	
+	set shortest $dAB
+	set closest_point $pAB
+	if {$dAC < $shortest} {
+		set shortest $dAC
+		set closest_point $pAC
+	}
+	if {$dBC < $shortest} {
+		set shortest $dBC
+		set closest_point $pBC
+	}
+	return $closest_point
+}
+
+
+proc ::hue::gamma_correction {val} {
+	if {$val > 0.04045} {
+		set val [expr {pow(($val + 0.055) / (1.0 + 0.055), 2.4)}]
+	} else {
+		set val [expr {$val / 12.92}]
+	}
+	return $val
+}
+
+proc ::hue::reverse_gamma_correction {val} {
+	if {$val <= 0.0031308} {
+		set val [expr {$val * 12.92}]
+	} else {
+		set val [expr {(1.0 + 0.055) * pow($val, (1.0 / 2.4)) - 0.055}]
+	}
+	return $val
+}
+
+# https://github.com/benknight/hue-python-rgb-converter/blob/master/rgbxy/__init__.py
+# https://github.com/Shnoo/js-CIE-1931-rgb-color-converter/blob/master/ColorConverter.js
+# http://stackoverflow.com/a/22649803
+# http://web.archive.org/web/20161023150649/http://www.developers.meethue.com:80/documentation/hue-xy-values
+# https://github.com/home-assistant/home-assistant/blob/dev/homeassistant/util/color.py
+# https://developers.meethue.com/develop/application-design-guidance/color-conversion-formulas-rgb-to-xy-and-back/
+proc ::hue::rgb_to_xybri {red green blue {scale_bri 1}} {
+	set r 0
+	set g 0
+	set b 0
+	if {$red   != ""} { set r $red   }
+	if {$green != ""} { set g $green }
+	if {$blue  != ""} { set b $blue  }
+	if {[expr {$red + $green + $blue}] == 0} {
+		return [list 0.0 0.0 0]
+	}
+	
+	# Normalize values to 1
+	set r [expr {$r / 255.0}]
+	set g [expr {$g / 255.0}]
+	set b [expr {$b / 255.0}]
+	# Gamma correction, make colors more vivid
+	set r [gamma_correction $r]
+	set g [gamma_correction $g]
+	set b [gamma_correction $b]
+	# Convert to XYZ using the wide RGB D65 formula
+	set X [expr {$r * 0.664511 + $g * 0.154324 + $b * 0.162028}]
+	set Y [expr {$r * 0.283881 + $g * 0.668433 + $b * 0.047685}]
+	set Z [expr {$r * 0.000088 + $g * 0.072310 + $b * 0.986039}]
+	set x 0
+	set y 0
+	if {[expr {$X + $Y + $Z}] > 0} {
+		set x [expr {$X / ($X + $Y + $Z)}]
+		set y [expr {$Y / ($X + $Y + $Z)}]
+	}
+	set bri [expr {round($Y * 254)}]
+	if {$scale_bri == 1} {
+		set max 0
+		if {$red > $max} { set max $red }
+		if {$green > $max} { set max $green }
+		if {$blue > $max} { set max $blue }
+		if {$bri < $max} {
+			set bri $max
+		}
+	}
+	if {$bri < 0} {
+		set bri 0
+	} elseif {$bri == 0 && $Y > 0} {
+		set bri 1
+	} elseif {$bri > 254} {
+		set bri 254
+	}
+	
+	set gamut [get_gamut "C"]
+	
+	set in_reach [check_xy_in_lamps_reach $x $y $gamut]
+	if {$in_reach == 0} {
+		set closest [get_closest_xy $x $y $gamut]
+		set x [lindex $closest 0]
+		set y [lindex $closest 1]
+	}
+	
+	return [list [expr {round($x*1000.0)/1000.0}] [expr {round($y*1000.0)/1000.0}] $bri]
+}
+
+proc ::hue::xybri_to_rgb {x y bri} {
+	if {$bri <= 0} {
+		return [list 0 0 0]
+	}
+	if {$bri > 254} { set bri 254 }
+	set gamut [get_gamut "C"]
+	set in_reach [check_xy_in_lamps_reach $x $y $gamut]
+	if {$in_reach == 0} {
+		set closest [get_closest_xy $x $y $gamut]
+		set x [lindex $closest 0]
+		set y [lindex $closest 1]
+	}
+	if {$y == 0} {
+		set y 0.00000000001
+	}
+	# Calculate XYZ values
+	set Y [expr {$bri / 254.0}]
+	set X [expr {($Y / $y) * $x}]
+	set Z [expr {($Y / $y) * (1.0 - $x - $y)}]
+	# Convert to RGB using Wide RGB D65 conversion
+	set r [expr {$X *  1.656492 + $Y * -0.354851 + $Z * -0.255038}]
+	set g [expr {$X * -0.707196 + $Y *  1.655397 + $Z *  0.036152}]
+	set b [expr {$X *  0.051713 + $Y * -0.121364 + $Z *  1.011530}]
+	# Apply reverse gamma correction
+	set r [reverse_gamma_correction $r]
+	set g [reverse_gamma_correction $g]
+	set b [reverse_gamma_correction $b]
+	# Set all negative components to zero
+	if {$r < 0} { set r 0 }
+	if {$g < 0} { set g 0 }
+	if {$b < 0} { set b 0 }
+	# If one component is greater than 1, weight components by that value
+	set max 0
+	if {$r > $max} { set max $r }
+	if {$g > $max} { set max $g }
+	if {$b > $max} { set max $b }
+	if {$max > 1} {
+		set r [expr {$r / $max}]
+		set g [expr {$g / $max}]
+		set b [expr {$b / $max}]
+	}
+	set r [expr { round($r * 255) }]
+	set g [expr { round($g * 255) }]
+	set b [expr { round($b * 255) }]
+	return [list $r $g $b]
+}
+
 proc ::hue::get_debug_data {} {
 	variable ini_file
 	variable version_file
@@ -1182,11 +1397,13 @@ proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min 
 proc ::hue::delete_cuxd_device {id} {
 	set data "dselect=${id}"
 	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?m=4" $data "application/x-www-form-urlencoded"]
-	puts $response
+	#puts $response
 }
 
 hue::read_global_config
 
+#puts [hue::rgb_to_xybri 100 100 100]
+#puts [hue::xybri_to_rgb 0.322726720866 0.329022909559 32]
 #puts [hue::get_debug_data]
 #hue::get_used_cuxd_device_serials 28 2
 #puts [hue::get_free_cuxd_device_serial 40]
