@@ -160,6 +160,18 @@ proc process {} {
 			set name [json_string $name]
 			set bridgeid [json_string $bridgeid]
 			return "\{\"username\":\"${username}\",\"name\":\"${name}\"\,\"bridgeid\":\"${bridgeid}\"\}"
+		} elseif {[lindex $path 1] == "rgb-to-xybri"} {
+			regexp {\"red\"\s*:\s*(\d+)} $data match red
+			regexp {\"green\"\s*:\s*(\d+)} $data match green
+			regexp {\"blue\"\s*:\s*(\d+)} $data match blue
+			if {! [regexp {\"color_gamut\"\s*:\s*\"([^\"]+)\"} $data match color_gamut] } {
+				set color_gamut ""
+			}
+			set res [hue::rgb_to_xybri $red $green $blue $color_gamut]
+			set x [lindex $res 0]
+			set y [lindex $res 1]
+			set bri [lindex $res 2]
+			return "\{\"x\":${x},\"y\":${y},\"bri\":${bri}\}"
 		} elseif {[lindex $path 1] == "get-cuxd-device-map"} {
 			set dmap ""
 			array set cuxd_device_map [hue::get_cuxd_device_map]

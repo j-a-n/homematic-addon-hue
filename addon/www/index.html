@@ -92,21 +92,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			display_message('error', i18next.t('error_occurred', {'error': err}), 10000);
 		}
 		
-		function rest(method, path, data, success_callback, error_callback) {
+		function rest(method, path, data, success_callback, error_callback, async=true) {
 			if (!error_callback) {
 				error_callback = default_error_callback;
 			}
 			if (data != null) {
 				data = JSON.stringify(data);
 			}
+			var result = null;
+			if (!async) {
+				success_callback = function(data) {
+					result = data;
+				}
+			}
 			$.ajax({
 				url: "rest.cgi?sid=" + sid + "&path=" + path,
 				type: method,
+				async: async,
 				data: data,
 				context: document.body,
 				success: success_callback,
 				error: error_callback
 			});
+			if (!async) {
+				return result;
+			}
 		}
 		
 		function api_request(bridge_id, method, path, data, success_callback) {
@@ -608,7 +618,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			var resource = (light_id ? '/lights/' + light_id + '/state' : '/groups/' + group_id + '/action');
 			
 			var values = {};
-			['on', 'bri', 'hue', 'sat', 'ct', 'xy', 'transitiontime', 'alert', 'effect'].forEach(function(attr) {
+			['on', 'bri', 'hue', 'sat', 'ct', 'xy', 'rgb', 'transitiontime', 'alert', 'effect'].forEach(function(attr) {
 				var val = $('#form-light-control').form('get value', attr);
 				if (val != '') {
 					if (attr == 'on') {
@@ -619,6 +629,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						for (var i=0; i<val.length; i++) {
 							val[i] = parseFloat(val[i]);
 						}
+					}
+					else if (attr == 'rgb') {
+						val = val.split(',');
+						for (var i=0; i<val.length; i++) {
+							val[i] = parseInt(val[i]);
+						}
+						while (val.length < 3) {
+							val.push(0);
+						}
+						var color_gamut_type = null;
+						if (light_id) {
+							try {
+								color_gamut_type = lights[bridge_id][light_id].capabilities.control.colorgamuttype;
+							}
+							catch {
+							}
+						}
+						res = rest("POST", "/rgb-to-xybri", {"red": val[0], "green": val[1], "blue": val[2], "color_gamut": color_gamut_type}, null, null, false);
+						values['bri'] = res.bri;
+						attr = 'xy';
+						val = [res.x, res.y];
 					}
 					else if (['bri', 'hue', 'sat', 'ct', 'transitiontime'].indexOf(attr) > -1) {
 						val = parseInt(val);
@@ -1000,6 +1031,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							saturation: 'Saturation',
 							color_temperature: 'Color temperature',
 							xy: 'XY',
+							rgb: 'RGB',
 							delete_bridge: 'Do you really want to delete this Bridge?',
 							yes: 'Yes',
 							no: 'No',
@@ -1099,12 +1131,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							brightness: 'Helligkeit',
 							transitiontime: 'Übergangszeit',
 							transitiontime_label: 'Übergangszeit (in Schritten von 100ms)',
-							alert: 'ALarm',
+							alert: 'Alarm',
 							effect: 'Effekt',
 							hue: 'Farbton',
 							saturation: 'Sättigung',
 							color_temperature: 'Farbtemperatur',
 							xy: 'XY',
+							rgb: 'RGB',
 							delete_bridge: 'Wollen Sie die Bridge wirklich löschen?',
 							yes: 'Ja',
 							no: 'Nein',
@@ -1401,6 +1434,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					<div class="field">
 						<label data-i18n="xy"></label>
 						<input name="xy" placeholder="0.0-1.0, 0.0-1.0" type="text">
+					</div>
+					<div class="field">
+						<label data-i18n="rgb"></label>
+						<input name="rgb" placeholder="0-255,0-255,0-255" type="text">
 					</div>
 				</div>
 				<div class="ui error message"></div>

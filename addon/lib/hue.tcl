@@ -175,27 +175,35 @@ proc ::hue::cross_product {point1 point2} {
 	return [expr { [lindex $point1 0] * [lindex $point2 1] - [lindex $point1 1] * [lindex $point2 0] }]
 }
 
-proc ::hue::get_gamut {colorgamuttype} {
+proc ::hue::get_color_gamut {color_gamut_type} {
 	set gamut_A [list [list 0.703 0.296] [list 0.214 0.709] [list 0.139 0.081]]
 	set gamut_B [list [list 0.674 0.322] [list 0.408 0.517] [list 0.168 0.041]]
 	set gamut_C [list [list 0.692 0.308] [list 0.17 0.7] [list 0.153 0.048]]
 	set gamut_DEF [list [list 1.0 0.0] [list 0.0 1.0] [list 0.0 0.0]]
 	
-	if {$colorgamuttype == "A"} {
+	if {$color_gamut_type == "A"} {
 		return $gamut_A
-	} elseif {$colorgamuttype == "B"} {
+	} elseif {$color_gamut_type == "B"} {
 		return $gamut_B
-	} elseif {$colorgamuttype == "C"} {
+	} elseif {$color_gamut_type == "C"} {
 		return $gamut_C
 	}
 	return $gamut_DEF
 }
 
+proc ::hue::get_light_color_gamut_type {bridge_id light_id} {
+	set data [request "status" $bridge_id "GET" "lights/${light_id}"]
+	if {[regexp {\"colorgamuttype\"\s*:\s*\"([^\"]+)\"} $data match color_gamut_type]} {
+		return $color_gamut_type
+	}
+	return ""
+}
+
 # Check if the provided XYPoint can be recreated by a Hue lamp
-proc ::hue::check_xy_in_lamps_reach {x y gamut} {
-	set r [lindex $gamut 0]
-	set g [lindex $gamut 1]
-	set b [lindex $gamut 2]
+proc ::hue::check_xy_in_lamps_reach {x y color_gamut} {
+	set r [lindex $color_gamut 0]
+	set g [lindex $color_gamut 1]
+	set b [lindex $color_gamut 2]
 	
 	set v1 [list [expr {[lindex $g 0] - [lindex $r 0]}] [expr {[lindex $g 1] - [lindex $r 1]}]]
 	set v2 [list [expr {[lindex $b 0] - [lindex $r 0]}] [expr {[lindex $b 1] - [lindex $r 1]}]]
@@ -232,11 +240,11 @@ proc ::hue::get_distance_between_two_points {point1 point2} {
 	return [expr { sqrt($dx * $dx + $dy * $dy) }]
 }
 
-proc ::hue::get_closest_xy {x y gamut} {
+proc ::hue::get_closest_xy {x y color_gamut} {
 	set point_xy [list $x $y]
-	set pAB [get_closest_point_to_line $point_xy [lindex $gamut 0] [lindex $gamut 1]]
-	set pAC [get_closest_point_to_line $point_xy [lindex $gamut 2] [lindex $gamut 0]]
-	set pBC [get_closest_point_to_line $point_xy [lindex $gamut 1] [lindex $gamut 2]]
+	set pAB [get_closest_point_to_line $point_xy [lindex $color_gamut 0] [lindex $color_gamut 1]]
+	set pAC [get_closest_point_to_line $point_xy [lindex $color_gamut 2] [lindex $color_gamut 0]]
+	set pBC [get_closest_point_to_line $point_xy [lindex $color_gamut 1] [lindex $color_gamut 2]]
 	
 	set dAB [get_distance_between_two_points $point_xy $pAB]
 	set dAC [get_distance_between_two_points $point_xy $pAC]
@@ -280,7 +288,7 @@ proc ::hue::reverse_gamma_correction {val} {
 # http://web.archive.org/web/20161023150649/http://www.developers.meethue.com:80/documentation/hue-xy-values
 # https://github.com/home-assistant/home-assistant/blob/dev/homeassistant/util/color.py
 # https://developers.meethue.com/develop/application-design-guidance/color-conversion-formulas-rgb-to-xy-and-back/
-proc ::hue::rgb_to_xybri {red green blue {scale_bri 1}} {
+proc ::hue::rgb_to_xybri {red green blue {color_gamut ""} {scale_bri 1}} {
 	if {$red   == ""} { set red   0 }
 	if {$green == ""} { set green 0 }
 	if {$blue  == ""} { set blue  0 }
@@ -327,30 +335,39 @@ proc ::hue::rgb_to_xybri {red green blue {scale_bri 1}} {
 		set bri 254
 	}
 	
-	set gamut [get_gamut "C"]
-	
-	set in_reach [check_xy_in_lamps_reach $x $y $gamut]
-	if {$in_reach == 0} {
-		set closest [get_closest_xy $x $y $gamut]
-		set x [lindex $closest 0]
-		set y [lindex $closest 1]
+	if {$color_gamut != ""} {
+		if {![array exists $color_gamut]} {
+			set color_gamut [get_color_gamut $color_gamut]
+		}
+		set in_reach [check_xy_in_lamps_reach $x $y $color_gamut]
+		if {$in_reach == 0} {
+			set closest [get_closest_xy $x $y $color_gamut]
+			set x [lindex $closest 0]
+			set y [lindex $closest 1]
+		}
 	}
 	
 	return [list [expr {round($x*1000.0)/1000.0}] [expr {round($y*1000.0)/1000.0}] $bri]
 }
 
-proc ::hue::xybri_to_rgb {x y bri} {
+proc ::hue::xybri_to_rgb {x y bri {color_gamut ""}} {
 	if {$bri <= 0} {
 		return [list 0 0 0]
 	}
 	if {$bri > 254} { set bri 254 }
-	set gamut [get_gamut "C"]
-	set in_reach [check_xy_in_lamps_reach $x $y $gamut]
-	if {$in_reach == 0} {
-		set closest [get_closest_xy $x $y $gamut]
-		set x [lindex $closest 0]
-		set y [lindex $closest 1]
+	
+	if {$color_gamut != ""} {
+		if {![array exists $color_gamut]} {
+			set color_gamut [get_color_gamut $color_gamut]
+		}
+		set in_reach [check_xy_in_lamps_reach $x $y $color_gamut]
+		if {$in_reach == 0} {
+			set closest [get_closest_xy $x $y $color_gamut]
+			set x [lindex $closest 0]
+			set y [lindex $closest 1]
+		}
 	}
+	
 	if {$y == 0} {
 		set y 0.00000000001
 	}
@@ -1402,6 +1419,7 @@ proc ::hue::delete_cuxd_device {id} {
 
 hue::read_global_config
 
+#puts [hue::get_light_color_gamut_type "xxxxxxxxx" 2]
 #puts [hue::rgb_to_xybri 100 100 100]
 #puts [hue::xybri_to_rgb 0.322726720866 0.329022909559 32]
 #puts [hue::get_debug_data]

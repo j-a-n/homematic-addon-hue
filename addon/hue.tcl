@@ -129,12 +129,16 @@ proc main {} {
 		}
 		set obj_path ""
 		set path ""
+		set light_id ""
+		set group_id ""
 		if {$cmd == "light"} {
-			set obj_path "lights/[lindex $argv 2]"
-			set path "lights/[lindex $argv 2]/state"
+			set light_id [lindex $argv 2]
+			set obj_path "lights/${light_id}"
+			set path "lights/${light_id}/state"
 		} elseif {$cmd == "group"} {
-			set obj_path "groups/[lindex $argv 2]"
-			set path "groups/[lindex $argv 2]/action"
+			set group_id [lindex $argv 2]
+			set obj_path "groups/${group_id}"
+			set path "groups/${group_id}/action"
 		} else {
 			usage
 			exit 1
@@ -157,7 +161,11 @@ proc main {} {
 					append json "\"${k}\":\[${v}\],"
 				} elseif {$k == "rgb_bri" || $k == "rgb"} {
 					set rgb [split $v ","]
-					set res [hue::rgb_to_xybri [lindex $rgb 0] [lindex $rgb 1] [lindex $rgb 2]]
+					set color_gamut_type ""
+					if {$light_id != ""} {
+						set color_gamut_type [hue::get_light_color_gamut_type $bridge_id $light_id]
+					}
+					set res [hue::rgb_to_xybri [lindex $rgb 0] [lindex $rgb 1] [lindex $rgb 2] $color_gamut_type]
 					set x [lindex $res 0]
 					set y [lindex $res 1]
 					set bri [lindex $res 2]
