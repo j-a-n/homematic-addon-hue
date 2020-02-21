@@ -24,6 +24,8 @@ variable cuxd_device_map
 variable group_command_times [list]
 variable set_sysvars_reachable 1
 variable scheduled_update_time 0
+variable scheduled_update_cuxd_device_map_time 0
+variable update_cuxd_device_map_interval 300
 
 proc same_array {array1 array2} {
 	array set a1 $array1
@@ -91,6 +93,7 @@ proc main_loop {} {
 
 proc update_cuxd_device_map {} {
 	variable cuxd_device_map
+	hue::write_log 4 "Updating cuxd device map"
 	if { [catch {
 		set dmap [hue::get_cuxd_device_map]
 		array set cuxd_device_map $dmap
@@ -132,8 +135,17 @@ proc set_scheduled_update {time} {
 
 proc check_update {} {
 	variable scheduled_update_time
+	variable scheduled_update_cuxd_device_map_time
+	variable update_cuxd_device_map_interval
+	
 	hue::write_log 4 "Check update (scheduled_update_time=${scheduled_update_time})"
-	if {$scheduled_update_time < 0 ||[clock seconds] < $scheduled_update_time} {
+	
+	if {[clock seconds] >= $scheduled_update_cuxd_device_map_time} {
+		update_cuxd_device_map
+		set scheduled_update_cuxd_device_map_time [expr {[clock seconds] + $update_cuxd_device_map_interval}]
+	}
+	
+	if {$scheduled_update_time < 0 || [clock seconds] < $scheduled_update_time} {
 		return
 	}
 	
@@ -310,9 +322,7 @@ proc main {} {
 		hue::write_log 1 "Error: ${errmsg} - ${::errorCode} - ${::errorInfo}"
 	}
 	
-	update_cuxd_device_map
-	
-	after 5 main_loop
+	main_loop
 	
 	if {$hue::hued_address == "0.0.0.0"} {
 		socket -server accept_connection $hue::hued_port
