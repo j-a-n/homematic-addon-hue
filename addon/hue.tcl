@@ -119,9 +119,7 @@ proc main {} {
 			usage
 			exit 1
 		}
-		hue::acquire_bridge_lock $bridge_id
 		puts [hue::request "command" $bridge_id [lindex $argv 2] [lindex $argv 3] [lindex $argv 4]]
-		hue::release_bridge_lock $bridge_id
 	} else {
 		if {$argc < 3} {
 			usage

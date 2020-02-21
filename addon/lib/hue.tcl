@@ -853,10 +853,15 @@ proc ::hue::request {type bridge_id method path {data ""}} {
 	if {$bridge(username) == ""} {
 		error "Hue bridge ${bridge_id} username not configured"
 	}
-	#acquire_bridge_lock $bridge_id
-	set res [api_request $type $bridge(ip) $bridge(port) $bridge(username) $method $path $data]
-	#release_bridge_lock $bridge_id
-	return $res
+	acquire_bridge_lock $bridge_id
+	if {[catch {
+		set result [api_request $type $bridge(ip) $bridge(port) $bridge(username) $method $path $data]
+	} errmsg]} {
+		release_bridge_lock $bridge_id
+		return -code 1 -errorcode $::errorCode -errorinfo $::errorInfo $errmsg
+	}
+	release_bridge_lock $bridge_id
+	return $result
 }
 
 proc ::hue::hue_command {bridge_id command args} {
