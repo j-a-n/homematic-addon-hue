@@ -2,7 +2,7 @@
 
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2020  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -126,7 +126,7 @@ proc process {} {
 			regexp {\"command\"\s*:\s*\"(.*)\"} $data match command
 			set exitcode 0
 			set output ""
-			if {! [regexp {^/usr/local/addons/hue/hue.tcl( |$)[a-zA-Z0-9 \"'\-:_/]*$} $command] } {
+			if {! [regexp {^/usr/local/addons/hue/hue.tcl( |$)[a-zA-Z0-9 \"'\-,:_/]*$} $command] } {
 				set exitcode 1
 				set output "Invalid command: ${command}"
 			} else {

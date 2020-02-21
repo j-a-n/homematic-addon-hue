@@ -2,7 +2,7 @@
 
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2020  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,13 +19,31 @@
 
 source /usr/local/addons/hue/lib/hue.tcl
 
-variable update_schedule
 variable current_object_state
 variable cuxd_device_map
-variable last_schedule_update 0
-variable schedule_update_interval 60
 variable group_command_times [list]
 variable set_sysvars_reachable 1
+variable scheduled_update_time 0
+
+proc same_array {array1 array2} {
+	array set a1 $array1
+	array set a2 $array2
+	
+	foreach keys [list [array names a1] [array names a2]] {
+		foreach key $keys {
+			if {![info exists a1($key)]} {
+				return 0
+			}
+			if {![info exists a2($key)]} {
+				return 0
+			}
+			if {$a1($key) != $a2($key)} {
+				return 0
+			}
+		}
+	}
+	return 1
+}
 
 proc bgerror message {
 	hue::write_log 1 "Unhandled error: ${message}"
@@ -71,57 +89,13 @@ proc main_loop {} {
 	}
 }
 
-proc check_update {} {
-	variable update_schedule
-	variable last_schedule_update
-	variable schedule_update_interval
+proc update_cuxd_device_map {} {
 	variable cuxd_device_map
-	
-	hue::write_log 4 "Check update"
-	
-	foreach o [array names update_schedule] {
-		set scheduled_time $update_schedule($o)
-		hue::write_log 4 "Update of ${o} cheduled for ${scheduled_time}"
-		if {[clock seconds] >= $scheduled_time} {
-			set tmp [split $o "_"]
-			if {[catch {update_cuxd_device [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]} errmsg]} {
-				hue::write_log 2 "Failed to update [lindex $tmp 0] [lindex $tmp 1] [lindex $tmp 2]: $errmsg - ${::errorCode} - ${::errorInfo}"
-				## Device deleted? => refresh device map, currently disabled, needs to be decided by errorCode / errorInfo
-				#set last_schedule_update 0
-				unset update_schedule($o)
-			} else {
-				if {$hue::poll_state_interval > 0} {
-					set update_schedule($o) [expr {[clock seconds] + $hue::poll_state_interval}]
-				} else {
-					unset update_schedule($o)
-				}
-			}
-		}
-	}
-	
-	if { $hue::poll_state_interval > 0 && [clock seconds] >= [expr {$last_schedule_update + $schedule_update_interval}] } {
-		hue::write_log 4 "Get device map and schedule update for all devices"
-		set last_schedule_update [clock seconds]
-		hue::read_global_config
+	if { [catch {
 		set dmap [hue::get_cuxd_device_map]
 		array set cuxd_device_map $dmap
-		foreach { cuxd_device o } [array get cuxd_device_map] {
-			set tmp [split $o "_"]
-			set bridge_id [lindex $tmp 0]
-			set obj [lindex $tmp 1]
-			set num [lindex $tmp 2]
-			hue::write_log 4 "Device map entry: ${cuxd_device} = ${bridge_id} ${obj} ${num}"
-			set time [expr {[clock seconds] + $hue::poll_state_interval}]
-			if {[info exists update_schedule($o)]} {
-				if {$update_schedule($o) <= $time} {
-					# Keep earlier update time
-					#hue::write_log 4 "Keep earlier update time"
-					continue
-				}
-			}
-			set update_schedule($o) $time
-			hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
-		}
+	} errmsg] } {
+		hue::write_log 1 "Failed to get cuxd device map: ${errmsg} - ${::errorCode} - ${::errorInfo}"
 	}
 }
 
@@ -134,6 +108,68 @@ proc get_cuxd_devices_from_map {bridge_id obj num} {
 		}
 	}
 	return $cuxd_devices
+}
+
+proc get_bridge_ids_from_map {} {
+	variable cuxd_device_map
+	set bridge_ids [list]
+	foreach { d o } [array get cuxd_device_map] {
+		set bridge_id [lindex [split $o "_"] 0]
+		if { [lsearch $bridge_ids $bridge_id] < 0 } {
+			lappend bridge_ids $bridge_id
+		}
+	}
+	return $bridge_ids
+}
+
+
+proc set_scheduled_update {time} {
+	variable scheduled_update_time
+	if {$scheduled_update_time <= 0 || $time < $scheduled_update_time} {
+		set scheduled_update_time $time
+	}
+}
+
+proc check_update {} {
+	variable scheduled_update_time
+	hue::write_log 4 "Check update (scheduled_update_time=${scheduled_update_time})"
+	if {$scheduled_update_time < 0 ||[clock seconds] < $scheduled_update_time} {
+		return
+	}
+	
+	hue::write_log 4 "Updating status"
+	
+	foreach bridge_id [get_bridge_ids_from_map] {
+		array set light_states {}
+		foreach obj_type [list "light" "group"] {
+			set response [hue::request "status" $bridge_id "GET" "/${obj_type}s"]
+			regsub -all {\n} $response "" response
+			regsub -all {(\"\d+\":\{)} $response "\n\\1" tmp
+			set tmp [split $tmp "\n"]
+			foreach data $tmp {
+				if {[regexp {\"(\d+)\":\{} $data match obj_id]} {
+					set obj_path "/${obj_type}s/${obj_id}"
+					hue::write_log 4 "Processing status of ${obj_path}"
+					array set state [hue::get_object_state_from_json $bridge_id $obj_type $obj_id $data [array get light_states]]
+					if {$obj_type == "light"} {
+						set light_states($obj_id) [array get state]
+					}
+					set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj_type $obj_id]
+					if {[llength $cuxd_devices] == 0} {
+						continue
+					}
+					foreach cuxd_device $cuxd_devices {
+						update_cuxd_device $cuxd_device $bridge_id $obj_type $obj_id [array get state]
+					}
+				}
+			}
+		}
+	}
+
+	set_scheduled_update -1
+	if {$hue::poll_state_interval > 0} {
+		set_scheduled_update [expr {[clock seconds] + $hue::poll_state_interval}]
+	}
 }
 
 proc update_sysvars_reachable {name reachable} {
@@ -157,47 +193,39 @@ proc update_sysvars_reachable {name reachable} {
 	}
 }
 
-proc update_cuxd_device {bridge_id obj num} {
+proc update_cuxd_device {cuxd_device bridge_id obj_type obj_id astate} {
 	variable current_object_state
 	variable set_sysvars_reachable
-	
-	set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
-	if {[llength $cuxd_devices] == 0} {
-		error "Failed to get CUxD devices for ${bridge_id} ${obj} ${num}"
+	array set state $astate
+	array set current_state {}
+	if { [info exists current_object_state($cuxd_device)] } {
+		array set current_state $current_object_state($cuxd_device)
 	}
-	foreach cuxd_device $cuxd_devices {
-		set st [hue::get_object_state $bridge_id "${obj}s/${num}"]
-		set cst ""
-		if { [info exists current_object_state($cuxd_device)] } {
-			set cst $current_object_state($cuxd_device)
-		}
-		if {$st != $cst} {
-			set channel ""
-			if {[regexp "^(\[^:\]+):(\\d+)$" $cuxd_device match d c]} {
-				hue::update_cuxd_device_channel "CUxD.$d" $c [lindex $st 0] [lindex $st 1]
-			} else {
-				hue::update_cuxd_device_channels "CUxD.$cuxd_device" [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
-			}
-			set current_object_state($cuxd_device) $st
-			hue::write_log 3 "Update of ${bridge_id} ${obj} ${num} successful (reachable=[lindex $st 0] on=[lindex $st 1] bri=[lindex $st 2] ct=[lindex $st 3] hue=[lindex $st 4] sat=[lindex $st 5])"
-			if {$set_sysvars_reachable == 1} {
-				update_sysvars_reachable "Hue_reachable_${cuxd_device}" [lindex $st 0]
-				update_sysvars_reachable "Hue_reachable_${bridge_id}_${obj}_${num}" [lindex $st 0]
-			}
+	if {[same_array [array get state] [array get current_state]] == 0} {
+		
+		set current_object_state($cuxd_device) [array get state]
+		
+		set channel ""
+		if {[regexp "^(\[^:\]+):(\\d+)$" $cuxd_device match d c]} {
+			hue::update_cuxd_device_channel "CUxD.$d" $c $state(reachable) $state(on)
 		} else {
-			hue::write_log 4 "Update of ${bridge_id} ${obj} ${num} not required, state is unchanged"
+			hue::update_cuxd_device_channels "CUxD.$cuxd_device" $state(reachable) $state(on) $state(bri) $state(ct) $state(hue) $state(sat)
 		}
-		set cuxd_device_last_update($cuxd_device) [clock seconds]
+		hue::write_log 3 "Update of ${bridge_id} ${obj_type} ${obj_id} / ${cuxd_device} successful (reachable=$state(reachable) on=$state(on) bri=$state(bri) ct=$state(ct) hue=$state(hue) sat=$state(sat))"
+		if {$set_sysvars_reachable == 1} {
+			update_sysvars_reachable "Hue_reachable_${cuxd_device}" $state(reachable)
+			update_sysvars_reachable "Hue_reachable_${bridge_id}_${obj_type}_${obj_id}" $state(reachable)
+		}
+	} else {
+		hue::write_log 4 "Update of ${bridge_id} ${obj_type} ${obj_id} / ${cuxd_device} not required, state is unchanged"
 	}
 }
 
 proc read_from_channel {channel} {
-	variable update_schedule
 	variable current_object_state
 	variable cuxd_device_map
-	variable last_schedule_update
-	variable schedule_update_interval
 	variable group_command_times
+	variable scheduled_update_time
 	
 	set len [gets $channel cmd]
 	set cmd [string trim $cmd]
@@ -212,33 +240,28 @@ proc read_from_channel {channel} {
 				throttle_group_command
 			}
 			
-			# The bridge needs some time until all values are up to date
 			set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
 			if {[llength $cuxd_devices] > 0} {
+				hue::write_log 4 "Device is mapped to a CUxD device, scheduling update"
 				# Device is mapped to a CUxD device
 				set delay_seconds 1
 				set time [expr {[clock seconds] + $delay_seconds}]
-				set update_schedule($o) $time
-				#set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${time}"
+				set_scheduled_update $time
+				#set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${scheduled_update_time}"
 			}
 		} elseif {[regexp "^reload$" $cmd match]} {
-			set last_schedule_update 0
+			hue::read_global_config
+			update_cuxd_device_map
+			set_scheduled_update [clock seconds]
 			set response "Reload scheduled"
 		} elseif {[regexp "^status$" $cmd match]} {
 			set response ""
 			set tmp [clock seconds]
 			append response "time: ${tmp}\n"
-			set tmp [array get update_schedule]
-			set tmp [join $tmp " "]
-			append response "update_schedule: ${tmp}\n"
-			set tmp [array get current_object_state]
-			set tmp [join $tmp " "]
-			append response "current_object_state: ${tmp}\n"
+			append response "scheduled_update_time: ${scheduled_update_time}\n"
 			set tmp [array get cuxd_device_map]
 			set tmp [join $tmp " "]
 			append response "cuxd_device_map: ${tmp}\n"
-			append response "last_schedule_update: ${last_schedule_update}\n"
-			append response "schedule_update_interval: ${schedule_update_interval}\n"
 			set tmp [join $group_command_times " "]
 			append response "group_command_times: ${tmp}\n"
 		} else {
@@ -287,14 +310,9 @@ proc main {} {
 		hue::write_log 1 "Error: ${errmsg} - ${::errorCode} - ${::errorInfo}"
 	}
 	
-	if { [catch {
-		set dmap [hue::get_cuxd_device_map]
-		array set cuxd_device_map $dmap
-	} errmsg] } {
-		hue::write_log 1 "Failed to get cuxd device map: ${errmsg} - ${::errorCode} - ${::errorInfo}"
-	}
+	update_cuxd_device_map
 	
-	after 10 main_loop
+	after 5 main_loop
 	
 	if {$hue::hued_address == "0.0.0.0"} {
 		socket -server accept_connection $hue::hued_port
@@ -304,7 +322,7 @@ proc main {} {
 	hue::write_log 3 "Hue daemon is listening for connections on ${hue::hued_address}:${hue::hued_port}"
 }
 
-if { "[lindex $argv 0 ]" != "daemon" } {
+if { "[lindex $argv 0 ]" != "daemon" && "[lindex $argv 0 ]" != "nofork" } {
 	catch {
 		foreach dpid [split [exec pidof [file tail $argv0]] " "] {
 			if {[pid] != $dpid} {
@@ -316,9 +334,13 @@ if { "[lindex $argv 0 ]" != "daemon" } {
 		exec $argv0 daemon &
 	}
 } else {
-	cd /
-	foreach fd {stdin stdout stderr} {
-		close $fd
+	if { "[lindex $argv 0 ]" == "daemon" } {
+		cd /
+		foreach fd {stdin stdout stderr} {
+			close $fd
+		}
+	} elseif { "[lindex $argv 0 ]" == "nofork" } {
+		hue::set_log_stderr 4
 	}
 	main
 	vwait forever

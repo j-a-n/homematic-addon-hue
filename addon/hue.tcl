@@ -2,7 +2,7 @@
 
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2020  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -125,18 +125,17 @@ proc main {} {
 			usage
 			exit 1
 		}
-		set obj_path ""
 		set path ""
-		set light_id ""
-		set group_id ""
+		set obj_type ""
+		set obj_id ""
 		if {$cmd == "light"} {
-			set light_id [lindex $argv 2]
-			set obj_path "lights/${light_id}"
-			set path "lights/${light_id}/state"
+			set obj_type "light"
+			set obj_id [lindex $argv 2]
+			set path "lights/${obj_id}/state"
 		} elseif {$cmd == "group"} {
-			set group_id [lindex $argv 2]
-			set obj_path "groups/${group_id}"
-			set path "groups/${group_id}/action"
+			set obj_type "group"
+			set obj_id [lindex $argv 2]
+			set path "groups/${obj_id}/action"
 		} else {
 			usage
 			exit 1
@@ -160,8 +159,8 @@ proc main {} {
 				} elseif {$k == "rgb_bri" || $k == "rgb"} {
 					set rgb [split $v ","]
 					set color_gamut_type ""
-					if {$light_id != ""} {
-						set color_gamut_type [hue::get_light_color_gamut_type $bridge_id $light_id]
+					if {$obj_type == "light"} {
+						set color_gamut_type [hue::get_light_color_gamut_type $bridge_id $obj_id]
 					}
 					set res [hue::rgb_to_xybri [lindex $rgb 0] [lindex $rgb 1] [lindex $rgb 2] $color_gamut_type]
 					set x [lindex $res 0]
@@ -203,12 +202,10 @@ proc main {} {
 			set key ""
 			set val ""
 			if {$chan == 1} {
-				set st [hue::get_object_state $bridge_id $obj_path]
-				hue::write_log 4 "state: $st"
+				array set st [hue::get_object_state $bridge_id $obj_type $obj_id]
 				if {[info exists env(CUXD_DEVICE)]} {
 					set cuxd_device "CUxD.$env(CUXD_DEVICE)"
-					# device reachable on bri ct hue sat
-					hue::update_cuxd_device_channels $cuxd_device [lindex $st 0] [lindex $st 1] [lindex $st 2] [lindex $st 3] [lindex $st 4] [lindex $st 5]
+					hue::update_cuxd_device_channels $cuxd_device $st(reachable) $st(on) $st(bri) $st(ct) $st(hue) $st(sat)
 				}
 				return
 			}
@@ -216,10 +213,9 @@ proc main {} {
 			if {$chan == 2} {
 				set key "bri"
 				# 0 - 254
-				set st [list]
+				array set st {}
 				if {$cmd == "group" || $bri_mode == "inc"} {
-					set st [hue::get_object_state $bridge_id $obj_path]
-					hue::write_log 4 "${cmd} state: ${st}"
+					array set st [hue::get_object_state $bridge_id $obj_type $obj_id]
 				}
 				if {[lsearch $keys "on"] == -1} {
 					if {$val == 0} {
@@ -228,8 +224,7 @@ proc main {} {
 						if {$cmd == "light"} {
 							append json "\"on\":true,"
 						} elseif {$cmd == "group"} {
-							set on [lindex $st 1]
-							if {$on == "false"} {
+							if {$st(on) == "false"} {
 								hue::write_log 4 "bri > 0, all lights off, auto turn on group"
 								append json "\"on\":true,"
 							}
@@ -238,7 +233,8 @@ proc main {} {
 				}
 				if {$val > 0 && $bri_mode == "inc"} {
 					set key "bri_inc"
-					set bri [lindex $st 2]
+					set bri $st(bri)
+					if {$bri == ""} { set bri 0 }
 					set val [expr {$val - $bri}]
 				}
 			} elseif {$chan == 3} {
@@ -275,7 +271,7 @@ if { [ catch {
 	#catch {cd [file dirname [info script]]}
 	main
 } err ] } {
-	hue::write_log 1 $err
+	hue::write_log 1 "Error in hue.tcl: ${err}"
 	puts stderr "ERROR: ${err}"
 	exit 1
 }

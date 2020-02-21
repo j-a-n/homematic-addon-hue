@@ -1,6 +1,6 @@
 #  HomeMatic addon to control Philips Hue Lighting
 #
-#  Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2020  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ namespace eval hue {
 	variable ini_file "/usr/local/addons/hue/etc/hue.conf"
 	variable log_file "/tmp/hue-addon-log.txt"
 	variable log_level 0
+	variable log_stderr 0
 	variable api_log "off"
 	variable max_log_size 1000000
 	# api_connect_timeout in milliseconds, 0=default tcl behaviour
@@ -60,12 +61,21 @@ proc json_string {str} {
 	return "[string map $replace_map $str]"
 }
 
+proc ::hue::set_log_stderr {l} {
+	variable log_stderr
+	set log_stderr $l
+}
+
 # error=1, warning=2, info=3, debug=4
-proc ::hue::write_log {lvl str {lock 1}} {
+proc ::hue::write_log {lvl msg {lock 1}} {
 	variable log_level
 	variable log_file
 	variable lock_id_log_file
 	variable max_log_size
+	variable log_stderr
+	if {$lvl <= $log_stderr} {
+		puts stderr $msg
+	}
 	if {$lvl <= $log_level} {
 		if {$lock == 1} {
 			acquire_lock $lock_id_log_file
@@ -74,9 +84,9 @@ proc ::hue::write_log {lvl str {lock 1}} {
 		set date [clock seconds]
 		set date [clock format $date -format {%Y-%m-%d %T}]
 		set process_id [pid]
-		puts $fd "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
+		puts $fd "\[${lvl}\] \[${date}\] \[${process_id}\] ${msg}"
 		close $fd
-		#puts "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
+		#puts "\[${lvl}\] \[${date}\] \[${process_id}\] ${msg}"
 		if {[file size $log_file] > $max_log_size} {
 			set fd [open $log_file r]
 			seek $fd [expr {$max_log_size / 4}]
@@ -1012,24 +1022,40 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 	set mm [get_cuxd_channels_min_max $device]
 	hue::write_log 4 "get_cuxd_channels_min_max: ${mm}"
 	
-	set bri [ format "%.2f" [expr {double($bri) / [lindex $mm 1]}] ]
-	if {$bri > 1.0} { set bri 1.0 }
-	
-	set ct [ format "%.2f" [expr {double($ct - [lindex $mm 2]) / double([lindex $mm 3] - [lindex $mm 2])}] ]
-	if {$ct > 1.0} { set ct 1.0 }
-	
-	if {[lindex $mm 5] > 0} {
-		set hue [ format "%.2f" [expr {double($hue) / [lindex $mm 5]}] ]
-		if {$hue > 1.0} { set hue 1.0 }
+	if {$bri == ""} {
+		set bri 0.0
 	} else {
-		set hue 0.0
+		set bri [ format "%.2f" [expr {double($bri) / [lindex $mm 1]}] ]
+		if {$bri > 1.0} { set bri 1.0 }
 	}
 	
-	if {[lindex $mm 7] > 0} {
-		set sat [ format "%.2f" [expr {double($sat) / [lindex $mm 7]}] ]
-		if {$sat > 1.0} { set sat 1.0 }
+	if {$ct == ""} {
+		set ct 0.0
 	} else {
+		set ct [ format "%.2f" [expr {double($ct - [lindex $mm 2]) / double([lindex $mm 3] - [lindex $mm 2])}] ]
+		if {$ct > 1.0} { set ct 1.0 }
+	}
+	
+	if {$hue == ""} {
+		set hue 0.0
+	} else {
+		if {[lindex $mm 5] > 0} {
+			set hue [ format "%.2f" [expr {double($hue) / [lindex $mm 5]}] ]
+			if {$hue > 1.0} { set hue 1.0 }
+		} else {
+			set hue 0.0
+		}
+	}
+	
+	if {$sat == ""} {
 		set sat 0.0
+	} else {
+		if {[lindex $mm 7] > 0} {
+			set sat [ format "%.2f" [expr {double($sat) / [lindex $mm 7]}] ]
+			if {$sat > 1.0} { set sat 1.0 }
+		} else {
+			set sat 0.0
+		}
 	}
 	
 	if {$reachable == "false" || $reachable == 0} {
@@ -1062,34 +1088,41 @@ proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
 	rega_script $s
 }
 
-proc ::hue::get_object_state {bridge_id obj_path} {
+proc ::hue::get_object_state {bridge_id obj_type obj_id} {
+	set data [hue::request "status" $bridge_id "GET" "/${obj_type}s/${obj_id}"]
+	return [hue::get_object_state_from_json $bridge_id $obj_type $obj_id $data]
+}
+
+proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_light_states ""}} {
 	set calc_group_brightness 1
-	set data [request "status" $bridge_id "GET" $obj_path]
-	#hue::write_log 4 "${obj_path}: ${data}"
-	set st [list]
+	array set light_states {}
+	if {$cached_light_states != ""} {
+		array set light_states $cached_light_states
+	}
+	array set state {}
 	
 	if { [regexp {\"reachable\"\s*:\s*(true|false)} $data match val] } {
-		lappend st $val
+		set state(reachable) $val
 	} else {
 		if {[regexp {\"error\"(.*)} $data match val]} {
-			lappend st "false"
+			set state(reachable) "false"
 		} else {
-			lappend st "true"
+			set state(reachable) "true"
 		}
 	}
 	
 	if { [regexp {\"any_on\"\s*:\s*(true|false)} $data match val] } {
-		lappend st $val
+		set state(on) $val
 	} else {
 		if { [regexp {\"on\"\s*:\s*(true|false)} $data match val] } {
-			lappend st $val
+			set state(on) $val
 		} else {
-			lappend st "false"
+			set state(on) "false"
 		}
 	}
 	
-	set val 0
-	if {[regexp {^groups} $obj_path] && $calc_group_brightness} {
+	set state(bri) ""
+	if  {$obj_type == "group" && $calc_group_brightness} {
 		#"lights":["11","10","9"]
 		if [regexp {\"lights\"\s*:\s*\[(["\d,]+)\]} $data match lights] {
 			#set lights [split $lights ","]
@@ -1099,40 +1132,54 @@ proc ::hue::get_object_state {bridge_id obj_path} {
 			foreach light [split $lights ","] {
 				set light_num [expr {$light_num + 1}]
 				set light [string map {"\"" ""} $light]
-				set light_data [request "status" $bridge_id "GET" "lights/${light}"]
-				#hue::write_log 4 "Light ${light}: ${ldata}"
-				if [regexp {\"bri\"\s*:\s*(\d+)} $light_data match bri] {
-					set bri_sum [expr {$bri_sum + $bri}]
-				} elseif [regexp {\"on\"\s*:\s*true} $data match on] {
+				
+				array set light_state {}
+				if {[info exists light_states($light)] } {
+					array set light_state $light_states($light)
+				} else {
+					array set light_state [hue::get_object_state $bridge_id "light" $light]
+				}
+				
+				if {$light_state(bri) != ""} {
+					set bri_sum [expr {$bri_sum + $light_state(bri)}]
+				} elseif {$light_state(on) == "true"} {
 					set bri_sum [expr {$bri_sum + 254}]
 				}
-				if {$any_reachable == 0} {
-					if {[regexp {\"reachable\"\s*:\s*(true|false)} $light_data match reachable]} {
-						if {$reachable == "true"} {
-							set any_reachable 1
-						}
-					}
+				if {$any_reachable == 0 && $light_state(reachable) == "true"} {
+					set any_reachable 1
 				}
 			}
 			set val [expr {$bri_sum / $light_num}]
 			if {$any_reachable == 0} {
-				set st [lreplace $st 0 0 "false"]
+				set state(reachable) "false"
 			} else {
-				set st [lreplace $st 0 0 "true"]
+				set state(reachable) "true"
 			}
 			hue::write_log 4 "Calculated group reachable: ${any_reachable}, brightness: ${val}"
+			set state(bri) $val
 		}
 	} else {
-		regexp {\"bri\"\s*:\s*(\d+)} $data match val
+		if {[regexp {\"bri\"\s*:\s*(\d+)} $data match val]} {
+			set state(bri) [expr {0 + $val}]
+		}
 	}
-	lappend st [expr {0 + $val}]
-	regexp {\"ct\"\s*:\s*(\d+)} $data match val
-	lappend st [expr {0 + $val}]
-	regexp {\"hue\"\s*:\s*(\d+)} $data match val
-	lappend st [expr {0 + $val}]
-	regexp {\"sat\"\s*:\s*(\d+)} $data match val
-	lappend st [expr {0 + $val}]
-	return $st
+	
+	set state(ct) ""
+	if {[regexp {\"ct\"\s*:\s*(\d+)} $data match val]} {
+		set state(ct) [expr {0 + $val}]
+	}
+	
+	set state(hue) ""
+	if {[regexp {\"hue\"\s*:\s*(\d+)} $data match val]} {
+		set state(hue) [expr {0 + $val}]
+	}
+	
+	set state(sat) ""
+	if {[regexp {\"sat\"\s*:\s*(\d+)} $data match val]} {
+		set state(sat) [expr {0 + $val}]
+	}
+	
+	return [array get state]
 }
 
 
