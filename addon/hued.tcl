@@ -26,7 +26,6 @@ variable set_sysvars_reachable 1
 variable scheduled_update_time 0
 variable scheduled_update_cuxd_device_map_time 0
 variable update_cuxd_device_map_interval 300
-variable group_throttling_settings "5:1000,10:2000"
 
 proc same_array {array1 array2} {
 	array set a1 $array1
@@ -54,7 +53,6 @@ proc bgerror message {
 
 proc throttle_group_command {} {
 	variable group_command_times
-	variable group_throttling_settings
 	
 	set new [list]
 	foreach t $group_command_times {
@@ -68,14 +66,14 @@ proc throttle_group_command {} {
 	
 	array set delay {}
 	if { [catch {
-		foreach s [split $group_throttling_settings ","] {
+		foreach s [split $hue::group_throttling_settings ","] {
 			set tmp [split $s ":"]
 			set n [expr {int([lindex $tmp 0])}]
 			set d [expr {int([lindex $tmp 1])}]
 			set delay($n) $d
 		}
 	} errmsg] } {
-		hue::write_log 1 "Failed to set group throttling settings '${group_throttling_settings}': ${errmsg}"
+		hue::write_log 1 "Failed to set group throttling settings '${hue::group_throttling_settings}': ${errmsg}"
 	}
 	
 	set ms 0

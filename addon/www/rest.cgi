@@ -233,8 +233,11 @@ proc process {} {
 					regexp {\"api_connect_timeout\"\s*:\s*\"([^\"]+)\"} $data match api_connect_timeout
 					regexp {\"poll_state_interval\"\s*:\s*\"([^\"]+)\"} $data match poll_state_interval
 					regexp {\"ignore_unreachable\"\s*:\s*(false|true)} $data match ignore_unreachable
-					hue::update_global_config $log_level $api_log $poll_state_interval $ignore_unreachable $api_connect_timeout
-					hue::hued_command "reload"
+					regexp {\"group_throttling_settings\"\s*:\s*\"([^\"]+)\"} $data match group_throttling_settings
+					hue::update_global_config $log_level $api_log $poll_state_interval $ignore_unreachable $api_connect_timeout $group_throttling_settings
+					catch {
+						hue::hued_command "reload"
+					}
 					return "\"Global config successfully updated\""
 				}
 			} elseif {[lindex $path 2] == "bridge"} {

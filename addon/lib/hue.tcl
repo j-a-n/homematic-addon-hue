@@ -45,6 +45,7 @@ namespace eval hue {
 	variable cuxd_xmlrpc_url "xmlrpc_bin://127.0.0.1:8701"
 	variable hued_address "127.0.0.1"
 	variable hued_port 1919
+	variable group_throttling_settings "5:1000,10:2000"
 }
 
 
@@ -571,16 +572,17 @@ proc ::hue::get_config_bridge_ids {} {
 	return $bridge_ids
 }
 
-proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable api_connect_timeout} {
+proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable api_connect_timeout group_throttling_settings} {
 	variable ini_file
 	variable lock_id_ini_file
-	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} ignore_unreachable=${ignore_unreachable} api_connect_timeout=${api_connect_timeout}"
+	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} ignore_unreachable=${ignore_unreachable} api_connect_timeout=${api_connect_timeout} group_throttling_settings=${group_throttling_settings}"
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r+]
 	ini::set $ini "global" "log_level" $log_level
 	ini::set $ini "global" "api_log" $api_log
 	ini::set $ini "global" "api_connect_timeout" $api_connect_timeout
 	ini::set $ini "global" "poll_state_interval" $poll_state_interval
+	ini::set $ini "global" "group_throttling_settings" $group_throttling_settings
 	if {$ignore_unreachable == "true" || $ignore_unreachable == "1"} {
 		ini::set $ini "global" "ignore_unreachable" "1"
 	} else {
@@ -598,6 +600,7 @@ proc ::hue::read_global_config {} {
 	variable api_connect_timeout
 	variable poll_state_interval
 	variable ignore_unreachable
+	variable group_throttling_settings
 	
 	write_log 4 "Reading global config"
 	acquire_lock $lock_id_ini_file
@@ -608,26 +611,10 @@ proc ::hue::read_global_config {} {
 		set api_connect_timeout [expr { 0 + [::ini::value $ini "global" "api_connect_timeout" $api_connect_timeout] }]
 		set poll_state_interval [expr { 0 + [::ini::value $ini "global" "poll_state_interval" $poll_state_interval] }]
 		set ignore_unreachable [expr { 0 + [::ini::value $ini "global" "ignore_unreachable" $ignore_unreachable] }]
+		set group_throttling_settings [::ini::value $ini "global" "group_throttling_settings" $group_throttling_settings]
 	}
 	ini::close $ini
 	release_lock $lock_id_ini_file
-}
-
-proc ::hue::get_cuxd_version {} {
-	set version ""
-	catch {
-		set data [exec /usr/local/etc/config/rc.d/cuxdaemon info]
-		foreach line [split $data "\n"] {
-			if {[regexp {^(\S+)\s*:\s*(\S.*)\s*$} $line match key value]} {
-				set keyl [string tolower $key]
-				if {$keyl == "version"} {
-					set version $value
-					break
-				}
-			}
-		}
-	}
-	return $version
 }
 
 proc ::hue::get_config_json {} {
@@ -638,6 +625,7 @@ proc ::hue::get_config_json {} {
 	variable api_connect_timeout
 	variable poll_state_interval
 	variable ignore_unreachable
+	variable group_throttling_settings
 	
 	set cuxd_version [get_cuxd_version]
 	
@@ -647,7 +635,7 @@ proc ::hue::get_config_json {} {
 	}
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
-	set json "\{\"cuxd_version\":\"${cuxd_version}\",\"global\":\{\"log_level\":${log_level},\"api_log\":\"${api_log}\",\"api_connect_timeout\":${api_connect_timeout},\"poll_state_interval\":${poll_state_interval},\"ignore_unreachable\":${iu}\},\"bridges\":\["
+	set json "\{\"cuxd_version\":\"${cuxd_version}\",\"global\":\{\"log_level\":${log_level},\"api_log\":\"${api_log}\",\"api_connect_timeout\":${api_connect_timeout},\"poll_state_interval\":${poll_state_interval},\"group_throttling_settings\":\"${group_throttling_settings}\",\"ignore_unreachable\":${iu}\},\"bridges\":\["
 	set count 0
 	foreach section [ini::sections $ini] {
 		set idx [string first "bridge_" $section]
@@ -671,6 +659,23 @@ proc ::hue::get_config_json {} {
 	append json "\]\}"
 	release_lock $lock_id_ini_file
 	return $json
+}
+
+proc ::hue::get_cuxd_version {} {
+	set version ""
+	catch {
+		set data [exec /usr/local/etc/config/rc.d/cuxdaemon info]
+		foreach line [split $data "\n"] {
+			if {[regexp {^(\S+)\s*:\s*(\S.*)\s*$} $line match key value]} {
+				set keyl [string tolower $key]
+				if {$keyl == "version"} {
+					set version $value
+					break
+				}
+			}
+		}
+	}
+	return $version
 }
 
 proc ::hue::create_bridge {bridge_id name ip username} {

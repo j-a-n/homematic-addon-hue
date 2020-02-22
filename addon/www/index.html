@@ -236,7 +236,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				log_level: config.global.log_level,
 				api_log: config.global.api_log,
 				api_connect_timeout: config.global.api_connect_timeout,
-				ignore_unreachable: config.global.ignore_unreachable
+				ignore_unreachable: config.global.ignore_unreachable,
+				group_throttling_settings: config.global.group_throttling_settings
 			});
 		}
 		
@@ -814,6 +815,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					},
 					ignore_unreachable: {
 						identifier: 'ignore_unreachable',
+					},
+					group_throttling_settings: {
+						identifier: 'group_throttling_settings',
+						rules: [{
+							type: 'regExp[/^([0-9]+\:[0-9]+,?)*$/]',
+							prompt: i18next.t('group_throttling_settings_prompt')
+						}]
 					}
 				},
 				onSuccess: function(event, fields) {
@@ -824,6 +832,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					else {
 						conf.ignore_unreachable = false;
 					}
+					conf.group_throttling_settings = conf.group_throttling_settings.replace(/,+$/, '');
 					update_global_config(conf);
 					event.preventDefault();
 				}
@@ -984,6 +993,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							start: 'Start',
 							poll_interval_prompt: 'Please enter a valid integer for the poll interval.',
 							log_level_prompt: 'Please enter a valid log level.',
+							group_throttling_settings_prompt: 'Please enter a valid group throttling setting.',
 							api_con_timeout_prompt: 'Please enter a valid integer for the api connection timeout.',
 							name_prompt: 'Please enter a valid name.',
 							address_prompt: 'Please enter a valid hostname or ip address.',
@@ -996,6 +1006,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							log_level_label: 'Log level',
 							log_hue_api_label: 'Log hue api requests and responses',
 							update_unreachable_label: 'Do not update state if device is unreachable',
+							group_throttling_settings_label: 'Setting for group command throttling',
 							save_config: 'Save config',
 							hue_daemon: 'Hue daemon',
 							show_mappings: 'Show CUxD device mappings',
@@ -1090,6 +1101,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							start: 'Starten',
 							poll_interval_prompt: 'Bitte einen gültige Zahl für das Poll-Intervall eingeben.',
 							log_level_prompt: 'Bitte einen gültigen Log-Level eingeben.',
+							group_throttling_settings_prompt: 'Bitte eine gültige Einstellung für die Drosselung von Gruppen-Kommandos eingeben.',
 							api_con_timeout_prompt: 'Bitte eine gültige Zahl für den API-Verbindungs-Timeout eingeben.',
 							name_prompt: 'Bitte einen gültigen Namen eingeben.',
 							address_prompt: 'Bitte einen gültigen Hostnamen oder eine gültige IP-Adresse eingeben.',
@@ -1102,6 +1114,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							log_level_label: 'Log-Level',
 							log_hue_api_label: 'Hue-API-Anfragen und -Antworten protokollieren',
 							update_unreachable_label: 'Status nicht aktualisieren wenn ein Gerät nicht erreichbar ist',
+							group_throttling_settings_label: 'Einstellung für die Drosselung von Gruppen-Kommandos',
 							save_config: 'Konfiguration speichern',
 							hue_daemon: 'Hue-Daemon',
 							show_mappings: 'CUxD-Geräte-Zuordnungen anzeigen',
@@ -1272,6 +1285,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					<div class="ui toggle checkbox">
 						<input name="ignore_unreachable" type="checkbox">
 					</div>
+				</div>
+				<div class="field">
+					<label data-i18n="group_throttling_settings_label"></label>
+					<input name="group_throttling_settings" placeholder="num1:delay1_ms,num2:delay2_ms" type="text">
 				</div>
 				<div id="submit-global-config" class="ui primary basic submit button"><i class="save icon"></i>save_config</div>
 			</form>
