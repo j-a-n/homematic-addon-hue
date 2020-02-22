@@ -29,7 +29,7 @@ namespace eval hue {
 	variable log_file "/tmp/hue-addon-log.txt"
 	variable log_level_default 0
 	variable log_level $log_level_default
-	variable log_stderr 0
+	variable log_stderr -1
 	variable api_log_default "off"
 	variable api_log $api_log_default
 	variable max_log_size 1000000
@@ -86,7 +86,9 @@ proc ::hue::write_log {lvl msg {lock 1}} {
 	variable max_log_size
 	variable log_stderr
 	if {$lvl <= $log_stderr} {
-		puts stderr $msg
+		catch {
+			puts stderr $msg
+		}
 	}
 	if {$lvl <= $log_level} {
 		if {$lock == 1} {
