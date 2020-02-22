@@ -1073,6 +1073,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							log_hue_api_label: 'Log hue api requests and responses',
 							update_unreachable_label: 'Do not update state if device is unreachable',
 							group_throttling_settings_label: 'Setting for group command throttling',
+							load_config: 'Load config',
 							save_config: 'Save config',
 							set_config_defaults: 'Set default values',
 							hue_daemon: 'Hue daemon',
@@ -1182,6 +1183,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							log_hue_api_label: 'Hue-API-Anfragen und -Antworten protokollieren',
 							update_unreachable_label: 'Status nicht aktualisieren wenn ein Gerät nicht erreichbar ist',
 							group_throttling_settings_label: 'Einstellung für die Drosselung von Gruppen-Kommandos',
+							load_config: 'Konfiguration laden',
 							save_config: 'Konfiguration speichern',
 							set_config_defaults: 'Standardwerte setzen',
 							hue_daemon: 'Hue-Daemon',
@@ -1246,6 +1248,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('div').localize();
 				$('th').localize();
 				$('label').localize();
+				$('#load-global-config').contents().last()[0].textContent = i18next.t('load_config');
 				$('#set-global-config-defaults').contents().last()[0].textContent = i18next.t('set_config_defaults');
 				$('#submit-global-config').contents().last()[0].textContent = i18next.t('save_config');
 				$('#show-cuxd-device-map-info-button').contents().last()[0].textContent = i18next.t('show_mappings');
@@ -1359,6 +1362,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					<label data-i18n="group_throttling_settings_label"></label>
 					<input name="group_throttling_settings" placeholder="num1:delay1_ms,num2:delay2_ms" type="text" onkeyup="update_global_config_form_state();" onchange="update_global_config_form_state();">
 				</div>
+				<div id="load-global-config" onclick="get_config(function(data){update_view();});" class="ui blue basic button"><i class="sync icon"></i>load_config</div>
 				<div id="set-global-config-defaults" onclick="set_config_defaults();" class="ui yellow basic button"><i class="undo icon"></i>set_config_defaults</div>
 				<div id="submit-global-config" class="ui basic green submit button"><i class="save icon"></i>save_config</div>
 			</form>
