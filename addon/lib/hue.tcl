@@ -27,25 +27,31 @@ namespace eval hue {
 	variable version_file "/usr/local/addons/hue/VERSION"
 	variable ini_file "/usr/local/addons/hue/etc/hue.conf"
 	variable log_file "/tmp/hue-addon-log.txt"
-	variable log_level 0
+	variable log_level_default 0
+	variable log_level $log_level_default
 	variable log_stderr 0
-	variable api_log "off"
+	variable api_log_default "off"
+	variable api_log $api_log_default
 	variable max_log_size 1000000
 	# api_connect_timeout in milliseconds, 0=default tcl behaviour
-	variable api_connect_timeout 0
+	variable api_connect_timeout_default 0
+	variable api_connect_timeout $api_connect_timeout_default
 	variable lock_start_port 11200
 	variable lock_socket
 	variable lock_id_log_file 1
 	variable lock_id_ini_file 2
 	variable lock_id_bridge_start 3
-	variable poll_state_interval 5
-	variable ignore_unreachable 0
+	variable poll_state_interval_default 5
+	variable poll_state_interval $poll_state_interval_default
+	variable ignore_unreachable_default 0
+	variable ignore_unreachable $ignore_unreachable_default
 	variable devicetype "homematic-addon-hue#ccu"
 	variable cuxd_ps "/usr/local/addons/cuxd/cuxd.ps"
 	variable cuxd_xmlrpc_url "xmlrpc_bin://127.0.0.1:8701"
 	variable hued_address "127.0.0.1"
 	variable hued_port 1919
-	variable group_throttling_settings "5:1000,10:2000"
+	variable group_throttling_settings_default "5:1000,10:2000"
+	variable group_throttling_settings $group_throttling_settings_default
 }
 
 
@@ -60,6 +66,11 @@ proc json_string {str} {
 		"\t"  "\\t"
 	}
 	return "[string map $replace_map $str]"
+}
+
+proc json_bool {val} {
+	if {$val} { return "true" }
+	return "false"
 }
 
 proc ::hue::set_log_stderr {l} {
@@ -620,22 +631,33 @@ proc ::hue::read_global_config {} {
 proc ::hue::get_config_json {} {
 	variable ini_file
 	variable lock_id_ini_file
+	variable log_level_default
 	variable log_level
+	variable api_log_default
 	variable api_log
+	variable api_connect_timeout_default
 	variable api_connect_timeout
+	variable poll_state_interval_default
 	variable poll_state_interval
+	variable ignore_unreachable_default
 	variable ignore_unreachable
+	variable group_throttling_settings_default
 	variable group_throttling_settings
 	
 	set cuxd_version [get_cuxd_version]
 	
-	set iu "false"
-	if {$ignore_unreachable} {
-		set iu "true"
-	}
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r]
-	set json "\{\"cuxd_version\":\"${cuxd_version}\",\"global\":\{\"log_level\":${log_level},\"api_log\":\"${api_log}\",\"api_connect_timeout\":${api_connect_timeout},\"poll_state_interval\":${poll_state_interval},\"group_throttling_settings\":\"${group_throttling_settings}\",\"ignore_unreachable\":${iu}\},\"bridges\":\["
+	set json "\{\"cuxd_version\":\"${cuxd_version}\","
+	append json "\"global\":\{"
+	append json "\"log_level\":\{\"default\":${log_level_default},\"value\":${log_level}\},"
+	append json "\"api_log\":\{\"default\":\"${api_log_default}\",\"value\":\"${api_log}\"\},"
+	append json "\"api_connect_timeout\":\{\"default\":${api_connect_timeout_default},\"value\":${api_connect_timeout}\},"
+	append json "\"poll_state_interval\":\{\"default\":${poll_state_interval_default},\"value\":${poll_state_interval}\},"
+	append json "\"group_throttling_settings\":\{\"default\":\"${group_throttling_settings_default}\",\"value\":\"${group_throttling_settings}\"\},"
+	append json "\"ignore_unreachable\":\{\"default\":[json_bool $ignore_unreachable_default],\"value\":[json_bool $ignore_unreachable]\}"
+	append json "\},"
+	append json "\"bridges\":\["
 	set count 0
 	foreach section [ini::sections $ini] {
 		set idx [string first "bridge_" $section]

@@ -28,6 +28,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<script src="js/semantic-2.4.2.min.js"></script>
 	<link rel="stylesheet" href="css/semantic-2.4.2.min.css" />
 	<style>
+	.ui.form .field.unsaved_config label {
+		color: #f3711c;
+	}
+	.ui.form .field.unsaved_config input[type=text] {
+		background: #fef9f5;
+		border-color: #f3711c;
+		color: #f3711c;
+	}
+	.ui.form .field.unsaved_config select {
+		background: #fef9f5;
+		border-color: #f3711c;
+		color: #f3711c;
+	}
+	.ui.basic.unsaved_config.button {
+		box-shadow: 0 0 0 1px #f3711c inset!important;
+		color: #f3711c !important;
+	}
 	</style>
 	
 	<title data-i18n="title">Hue Addon</title>
@@ -146,9 +163,57 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 		}
 		
+		function update_global_config_form_state() {
+			var unsaved_config = false;
+			$('#form-global-config').find('.field').each(function(index) {
+				var inp = $(this).find('input');
+				if (!inp[0]) {
+					inp = $(this).find('select');
+				}
+				if (inp[0] && inp[0].name in config.global) {
+					var value = inp.val();
+					if (inp[0].type == "checkbox") {
+						value = inp.prop('checked');
+					}
+					if (value == config.global[inp[0].name].value) {
+						$(this).removeClass('unsaved_config');
+					}
+					else {
+						unsaved_config = true;
+						$(this).addClass('unsaved_config');
+					}
+				}
+			});
+			var btn = $('#submit-global-config');
+			if (unsaved_config) {
+				btn.removeClass('green');
+				btn.addClass('unsaved_config');
+			}
+			else {
+				btn.addClass('green');
+				btn.removeClass('unsaved_config');
+			}
+		}
+		
+		function set_config_defaults() {
+			var form = $('#form-global-config');
+			form.form('clear');
+			form.form('set values', {
+				poll_state_interval: config.global.poll_state_interval.default,
+				log_level: config.global.log_level.default,
+				api_log: config.global.api_log.default,
+				api_connect_timeout: config.global.api_connect_timeout.default,
+				ignore_unreachable: config.global.ignore_unreachable.default,
+				group_throttling_settings: config.global.group_throttling_settings.default
+			});
+			update_global_config_form_state();
+		}
+		
 		function update_global_config(config) {
 			rest("PUT", "/config/global", config, function(data) {
-				get_config();
+				get_config(function(data) {
+					update_view();
+				});
 				display_message('success', i18next.t('config_successfully_updated'), 5000);
 			});
 		}
@@ -232,13 +297,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			var form = $('#form-global-config');
 			form.form('clear');
 			form.form('set values', {
-				poll_state_interval: config.global.poll_state_interval,
-				log_level: config.global.log_level,
-				api_log: config.global.api_log,
-				api_connect_timeout: config.global.api_connect_timeout,
-				ignore_unreachable: config.global.ignore_unreachable,
-				group_throttling_settings: config.global.group_throttling_settings
+				poll_state_interval: config.global.poll_state_interval.value,
+				log_level: config.global.log_level.value,
+				api_log: config.global.api_log.value,
+				api_connect_timeout: config.global.api_connect_timeout.value,
+				ignore_unreachable: config.global.ignore_unreachable.value,
+				group_throttling_settings: config.global.group_throttling_settings.value
 			});
+			update_global_config_form_state();
 		}
 		
 		function cancel_establish_link() {
@@ -1008,6 +1074,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							update_unreachable_label: 'Do not update state if device is unreachable',
 							group_throttling_settings_label: 'Setting for group command throttling',
 							save_config: 'Save config',
+							set_config_defaults: 'Set default values',
 							hue_daemon: 'Hue daemon',
 							show_mappings: 'Show CUxD device mappings',
 							configured_hue_bridges: 'Configured Hue Bridges',
@@ -1116,6 +1183,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							update_unreachable_label: 'Status nicht aktualisieren wenn ein Gerät nicht erreichbar ist',
 							group_throttling_settings_label: 'Einstellung für die Drosselung von Gruppen-Kommandos',
 							save_config: 'Konfiguration speichern',
+							set_config_defaults: 'Standardwerte setzen',
 							hue_daemon: 'Hue-Daemon',
 							show_mappings: 'CUxD-Geräte-Zuordnungen anzeigen',
 							configured_hue_bridges: 'Konfigurierte Hue Bridges',
@@ -1178,6 +1246,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('div').localize();
 				$('th').localize();
 				$('label').localize();
+				$('#set-global-config-defaults').contents().last()[0].textContent = i18next.t('set_config_defaults');
 				$('#submit-global-config').contents().last()[0].textContent = i18next.t('save_config');
 				$('#show-cuxd-device-map-info-button').contents().last()[0].textContent = i18next.t('show_mappings');
 				$('#restart-hued-button').contents().last()[0].textContent = i18next.t('restart');
@@ -1254,15 +1323,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<form id="form-global-config" class="ui form">
 				<div class="field">
 					<label data-i18n="poll_interval_label"></label>
-					<input name="poll_state_interval" placeholder="" type="text">
+					<input name="poll_state_interval" placeholder="" type="text" onkeyup="update_global_config_form_state();" onchange="update_global_config_form_state();">
 				</div>
 				<div class="field">
 					<label data-i18n="api_con_timeout_label"></label>
-					<input name="api_connect_timeout" placeholder="" type="text">
+					<input name="api_connect_timeout" placeholder="" type="text" onkeyup="update_global_config_form_state();" onchange="update_global_config_form_state();">
 				</div>
 				<div class="field">
 					<label data-i18n="log_level_label"></label>
-					<select class="ui fluid search dropdown" name="log_level">
+					<select class="ui fluid search dropdown" name="log_level" onchange="update_global_config_form_state();">
 						<option value="0">nothing</option>
 						<option value="1">error</option>
 						<option value="2">warning</option>
@@ -1272,7 +1341,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				</div>
 				<div class="field">
 					<label data-i18n="log_hue_api_label"></label>
-					<select class="ui fluid search dropdown" name="api_log">
+					<select class="ui fluid search dropdown" name="api_log" onchange="update_global_config_form_state();">
 						<option value="off">off</option>
 						<option value="command">command</option>
 						<option value="status">status</option>
@@ -1283,14 +1352,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<div class="field">
 					<label data-i18n="update_unreachable_label"></label>
 					<div class="ui toggle checkbox">
-						<input name="ignore_unreachable" type="checkbox">
+						<input name="ignore_unreachable" type="checkbox" onchange="update_global_config_form_state();">
 					</div>
 				</div>
 				<div class="field">
 					<label data-i18n="group_throttling_settings_label"></label>
-					<input name="group_throttling_settings" placeholder="num1:delay1_ms,num2:delay2_ms" type="text">
+					<input name="group_throttling_settings" placeholder="num1:delay1_ms,num2:delay2_ms" type="text" onkeyup="update_global_config_form_state();" onchange="update_global_config_form_state();">
 				</div>
-				<div id="submit-global-config" class="ui primary basic submit button"><i class="save icon"></i>save_config</div>
+				<div id="set-global-config-defaults" onclick="set_config_defaults();" class="ui yellow basic button"><i class="undo icon"></i>set_config_defaults</div>
+				<div id="submit-global-config" class="ui basic green submit button"><i class="save icon"></i>save_config</div>
 			</form>
 			
 			<h2 class="ui dividing header" data-i18n="hue_daemon"></h2>
