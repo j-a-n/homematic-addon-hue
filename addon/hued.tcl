@@ -19,7 +19,7 @@
 
 source /usr/local/addons/hue/lib/hue.tcl
 
-variable current_object_state
+variable object_states
 variable cuxd_device_map
 variable group_command_times [list]
 variable set_sysvars_reachable 1
@@ -148,6 +148,7 @@ proc check_update {} {
 	variable scheduled_update_time
 	variable scheduled_update_cuxd_device_map_time
 	variable update_cuxd_device_map_interval
+	variable object_states
 	
 	hue::write_log 4 "Check update (scheduled_update_time=${scheduled_update_time})"
 	
@@ -163,7 +164,6 @@ proc check_update {} {
 	hue::write_log 4 "Updating status"
 	
 	foreach bridge_id [get_bridge_ids_from_map] {
-		array set light_states {}
 		foreach obj_type [list "light" "group"] {
 			set response [hue::request "status" $bridge_id "GET" "/${obj_type}s"]
 			regsub -all {\n} $response "" response
@@ -172,11 +172,21 @@ proc check_update {} {
 			foreach data $tmp {
 				if {[regexp {\"(\d+)\":\{} $data match obj_id]} {
 					set obj_path "/${obj_type}s/${obj_id}"
+					set full_id "${bridge_id}_${obj_type}_${obj_id}"
 					hue::write_log 4 "Processing status of ${obj_path}"
-					array set state [hue::get_object_state_from_json $bridge_id $obj_type $obj_id $data [array get light_states]]
-					if {$obj_type == "light"} {
-						set light_states($obj_id) [array get state]
+					array set state [hue::get_object_state_from_json $bridge_id $obj_type $obj_id $data [array get object_states]]
+					
+					if { [info exists object_states($full_id)] } {
+						array set current_state $object_states($full_id)
+						if {[same_array [array get state] [array get current_state]] == 1} {
+							hue::write_log 4 "State of ${bridge_id} ${obj_type} ${obj_id} is unchanged"
+							continue
+						}
 					}
+					
+					hue::write_log 4 "State of ${bridge_id} ${obj_type} ${obj_id} has changed"
+					set object_states($full_id) [array get state]
+					
 					set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj_type $obj_id]
 					if {[llength $cuxd_devices] == 0} {
 						continue
@@ -188,7 +198,7 @@ proc check_update {} {
 			}
 		}
 	}
-
+	
 	set_scheduled_update -1
 	if {$hue::poll_state_interval > 0} {
 		set_scheduled_update [expr {[clock seconds] + $hue::poll_state_interval}]
@@ -217,60 +227,54 @@ proc update_sysvars_reachable {name reachable} {
 }
 
 proc update_cuxd_device {cuxd_device bridge_id obj_type obj_id astate} {
-	variable current_object_state
 	variable set_sysvars_reachable
 	array set state $astate
-	array set current_state {}
-	if { [info exists current_object_state($cuxd_device)] } {
-		array set current_state $current_object_state($cuxd_device)
-	}
-	if {[same_array [array get state] [array get current_state]] == 0} {
-		
-		set current_object_state($cuxd_device) [array get state]
-		
-		set channel ""
-		if {[regexp "^(\[^:\]+):(\\d+)$" $cuxd_device match d c]} {
-			hue::update_cuxd_device_channel "CUxD.$d" $c $state(reachable) $state(on)
-		} else {
-			hue::update_cuxd_device_channels "CUxD.$cuxd_device" $state(reachable) $state(on) $state(bri) $state(ct) $state(hue) $state(sat)
-		}
-		hue::write_log 3 "Update of ${bridge_id} ${obj_type} ${obj_id} / ${cuxd_device} successful (reachable=$state(reachable) on=$state(on) bri=$state(bri) ct=$state(ct) hue=$state(hue) sat=$state(sat))"
-		if {$set_sysvars_reachable == 1} {
-			update_sysvars_reachable "Hue_reachable_${cuxd_device}" $state(reachable)
-			update_sysvars_reachable "Hue_reachable_${bridge_id}_${obj_type}_${obj_id}" $state(reachable)
-		}
+	
+	set channel ""
+	if {[regexp "^(\[^:\]+):(\\d+)$" $cuxd_device match d c]} {
+		hue::update_cuxd_device_channel "CUxD.$d" $c $state(reachable) $state(on)
 	} else {
-		hue::write_log 4 "Update of ${bridge_id} ${obj_type} ${obj_id} / ${cuxd_device} not required, state is unchanged"
+		hue::update_cuxd_device_channels "CUxD.$cuxd_device" $state(reachable) $state(on) $state(bri) $state(ct) $state(hue) $state(sat)
+	}
+	hue::write_log 3 "Update of ${bridge_id} ${obj_type} ${obj_id} / ${cuxd_device} successful (reachable=$state(reachable) on=$state(on) bri=$state(bri) ct=$state(ct) hue=$state(hue) sat=$state(sat))"
+	if {$set_sysvars_reachable == 1} {
+		update_sysvars_reachable "Hue_reachable_${cuxd_device}" $state(reachable)
+		update_sysvars_reachable "Hue_reachable_${bridge_id}_${obj_type}_${obj_id}" $state(reachable)
 	}
 }
 
 proc read_from_channel {channel} {
-	variable current_object_state
 	variable cuxd_device_map
 	variable group_command_times
 	variable scheduled_update_time
+	variable object_states
 	
 	set len [gets $channel cmd]
 	set cmd [string trim $cmd]
 	hue::write_log 4 "Received command: $cmd"
 	set response ""
 	if { [catch {
-		if {[regexp "^api_request\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(.*)" $cmd match type bridge_id obj num method path json]} {
-			if {$obj == "group"} {
+		if {[regexp "^api_request\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(.*)" $cmd match type bridge_id obj_type obj_id method path json]} {
+			if {$obj_type == "group"} {
 				throttle_group_command
 			}
 			
 			set response [hue::request $type $bridge_id $method $path $json]
-			set o "${bridge_id}_${obj}_${num}"
-			
-			set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
+			set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj_type $obj_id]
 			if {[llength $cuxd_devices] > 0} {
 				hue::write_log 4 "Device is mapped to a CUxD device, scheduling update"
 				# Device is mapped to a CUxD device
 				set delay_seconds 1
 				set time [expr {[clock seconds] + $delay_seconds}]
 				set_scheduled_update $time
-				#set response "Update of ${bridge_id} ${obj} ${num} scheduled for ${scheduled_update_time}"
+				#set response "Update of ${bridge_id} ${obj_type} ${obj_id} scheduled for ${scheduled_update_time}"
+			}
+		} elseif {[regexp "^object_state\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)$" $cmd match bridge_id obj_type obj_id]} {
+			set full_id "${bridge_id}_${obj_type}_${obj_id}"
+			set response ""
+			if { [info exists object_states($full_id)] } {
+				array set current_state $object_states($full_id)
+				set response [array get current_state]
 			}
 		} elseif {[regexp "^reload$" $cmd match]} {
 			hue::read_global_config

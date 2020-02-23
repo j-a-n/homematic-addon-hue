@@ -36,6 +36,7 @@
 source /usr/local/addons/hue/lib/hue.tcl
 
 variable update_device_channels_after 3
+array set object_state {}
 
 set language "en-US"
 catch {
@@ -89,6 +90,40 @@ proc usage {} {
 		puts stderr "    parm:val : parameter and value pairs separated by a colon"
 		puts stderr "               some of the possible paramers are: on,sat,bri,bri_inc,hue,hue_inc,xy,ct,rgb,rgb_bri,scene,transitiontime,bri_mode,sleep,ct_min"
 	}
+}
+
+proc get_object_state {bridge_id obj_type obj_id} {
+	global object_state
+	
+	if {[array size object_state] == 0} {
+		set response [hue::hued_command "object_state" [list $bridge_id $obj_type $obj_id]]
+		if {$response != ""} {
+			array set object_state $response
+		} else {
+			array set object_state [hue::get_object_state $bridge_id $obj_type $obj_id]
+		}
+	}
+	return [array get object_state]
+}
+
+# Do not repeatedly send the ‘ON’ command as this will slow the responsiveness of the bridge.
+proc auto_add_on {keys key val bridge_id obj_type obj_id} {
+	if {[lsearch $keys "on"] != -1} {
+		return ""
+	}
+	if {$val == 0} {
+		if {$key == "bri" || $key == "bri_inc"} {
+			hue::write_log 4 "${obj_type}=${obj_id}, ${key}=${val}, auto turn off ${obj_type}"
+			return "\"on\":false,"
+		}
+	}
+	
+	array set st [get_object_state $bridge_id $obj_type $obj_id]
+	if {$st(on) == "false"} {
+		hue::write_log 4 "${obj_type}=${obj_id}, ${key}=${val}, auto turn on ${obj_type}"
+		return "\"on\":true,"
+	}
+	return ""
 }
 
 proc main {} {
@@ -202,34 +237,22 @@ proc main {} {
 			set key ""
 			set val ""
 			if {$chan == 1} {
-				array set st [hue::get_object_state $bridge_id $obj_type $obj_id]
+				array set st [get_object_state $bridge_id $obj_type $obj_id]
 				if {[info exists env(CUXD_DEVICE)]} {
 					set cuxd_device "CUxD.$env(CUXD_DEVICE)"
 					hue::update_cuxd_device_channels $cuxd_device $st(reachable) $st(on) $st(bri) $st(ct) $st(hue) $st(sat)
 				}
 				return
 			}
-			set val $env(CUXD_VALUE${chan})
+			set val_in $env(CUXD_VALUE${chan})
+			set val $val_in
+			
 			if {$chan == 2} {
 				set key "bri"
 				# 0 - 254
 				array set st {}
 				if {$cmd == "group" || $bri_mode == "inc"} {
-					array set st [hue::get_object_state $bridge_id $obj_type $obj_id]
-				}
-				if {[lsearch $keys "on"] == -1} {
-					if {$val == 0} {
-						append json "\"on\":false,"
-					} else {
-						if {$cmd == "light"} {
-							append json "\"on\":true,"
-						} elseif {$cmd == "group"} {
-							if {$st(on) == "false"} {
-								hue::write_log 4 "bri > 0, all lights off, auto turn on group"
-								append json "\"on\":true,"
-							}
-						}
-					}
+					array set st [get_object_state $bridge_id $obj_type $obj_id]
 				}
 				if {$val > 0 && $bri_mode == "inc"} {
 					set key "bri_inc"
@@ -248,6 +271,9 @@ proc main {} {
 				set key "sat"
 				# 0 - 254
 			}
+			
+			append json [auto_add_on $keys $key $val_in $bridge_id $obj_type $obj_id]
+			
 			if {$key != "" && [lsearch $keys $key] == -1} {
 				append json "\"${key}\":${val},"
 			}

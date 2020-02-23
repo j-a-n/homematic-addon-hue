@@ -87,6 +87,7 @@ proc process {} {
 	global env
 	if { [info exists env(QUERY_STRING)] } {
 		set query $env(QUERY_STRING)
+		set path ""
 		set sid ""
 		set pairs [split $query "&"]
 		foreach pair $pairs {

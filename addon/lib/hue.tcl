@@ -1122,11 +1122,11 @@ proc ::hue::get_object_state {bridge_id obj_type obj_id} {
 	return [hue::get_object_state_from_json $bridge_id $obj_type $obj_id $data]
 }
 
-proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_light_states ""}} {
+proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_object_states ""}} {
 	set calc_group_brightness 1
-	array set light_states {}
-	if {$cached_light_states != ""} {
-		array set light_states $cached_light_states
+	array set object_states {}
+	if {$cached_object_states != ""} {
+		array set object_states $cached_object_states
 	}
 	array set state {}
 	
@@ -1163,8 +1163,8 @@ proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_l
 				set light [string map {"\"" ""} $light]
 				
 				array set light_state {}
-				if {[info exists light_states($light)] } {
-					array set light_state $light_states($light)
+				if {[info exists object_states(${bridge_id}_light_${light})] } {
+					array set light_state $object_states(${bridge_id}_light_${light})
 				} else {
 					array set light_state [hue::get_object_state $bridge_id "light" $light]
 				}
