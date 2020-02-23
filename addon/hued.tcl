@@ -256,12 +256,12 @@ proc read_from_channel {channel} {
 	set response ""
 	if { [catch {
 		if {[regexp "^api_request\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(.*)" $cmd match type bridge_id obj num method path json]} {
-			set response [hue::request $type $bridge_id $method $path $json]
-			set o "${bridge_id}_${obj}_${num}"
-			
 			if {$obj == "group"} {
 				throttle_group_command
 			}
+			
+			set response [hue::request $type $bridge_id $method $path $json]
+			set o "${bridge_id}_${obj}_${num}"
 			
 			set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj $num]
 			if {[llength $cuxd_devices] > 0} {
