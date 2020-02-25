@@ -243,6 +243,18 @@ proc update_cuxd_device {cuxd_device bridge_id obj_type obj_id astate} {
 	}
 }
 
+proc get_object_state {bridge_id obj_type obj_id} {
+	variable object_states
+	
+	set full_id "${bridge_id}_${obj_type}_${obj_id}"
+	if { ![info exists object_states($full_id)] } {
+		set object_states($full_id) [hue::get_object_state $bridge_id $obj_type $obj_id]
+	} elseif {$hue::poll_state_interval <= 0 || $hue::poll_state_interval > 10} {
+		set object_states($full_id) [hue::get_object_state $bridge_id $obj_type $obj_id]
+	}
+	return $object_states($full_id)
+}
+
 proc read_from_channel {channel} {
 	variable cuxd_device_map
 	variable group_command_times
@@ -254,21 +266,21 @@ proc read_from_channel {channel} {
 	hue::write_log 4 "Received command: $cmd"
 	set response ""
 	if { [catch {
-		if {[regexp "^api_request\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(.*)" $cmd match type bridge_id obj_type obj_id method path json]} {
-			if {$obj_type == "group"} {
-				throttle_group_command
+		if {[regexp "^object_action\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s*(.*)$" $cmd match bridge_id obj_type obj_id params]} {
+			set json "\{"
+			foreach {name value} $params {
+				append json "\"${name}\":${value},"
 			}
+			if {$json != "\{"} {
+				set json [string range $json 0 end-1]
+			}
+			append json "\}"
 			
-			set response [hue::request $type $bridge_id $method $path $json]
-			set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj_type $obj_id]
-			if {[llength $cuxd_devices] > 0} {
-				hue::write_log 4 "Device is mapped to a CUxD device, scheduling update"
-				# Device is mapped to a CUxD device
-				set delay_seconds 1
-				set time [expr {[clock seconds] + $delay_seconds}]
-				set_scheduled_update $time
-				#set response "Update of ${bridge_id} ${obj_type} ${obj_id} scheduled for ${scheduled_update_time}"
+			set path "lights/${obj_id}/state"
+			if {$obj_type == "group"} {
+				set path "groups/${obj_id}/action"
 			}
+			set response [hue::request "command" $bridge_id "PUT" $path $json]
 		} elseif {[regexp "^object_state\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)$" $cmd match bridge_id obj_type obj_id]} {
 			set full_id "${bridge_id}_${obj_type}_${obj_id}"
 			set response ""
@@ -276,6 +288,8 @@ proc read_from_channel {channel} {
 				array set current_state $object_states($full_id)
 				set response [array get current_state]
 			}
+		} elseif {[regexp "^update_object_state\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)$" $cmd match bridge_id obj_type obj_id]} {
+			set_scheduled_update [clock seconds]
 		} elseif {[regexp "^reload$" $cmd match]} {
 			hue::read_global_config
 			update_cuxd_device_map

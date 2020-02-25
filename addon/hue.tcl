@@ -35,8 +35,7 @@
 
 source /usr/local/addons/hue/lib/hue.tcl
 
-variable update_device_channels_after 3
-array set object_state {}
+variable object_states
 
 set language "en-US"
 catch {
@@ -93,35 +92,35 @@ proc usage {} {
 }
 
 proc get_object_state {bridge_id obj_type obj_id} {
-	global object_state
+	variable object_states
 	
-	if {[array size object_state] == 0} {
+	set full_id "${bridge_id}_${obj_type}_${obj_id}"
+	if { ![info exists object_states($full_id)] } {
 		set response [hue::hued_command "object_state" [list $bridge_id $obj_type $obj_id]]
 		if {$response != ""} {
-			array set object_state $response
-		} else {
-			array set object_state [hue::get_object_state $bridge_id $obj_type $obj_id]
+			set object_states($full_id) $response
 		}
+		set object_states($full_id) [hue::get_object_state $bridge_id $obj_type $obj_id]
 	}
-	return [array get object_state]
+	return $object_states($full_id)
 }
 
-# Do not repeatedly send the ‘ON’ command as this will slow the responsiveness of the bridge.
-proc auto_add_on {keys key val bridge_id obj_type obj_id} {
-	if {[lsearch $keys "on"] != -1} {
+# Do not repeatedly send the ON command as this will slow the responsiveness of the bridge.
+proc auto_on {aparams bridge_id obj_type obj_id} {
+	array set params $aparams
+	if {[lsearch [array names params] "on"] != -1} {
 		return ""
 	}
-	if {$val == 0} {
-		if {$key == "bri" || $key == "bri_inc"} {
-			hue::write_log 4 "${obj_type}=${obj_id}, ${key}=${val}, auto turn off ${obj_type}"
-			return "\"on\":false,"
+	if {[lsearch [array names params] "bri"] != -1} {
+		if {$params(bri) == 0} {
+			hue::write_log 4 "${obj_type}=${obj_id}, bri=0, auto turn off"
+			return "false"
 		}
 	}
-	
 	array set st [get_object_state $bridge_id $obj_type $obj_id]
 	if {$st(on) == "false"} {
-		hue::write_log 4 "${obj_type}=${obj_id}, ${key}=${val}, auto turn on ${obj_type}"
-		return "\"on\":true,"
+		hue::write_log 4 "${obj_type}=${obj_id}, auto turn on"
+		return "true"
 	}
 	return ""
 }
@@ -130,7 +129,6 @@ proc main {} {
 	global argc
 	global argv
 	global env
-	variable update_device_channels_after
 	variable language
 	
 	if {[string tolower [lindex $argv 0]] == "hued_command"} {
@@ -142,155 +140,152 @@ proc main {} {
 		return
 	}
 	
-	set bridge_id [string tolower [lindex $argv 0]]
-	set cmd [string tolower [lindex $argv 1]]
-	set num [lindex $argv 2]
-	set bri_mode "abs"
-	set sleep 0
-	set ct_min 153
+	if {$argc < 3} {
+		usage
+		exit 1
+	}
 	
-	if {$cmd == "request"} {
+	set bridge_id [string tolower [lindex $argv 0]]
+	
+	if {[string tolower [lindex $argv 1]] == "request"} {
 		if {$argc < 4} {
 			usage
 			exit 1
 		}
 		puts [hue::request "command" $bridge_id [lindex $argv 2] [lindex $argv 3] [lindex $argv 4]]
-	} else {
-		if {$argc < 3} {
-			usage
-			exit 1
-		}
-		set path ""
-		set obj_type ""
-		set obj_id ""
-		if {$cmd == "light"} {
-			set obj_type "light"
-			set obj_id [lindex $argv 2]
-			set path "lights/${obj_id}/state"
-		} elseif {$cmd == "group"} {
-			set obj_type "group"
-			set obj_id [lindex $argv 2]
-			set path "groups/${obj_id}/action"
-		} else {
-			usage
-			exit 1
-		}
-		set keys [list]
-		set json "\{"
-		foreach a [lrange $argv 2 end] {
-			regexp {(.*)[=:](.*$)} $a match k v
-			if {[info exists v]} {
-				lappend keys $k
-				if {$k == "sleep"} {
-					set sleep [expr {0 + $v}]
-				} elseif {$k == "ct_min"} {
-					set ct_min [expr {0 + $v}]
-				} elseif {$k == "bri_mode"} {
-					if {$v == "abs" || $v == "inc"} {
-						set bri_mode $v
-					}
-				} elseif {$k == "xy"} {
-					append json "\"${k}\":\[${v}\],"
-				} elseif {$k == "rgb_bri" || $k == "rgb"} {
-					set rgb [split $v ","]
-					set color_gamut_type ""
-					if {$obj_type == "light"} {
-						set color_gamut_type [hue::get_light_color_gamut_type $bridge_id $obj_id]
-					}
-					set res [hue::rgb_to_xybri [lindex $rgb 0] [lindex $rgb 1] [lindex $rgb 2] $color_gamut_type]
-					set x [lindex $res 0]
-					set y [lindex $res 1]
-					set bri [lindex $res 2]
-					append json "\"xy\":\[${x},${y}\],"
-					if {$k == "rgb_bri"} {
-						append json "\"bri\":${bri},"
-					}
-				} elseif {$k == "scene"} {
-					if {![regexp {[a-zA-Z0-9\-]{15}} $v]} {
-						# Not a scene id
-						array set scene_map [hue::get_scene_name_id_map $bridge_id]
-						if [catch {
-							set v $scene_map($v)
-						} err] {
-							if {$language == "de"} {
-								error "Szene mit Namen ${v} nicht gefunden."
-							} else {
-								error "Failed to find scene with name ${v}."
-							}
+		return
+	}
+	
+	set obj_type [string tolower [lindex $argv 1]]
+	if {$obj_type != "light" && $obj_type != "group"} {
+		usage
+		exit 1
+	}
+	
+	set obj_id  [lindex $argv 2]
+	set bri_mode "abs"
+	set sleep 0
+	set ct_min 153
+	array set params {}
+	
+	foreach a [lrange $argv 2 end] {
+		regexp {(.*)[=:](.*$)} $a match k v
+		if {[info exists v]} {
+			if {$k == "sleep"} {
+				set sleep [expr {0 + $v}]
+			} elseif {$k == "ct_min"} {
+				set ct_min [expr {0 + $v}]
+			} elseif {$k == "bri_mode"} {
+				if {$v == "abs" || $v == "inc"} {
+					set bri_mode $v
+				}
+			} elseif {$k == "xy"} {
+				set params($k) "\[${v}\]"
+			} elseif {$k == "rgb_bri" || $k == "rgb"} {
+				set rgb [split $v ","]
+				set color_gamut_type ""
+				if {$obj_type == "light"} {
+					set color_gamut_type [hue::get_light_color_gamut_type $bridge_id $obj_id]
+				}
+				set res [hue::rgb_to_xybri [lindex $rgb 0] [lindex $rgb 1] [lindex $rgb 2] $color_gamut_type]
+				set x [lindex $res 0]
+				set y [lindex $res 1]
+				set bri [lindex $res 2]
+				set params(xy) "\[${x},${y}\]"
+				if {$k == "rgb_bri"} {
+					set params(bri) ${bri}
+				}
+			} elseif {$k == "scene"} {
+				if {![regexp {[a-zA-Z0-9\-]{15}} $v]} {
+					# Not a scene id
+					array set scene_map [hue::get_scene_name_id_map $bridge_id]
+					if [catch {
+						set v $scene_map($v)
+					} err] {
+						if {$language == "de"} {
+							error "Szene mit Namen ${v} nicht gefunden."
+						} else {
+							error "Failed to find scene with name ${v}."
 						}
 					}
-					append json "\"${k}\":\"${v}\","
+				}
+				set params($k) "\"${v}\""
+			} else {
+				set nm ""
+				regexp {^(-?\d+)$} $v match nm
+				if {$nm != "" || $v == "true" || $v == "false"} {
+					set params($k) $v
 				} else {
-					set nm ""
-					regexp {^(-?\d+)$} $v match nm
-					if {$nm != "" || $v == "true" || $v == "false"} {
-						append json "\"${k}\":${v},"
-					} else {
-						append json "\"${k}\":\"${v}\","
-					}
+					set params($k) "\"${v}\""
 				}
 			}
 		}
-		
-		if {[info exists env(CUXD_TRIGGER_CH)]} {
-			set chan $env(CUXD_TRIGGER_CH)
-			set key ""
-			set val ""
-			if {$chan == 1} {
-				array set st [get_object_state $bridge_id $obj_type $obj_id]
-				if {[info exists env(CUXD_DEVICE)]} {
-					set cuxd_device "CUxD.$env(CUXD_DEVICE)"
-					hue::update_cuxd_device_channels $cuxd_device $st(reachable) $st(on) $st(bri) $st(ct) $st(hue) $st(sat)
-				}
-				return
-			}
-			set val_in $env(CUXD_VALUE${chan})
-			set val $val_in
-			
-			if {$chan == 2} {
-				set key "bri"
-				# 0 - 254
-				array set st {}
-				if {$cmd == "group" || $bri_mode == "inc"} {
-					array set st [get_object_state $bridge_id $obj_type $obj_id]
-				}
-				if {$val > 0 && $bri_mode == "inc"} {
-					set key "bri_inc"
-					set bri $st(bri)
-					if {$bri == ""} { set bri 0 }
-					set val [expr {$val - $bri}]
-				}
-			} elseif {$chan == 3} {
-				set val [expr {$val + $ct_min}]
-				set key "ct"
-				# mirek, range depends on device (i.e. 153 - 500)
-			} elseif {$chan == 4} {
-				set key "hue"
-				# 0 - 65535
-			} elseif {$chan == 5} {
-				set key "sat"
-				# 0 - 254
-			}
-			
-			append json [auto_add_on $keys $key $val_in $bridge_id $obj_type $obj_id]
-			
-			if {$key != "" && [lsearch $keys $key] == -1} {
-				append json "\"${key}\":${val},"
-			}
-		}
-		
-		if {$json != "\{"} {
-			set json [string range $json 0 end-1]
-		}
-		append json "\}"
-		
-		if {$sleep > 0} {
-			hue::write_log 4 "Sleep ${sleep} ms"
-			after $sleep
-		}
-		
-		puts [hue::hued_command "api_request" [list "command" $bridge_id $cmd $num "PUT" $path $json]]
 	}
+	
+	if {[info exists env(CUXD_TRIGGER_CH)]} {
+		set chan $env(CUXD_TRIGGER_CH)
+		
+		if {$chan == 1} {
+			puts [hue::hued_command "update_object_state" [list $bridge_id $obj_type $obj_id]]
+			return
+		}
+		
+		set param ""
+		set val_in $env(CUXD_VALUE${chan})
+		set val $val_in
+		
+		if {$chan == 2} {
+			set param "bri"
+			# 0 - 254
+			if {$val > 0 && $val < 254 && $bri_mode == "inc"} {
+				set param "bri_inc"
+				array set st [get_object_state $bridge_id $obj_type $obj_id]
+				set bri $st(bri)
+				if {$bri == ""} { set bri 0 }
+				set val [expr {$val - $bri}]
+			}
+		} elseif {$chan == 3} {
+			set param "ct"
+			# mirek, range depends on device (i.e. 153 - 500)
+			set val [expr {$val + $ct_min}]
+		} elseif {$chan == 4} {
+			set param "hue"
+			# 0 - 65535
+		} elseif {$chan == 5} {
+			set param "sat"
+			# 0 - 254
+		}
+		
+		if {$param != "" && [lsearch [array names params] $param] == -1} {
+			set params($param) $val
+		}
+	}
+	
+	set on [auto_on [array get params] $bridge_id $obj_type $obj_id]
+	if {$on == "true" || $on == "false"} {
+		set params(on) $on
+	}
+	
+	if {$sleep > 0} {
+		hue::write_log 4 "Sleep ${sleep} ms"
+		after $sleep
+	}
+	
+	set obj_action 1
+	if {$obj_type == "group"} {
+		array set st [get_object_state $bridge_id $obj_type $obj_id]
+		set num_lights [llength $st(lights)]
+		if {$num_lights > 0 && $num_lights < 10} {
+			set obj_action 0
+			foreach light $st(lights) {
+				puts [hue::hued_command "object_action" [list $bridge_id "light" $light [array get params]]]
+			}
+		}
+	}
+	if {$obj_action} {
+		puts [hue::hued_command "object_action" [list $bridge_id $obj_type $obj_id [array get params]]]
+	}
+	puts [hue::hued_command "update_object_state" [list $bridge_id $obj_type $obj_id]]
 }
 
 if { [ catch {

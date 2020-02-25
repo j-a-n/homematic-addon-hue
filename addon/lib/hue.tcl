@@ -87,7 +87,9 @@ proc ::hue::write_log {lvl msg {lock 1}} {
 	variable log_stderr
 	if {$lvl <= $log_stderr} {
 		catch {
-			puts stderr $msg
+			set date [clock seconds]
+			set date [clock format $date -format {%Y-%m-%d %T}]
+			puts stderr "\[${lvl}\] \[${date}\] ${msg}"
 		}
 	}
 	if {$lvl <= $log_level} {
@@ -100,7 +102,6 @@ proc ::hue::write_log {lvl msg {lock 1}} {
 		set process_id [pid]
 		puts $fd "\[${lvl}\] \[${date}\] \[${process_id}\] ${msg}"
 		close $fd
-		#puts "\[${lvl}\] \[${date}\] \[${process_id}\] ${msg}"
 		if {[file size $log_file] > $max_log_size} {
 			set fd [open $log_file r]
 			seek $fd [expr {$max_log_size / 4}]
@@ -1151,16 +1152,17 @@ proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_o
 	}
 	
 	set state(bri) ""
-	if  {$obj_type == "group" && $calc_group_brightness} {
+	if {$obj_type == "group"} {
 		#"lights":["11","10","9"]
 		if [regexp {\"lights\"\s*:\s*\[(["\d,]+)\]} $data match lights] {
-			#set lights [split $lights ","]
+			set state(lights) [list]
 			set light_num 0
 			set bri_sum 0
 			set any_reachable 0
 			foreach light [split $lights ","] {
 				set light_num [expr {$light_num + 1}]
 				set light [string map {"\"" ""} $light]
+				lappend state(lights) $light
 				
 				array set light_state {}
 				if {[info exists object_states(${bridge_id}_light_${light})] } {
@@ -1184,8 +1186,10 @@ proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_o
 			} else {
 				set state(reachable) "true"
 			}
-			hue::write_log 4 "Calculated group reachable: ${any_reachable}, brightness: ${val}"
-			set state(bri) $val
+			if {$calc_group_brightness} {
+				hue::write_log 4 "Calculated group reachable: ${any_reachable}, brightness: ${val}"
+				set state(bri) $val
+			}
 		}
 	} else {
 		if {[regexp {\"bri\"\s*:\s*(\d+)} $data match val]} {
