@@ -216,14 +216,6 @@ proc ::hue::get_color_gamut {color_gamut_type} {
 	return $gamut_DEF
 }
 
-proc ::hue::get_light_color_gamut_type {bridge_id light_id} {
-	set data [request "status" $bridge_id "GET" "lights/${light_id}"]
-	if {[regexp {\"colorgamuttype\"\s*:\s*\"([^\"]+)\"} $data match color_gamut_type]} {
-		return $color_gamut_type
-	}
-	return ""
-}
-
 # Check if the provided XYPoint can be recreated by a Hue lamp
 proc ::hue::check_xy_in_lamps_reach {x y color_gamut} {
 	set r [lindex $color_gamut 0]
@@ -1151,11 +1143,17 @@ proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_o
 		}
 	}
 	
+	if { [regexp {\"colorgamuttype\"\s*:\s*\"([^\"]+)\"} $data match val] } {
+		set state(color_gamut_type) $val
+	} else {
+		set state(color_gamut_type) ""
+	}
+	
+	set state(lights) [list]
 	set state(bri) ""
 	if {$obj_type == "group"} {
 		#"lights":["11","10","9"]
 		if [regexp {\"lights\"\s*:\s*\[(["\d,]+)\]} $data match lights] {
-			set state(lights) [list]
 			set light_num 0
 			set bri_sum 0
 			set any_reachable 0
@@ -1504,7 +1502,6 @@ proc ::hue::delete_cuxd_device {id} {
 
 hue::read_global_config
 
-#puts [hue::get_light_color_gamut_type "xxxxxxxxx" 2]
 #puts [hue::rgb_to_xybri 100 100 100]
 #puts [hue::xybri_to_rgb 0.322726720866 0.329022909559 32]
 #puts [hue::get_debug_data]

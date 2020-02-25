@@ -321,7 +321,7 @@ proc read_from_channel {channel} {
 proc accept_connection {channel address port} {
 	hue::write_log 4 "Accepted connection from $address\:$port"
 	fconfigure $channel -blocking 0
-	fconfigure $channel -buffersize 16
+	fconfigure $channel -buffersize 2048
 	fileevent $channel readable "read_from_channel $channel"
 }
 

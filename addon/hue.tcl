@@ -99,8 +99,9 @@ proc get_object_state {bridge_id obj_type obj_id} {
 		set response [hue::hued_command "object_state" [list $bridge_id $obj_type $obj_id]]
 		if {$response != ""} {
 			set object_states($full_id) $response
+		} else {
+			set object_states($full_id) [hue::get_object_state $bridge_id $obj_type $obj_id]
 		}
-		set object_states($full_id) [hue::get_object_state $bridge_id $obj_type $obj_id]
 	}
 	return $object_states($full_id)
 }
@@ -167,6 +168,8 @@ proc main {} {
 	set sleep 0
 	set ct_min 153
 	array set params {}
+	set rgb ""
+	set rgb_bri 0
 	
 	foreach a [lrange $argv 2 end] {
 		regexp {(.*)[=:](.*$)} $a match k v
@@ -181,20 +184,11 @@ proc main {} {
 				}
 			} elseif {$k == "xy"} {
 				set params($k) "\[${v}\]"
-			} elseif {$k == "rgb_bri" || $k == "rgb"} {
+			} elseif {$k == "rgb"} {
 				set rgb [split $v ","]
-				set color_gamut_type ""
-				if {$obj_type == "light"} {
-					set color_gamut_type [hue::get_light_color_gamut_type $bridge_id $obj_id]
-				}
-				set res [hue::rgb_to_xybri [lindex $rgb 0] [lindex $rgb 1] [lindex $rgb 2] $color_gamut_type]
-				set x [lindex $res 0]
-				set y [lindex $res 1]
-				set bri [lindex $res 2]
-				set params(xy) "\[${x},${y}\]"
-				if {$k == "rgb_bri"} {
-					set params(bri) ${bri}
-				}
+			} elseif {$k == "rgb_bri"} {
+				set rgb [split $v ","]
+				set rgb_bri 1
 			} elseif {$k == "scene"} {
 				if {![regexp {[a-zA-Z0-9\-]{15}} $v]} {
 					# Not a scene id
@@ -277,15 +271,31 @@ proc main {} {
 		set num_lights [llength $st(lights)]
 		if {$num_lights > 0 && $num_lights < 10} {
 			set obj_action 0
-			foreach light $st(lights) {
-				puts [hue::hued_command "object_action" [list $bridge_id "light" $light [array get params]]]
+			foreach light_id $st(lights) {
+				if {$rgb != ""} {
+					array set stc [get_object_state $bridge_id "light" $light_id]
+					set x_y_bri [hue::rgb_to_xybri [lindex $rgb 0] [lindex $rgb 1] [lindex $rgb 2] $stc(color_gamut_type)]
+					set params(xy) "\[[lindex $x_y_bri 0],[lindex $x_y_bri 1]\]"
+					if {$rgb_bri} {
+						set params(bri) [lindex $x_y_bri 2]
+					}
+				}
+				puts -nonewline [hue::hued_command "object_action" [list $bridge_id "light" $light_id [array get params]]]
 			}
 		}
 	}
 	if {$obj_action} {
-		puts [hue::hued_command "object_action" [list $bridge_id $obj_type $obj_id [array get params]]]
+		if {$rgb != ""} {
+			array set stc [get_object_state $bridge_id $obj_type $obj_id]
+			set x_y_bri [hue::rgb_to_xybri [lindex $rgb 0] [lindex $rgb 1] [lindex $rgb 2] $stc(color_gamut_type)]
+			set params(xy) "\[[lindex $x_y_bri 0],[lindex $x_y_bri 1]\]"
+			if {$rgb_bri} {
+				set params(bri) [lindex $x_y_bri 2]
+			}
+		}
+		puts -nonewline [hue::hued_command "object_action" [list $bridge_id $obj_type $obj_id [array get params]]]
 	}
-	puts [hue::hued_command "update_object_state" [list $bridge_id $obj_type $obj_id]]
+	hue::hued_command "update_object_state" [list $bridge_id $obj_type $obj_id]
 }
 
 if { [ catch {
