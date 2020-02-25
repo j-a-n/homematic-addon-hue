@@ -266,7 +266,7 @@ proc main {} {
 	}
 	
 	set obj_action 1
-	if {$obj_type == "group"} {
+	if {$obj_type == "group" && [lsearch [array names params] "scene"] == -1} {
 		array set st [get_object_state $bridge_id $obj_type $obj_id]
 		set num_lights [llength $st(lights)]
 		if {$num_lights > 0 && $num_lights < 10} {
