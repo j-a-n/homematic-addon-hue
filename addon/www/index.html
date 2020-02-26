@@ -710,7 +710,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							try {
 								color_gamut_type = lights[bridge_id][light_id].capabilities.control.colorgamuttype;
 							}
-							catch {
+							catch(e) {
 							}
 						}
 						res = rest("POST", "/rgb-to-xybri", {"red": val[0], "green": val[1], "blue": val[2], "color_gamut": color_gamut_type}, null, null, false);
