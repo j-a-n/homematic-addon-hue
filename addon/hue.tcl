@@ -119,6 +119,9 @@ proc auto_on {aparams bridge_id obj_type obj_id} {
 		}
 	}
 	array set st [get_object_state $bridge_id $obj_type $obj_id]
+	if {[array size st] == 0} {
+		return ""
+	}
 	if {$st(on) == "false"} {
 		hue::write_log 4 "${obj_type}=${obj_id}, auto turn on"
 		return "true"
@@ -266,7 +269,7 @@ proc main {} {
 	}
 	
 	set obj_action 1
-	if {$obj_type == "group" && [lsearch [array names params] "scene"] == -1} {
+	if {$obj_type == "group" && [array size params] > 0 && [lsearch [array names params] "scene"] == -1} {
 		array set st [get_object_state $bridge_id $obj_type $obj_id]
 		set num_lights [llength $st(lights)]
 		if {$num_lights > 0 && $num_lights < 10} {
