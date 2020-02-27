@@ -367,7 +367,7 @@ proc ::hue::rgb_to_xybri {red green blue {color_gamut ""} {scale_bri 1}} {
 	return [list [expr {round($x*1000.0)/1000.0}] [expr {round($y*1000.0)/1000.0}] $bri]
 }
 
-proc ::hue::xybri_to_rgb {x y bri {color_gamut ""}} {
+proc ::hue::xybri_to_rgb {x y bri {color_gamut ""} {scale_bri 1}} {
 	if {$bri <= 0} {
 		return [list 0 0 0]
 	}
@@ -414,9 +414,14 @@ proc ::hue::xybri_to_rgb {x y bri {color_gamut ""}} {
 		set g [expr {$g / $max}]
 		set b [expr {$b / $max}]
 	}
-	set r [expr { round($r * 255) }]
-	set g [expr { round($g * 255) }]
-	set b [expr { round($b * 255) }]
+	if {$scale_bri} {
+		set bri [expr $bri + 1]
+	} else {
+		set bri 255
+	}
+	set r [expr { round($r * $bri) }]
+	set g [expr { round($g * $bri) }]
+	set b [expr { round($b * $bri) }]
 	return [list $r $g $b]
 }
 
@@ -1008,105 +1013,137 @@ proc ::hue::get_cuxd_device_map {} {
 	return [array get dmap]
 }
 
-proc ::hue::update_cuxd_device_channel {device channel reachable on} {
+proc ::hue::update_cuxd_device_state {device astate} {
 	variable ignore_unreachable
-	hue::write_log 4 "update_device_channel ${device}:${channel}: reachable=${reachable} on=${on}"
-	if {$reachable == "false" || $reachable == 0} {
+	variable cuxd_xmlrpc_url
+	array set state $astate
+	
+	set address $device
+	if {[regexp "^CUxD\.(.*)" $address match d]} {
+		set address $d
+	}
+	set device $address
+	set channel ""
+	if {[regexp "^(\[^:\]+):(\\d+)$" $address match d c]} {
+		set device $d
+		set channel $c
+	}
+	
+	set reachable 1
+	if {$state(reachable) == "false" || $state(reachable) == 0} {
+		set reachable 0
 		if {$ignore_unreachable} {
-			hue::write_log 4 "ignoring unreachable device, no update"
+			hue::write_log 4 "ignoring unreachable device ${address}, no update"
 			return
 		}
 	}
 	
-	if {$on == "false" || $on == 0} {
+	regexp "^CUX(\\d\\d)(\\d\\d)" $address match dtype dtype2
+	set dtype [ expr 0 + $dtype ]
+	set dtype2 [ expr 0 + $dtype2 ]
+	
+	set on 1
+	if {$state(on) == "false" || $state(on) == 0 || $reachable == 0} {
 		set on 0
+	}
+	
+	set bri 0
+	if {$state(bri) != ""} {
+		set bri $state(bri)
+	}
+	if {$on == 0} {
+		set bri 0
 	} else {
-		set on 1
-	}
-	if {$reachable == "false" || $reachable == 0} {
-		set on 0
-	}
-	set s "dom.GetObject(\"${device}:${channel}.SET_STATE\").State(${on});"
-	#hue::write_log 4 "rega_script ${s}"
-	rega_script $s
-}
-
-proc ::hue::update_cuxd_device_channels {device reachable on bri ct hue sat} {
-	variable ignore_unreachable
-	hue::write_log 4 "update_device_channels ${device}: reachable=${reachable} on=${on} bri=${bri} ct=${ct} hue=${hue} sat=${sat}"
-	if {$reachable == "false" || $reachable == 0} {
-		if {$ignore_unreachable} {
-			hue::write_log 4 "ignoring unreachable device, no update"
-			return
+		if {$bri == 0} {
+			set bri 1
 		}
 	}
 	
-	set mm [get_cuxd_channels_min_max $device]
-	hue::write_log 4 "get_cuxd_channels_min_max: ${mm}"
-	
-	if {$bri == ""} {
-		set bri 0.0
-	} else {
-		set bri [ format "%.2f" [expr {double($bri) / [lindex $mm 1]}] ]
-		if {$bri > 1.0} { set bri 1.0 }
+	set ct 0
+	if {$state(ct) != ""} {
+		set ct $state(ct)
 	}
 	
-	if {$ct == ""} {
-		set ct 0.0
-	} else {
-		set ct [ format "%.2f" [expr {double($ct - [lindex $mm 2]) / double([lindex $mm 3] - [lindex $mm 2])}] ]
-		if {$ct > 1.0} { set ct 1.0 }
+	set hue 0
+	if {$state(hue) != ""} {
+		set hue $state(hue)
 	}
 	
-	if {$hue == ""} {
-		set hue 0.0
-	} else {
-		if {[lindex $mm 5] > 0} {
+	set sat 0
+	if {$state(sat) != ""} {
+		set sat $state(sat)
+	}
+	
+	set xy [list 0 0]
+	if {$state(xy) != ""} {
+		set xy $state(xy)
+	}
+	
+	hue::write_log 4 "update_device_channels ${address} set states: reachable=${reachable} on=${on} bri=${bri} ct=${ct} hue=${hue} sat=${sat} xy=${xy}"
+	
+	set s ""
+	if {$dtype == 40} {
+		# Switch
+		set s "dom.GetObject(\"CUxD.${address}.SET_STATE\").State(${on});"
+	} elseif {$dtype == 28 && $dtype2 == 1} {
+		# System.Exec
+		set s2 "Write(xmlrpc.GetObjectByHSSAddress(interfaces.Get('CUxD'), '${device}').HssType());"
+		array set res [rega_script $s2]
+		set hss_type [string trim [encoding convertfrom utf-8 $res(STDOUT)]]
+		if {$hss_type == "VIR-LG-RGBW-DIM"} {
+			set states [list]
+			lappend states "LEVEL=[expr round((double($bri)*1000.0) / 254.0)/1000.0]"
+			set white [expr round(1000000.0 / double($ct))]
+			if {$white > 6500} {
+				set white 6500
+			}
+			lappend states "WHITE=${white}"
+			set rgb [hue::xybri_to_rgb [lindex $xy 0] [lindex $xy 1] $bri $state(color_gamut_type)]
+			lappend states "RGBW=[join $rgb ","]"
+			#hue::write_log 3 "${address}: $states"
+			set states [join $states "&"]
+			set s "dom.GetObject(\"CUxD.${address}.SET_STATES\").State(\"$states\");"
+		} else {
+			set s "dom.GetObject(\"CUxD.${address}.SET_STATE\").State(${on});"
+		}
+	} elseif {$dtype == 28 && $dtype2 == 2} {
+		# System.Multi-DIM-Exec
+		set mm [get_cuxd_channels_min_max $device]
+		if {$bri > 0 && [lindex $mm 1] > 0} {
+			set bri [ format "%.2f" [expr {double($bri) / [lindex $mm 1]}] ]
+			if {$bri > 1.0} { set bri 1.0 }
+		}
+		if {$ct > 0 && [expr [lindex $mm 3] - [lindex $mm 2]] > 0} {
+			set ct [ format "%.2f" [expr {(double($ct) - [lindex $mm 2]) / double([lindex $mm 3] - [lindex $mm 2])}] ]
+			if {$ct > 1.0} { set ct 1.0 }
+		}
+		if {$hue > 0 && [lindex $mm 5] > 0} {
 			set hue [ format "%.2f" [expr {double($hue) / [lindex $mm 5]}] ]
 			if {$hue > 1.0} { set hue 1.0 }
-		} else {
-			set hue 0.0
 		}
-	}
-	
-	if {$sat == ""} {
-		set sat 0.0
-	} else {
-		if {[lindex $mm 7] > 0} {
+		if {$sat > 0 && [lindex $mm 7] > 0} {
 			set sat [ format "%.2f" [expr {double($sat) / [lindex $mm 7]}] ]
 			if {$sat > 1.0} { set sat 1.0 }
-		} else {
-			set sat 0.0
 		}
-	}
-	
-	if {$reachable == "false" || $reachable == 0} {
-		set on 0
-	}
-	if {$on == "false" || $on == 0} {
-		set bri 0.0
+		set s "
+			if (dom.GetObject(\"CUxD.${device}:2.LEVEL\")) \{
+				dom.GetObject(\"CUxD.${device}:2.SET_STATE\").State(${bri});
+			\}
+			if (dom.GetObject(\"CUxD.${device}:3.LEVEL\")) \{
+				dom.GetObject(\"CUxD.${device}:3.SET_STATE\").State(${ct});
+			\}
+			if (dom.GetObject(\"CUxD.${device}:4.LEVEL\")) \{
+				dom.GetObject(\"CUxD.${device}:4.SET_STATE\").State(${hue});
+			\}
+			if (dom.GetObject(\"CUxD.${device}:5.LEVEL\")) \{
+				dom.GetObject(\"CUxD.${device}:5.SET_STATE\").State(${sat});
+			\}
+		"
 	} else {
-		if {$bri == 0.0} {
-			set bri 0.01
-		}
+		set s "dom.GetObject(\"CUxD.${address}.SET_STATE\").State(${on});"
 	}
-	hue::write_log 4 "update_device_channels ${device} set states: bri=${bri} ct=${ct} hue=${hue} sat=${sat}"
-	set s "
-		if (dom.GetObject(\"${device}:2.LEVEL\")) \{
-			dom.GetObject(\"${device}:2.SET_STATE\").State(${bri});
-		\}
-		if (dom.GetObject(\"${device}:3.LEVEL\")) \{
-			dom.GetObject(\"${device}:3.SET_STATE\").State(${ct});
-		\}
-		if (dom.GetObject(\"${device}:4.LEVEL\")) \{
-			dom.GetObject(\"${device}:4.SET_STATE\").State(${hue});
-		\}
-		if (dom.GetObject(\"${device}:5.LEVEL\")) \{
-			dom.GetObject(\"${device}:5.SET_STATE\").State(${sat});
-		\}
-	"
 	
-	#hue::write_log 4 "rega_script ${s}"
+	hue::write_log 4 "rega_script ${s}"
 	rega_script $s
 }
 
@@ -1208,6 +1245,13 @@ proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_o
 	set state(sat) ""
 	if {[regexp {\"sat\"\s*:\s*(\d+)} $data match val]} {
 		set state(sat) [expr {0 + $val}]
+	}
+	
+	set state(xy) ""
+	if {[regexp {\"xy\"\s*:\s*\[([\d+\.]+),([\d+\.]+)\]} $data match x y]} {
+		set x [expr {round($x*1000.0)/1000.0}]
+		set y [expr {round($y*1000.0)/1000.0}]
+		set state(xy) [list $x $y]
 	}
 	
 	return [array get state]
@@ -1312,20 +1356,96 @@ proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num transit
 	set ch1 [encoding convertfrom identity [string map {. ,} "${name}"]]
 	
 	set s "
-		object devices = dom.GetObject(ID_DEVICES);
-		if (devices) {
-			string id = '';
-			foreach(id, devices.EnumEnabledIDs()) {
-				object device = dom.GetObject(id);
-				if (device && (device.Address() == '${device}')) {
-					string channelId;
-					foreach(channelId, device.Channels()) {
-						object channel = dom.GetObject(channelId);
-						if (channel.ChnNumber() == 1) {
-							channel.Name('${ch1}');
-							WriteLine(channel.Name());
-						}
-					}
+		object device = xmlrpc.GetObjectByHSSAddress(interfaces.Get('CUxD'), '${device}');
+		if (device) {
+			string channelId;
+			foreach(channelId, device.Channels()) {
+				object channel = dom.GetObject(channelId);
+				if (channel.ChnNumber() == 1) {
+					channel.Name('${ch1}');
+					WriteLine(channel.Name());
+				}
+			}
+		}
+	"
+	hue::write_log 4 "rega_script ${s}"
+	array set res [rega_script $s]
+	set stdout [encoding convertfrom utf-8 $res(STDOUT)]
+	hue::write_log 4 "${stdout}"
+	
+	return $device
+}
+
+proc ::hue::create_cuxd_rgbw_device {sid serial name bridge_id obj num {transitiontime 0}} {
+	variable cuxd_xmlrpc_url
+	set dtype 28
+	set dtype2 1
+	
+	set color 0
+	array set st [hue::get_object_state $bridge_id $obj $num]
+	if {$st(color_gamut_type) != ""} {
+		set color 1
+	}
+	if {$obj == "group"} {
+		foreach light_id $st(lights) {
+			array set stl [hue::get_object_state $bridge_id "light" $light_id]
+			if {$stl(color_gamut_type) != ""} {
+				set color 1
+				break
+			}
+		}
+	}
+	
+	if {$serial <= 0} {
+		set serial [get_free_cuxd_device_serial $dtype $dtype2]
+	}
+	set serial [expr {0 + $serial}]
+	
+	set dbase 10066
+	set response [http_request "127.0.0.1" 80 "GET" "/addons/cuxd/index.ccc?sid=@${sid}@&m=2${dtype}&dtype2=${dtype2}"]
+	if {[regexp {option\s+(selected)?\s*value\D+(\d+)\D+virtueller Dimmer \+ RGBW} $response match tmp value]} {
+		set dbase $value
+	}
+	
+	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
+	set command_long "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} transitiontime:${transitiontime}"
+	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=${dbase}&dcontrol=4"
+	
+	hue::write_log 4 "Creating cuxd rgbw device with serial ${serial}"
+	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?sid=@${sid}@&m=3" $data "application/x-www-form-urlencoded"]
+	hue::write_log 4 "CUxD response: ${response}"
+	
+	set i 0
+	while {$i < 10} {
+		set serials [get_used_cuxd_device_serials $dtype $dtype2]
+		if {[lsearch -exact $serials $serial] >= 0} {
+			hue::write_log 4 "Device with serial ${serial} found"
+			break
+		}
+		after 1000
+		incr i
+	}
+	
+	
+	set struct [list [list "RGBW" [list "bool" $color]] ]
+	xmlrpc $cuxd_xmlrpc_url putParamset [list string $device] [list string "MASTER"] [list struct $struct]
+	
+	set struct [list [list "CMD_EXEC" [list "bool" 1]] [list "CMD_LONG" [list "string" $command_long]]]
+	xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:1"] [list string "MASTER"] [list struct $struct]
+	
+	after 5000
+	
+	set ch1 [encoding convertfrom identity [string map {. ,} "${name}"]]
+	
+	set s "
+		object device = xmlrpc.GetObjectByHSSAddress(interfaces.Get('CUxD'), '${device}');
+		if (device) {
+			string channelId;
+			foreach(channelId, device.Channels()) {
+				object channel = dom.GetObject(channelId);
+				if (channel.ChnNumber() == 1) {
+					channel.Name('${ch1}');
+					WriteLine(channel.Name());
 				}
 			}
 		}
@@ -1408,34 +1528,28 @@ proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min 
 	set ch5 [encoding convertfrom identity [string map {. ,} "${name} - Sättigung"]]
 	
 	set s "
-		object devices = dom.GetObject(ID_DEVICES);
-		if (devices) {
-			string id = '';
-			foreach(id, devices.EnumEnabledIDs()) {
-				object device = dom.GetObject(id);
-				if (device && (device.Address() == '${device}')) {
-					string channelId;
-					foreach(channelId, device.Channels()) {
-						object channel = dom.GetObject(channelId);
-						if ((channel.ChnNumber() >= 1) && (channel.ChnNumber() <= ${channels} + 1)) {
-							if (channel.ChnNumber() == 1) {
-								channel.Name('${ch1}');
-							}
-							elseif (channel.ChnNumber() == 2) {
-								channel.Name('${ch2}');
-							}
-							elseif (channel.ChnNumber() == 3) {
-								channel.Name('${ch3}');
-							}
-							elseif (channel.ChnNumber() == 4) {
-								channel.Name('${ch4}');
-							}
-							elseif (channel.ChnNumber() == 5) {
-								channel.Name('${ch5}');
-							}
-							WriteLine(channel.Name());
-						}
+		object device = xmlrpc.GetObjectByHSSAddress(interfaces.Get('CUxD'), '${device}');
+		if (device) {
+			string channelId;
+			foreach(channelId, device.Channels()) {
+				object channel = dom.GetObject(channelId);
+				if ((channel.ChnNumber() >= 1) && (channel.ChnNumber() <= ${channels} + 1)) {
+					if (channel.ChnNumber() == 1) {
+						channel.Name('${ch1}');
 					}
+					elseif (channel.ChnNumber() == 2) {
+						channel.Name('${ch2}');
+					}
+					elseif (channel.ChnNumber() == 3) {
+						channel.Name('${ch3}');
+					}
+					elseif (channel.ChnNumber() == 4) {
+						channel.Name('${ch4}');
+					}
+					elseif (channel.ChnNumber() == 5) {
+						channel.Name('${ch5}');
+					}
+					WriteLine(channel.Name());
 				}
 			}
 		}
@@ -1448,17 +1562,11 @@ proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min 
 	return $device
 	
 	set s "
-		object devices = dom.GetObject(ID_DEVICES);
-		if (devices) {
-			string id = '';
-			foreach(id, devices.EnumEnabledIDs()) {
-				object device = dom.GetObject(id);
-				if (device && (device.Address() == '${device}') && (device.ReadyConfig() == false)) {
-					var devId = id;
-					Call('devices.fn::setReadyConfig()');
-					WriteLine(id);
-				}
-			}
+		object device = xmlrpc.GetObjectByHSSAddress(interfaces.Get('CUxD'), '${device}');
+		if (device && (device.ReadyConfig() == false)) {
+			var devId = id;
+			Call('devices.fn::setReadyConfig()');
+			WriteLine(id);
 		}
 	"
 	##hue::write_log 4 "rega_script ${s}"
@@ -1469,21 +1577,15 @@ proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min 
 	return $device
 	
 	set s "
-		object devices = dom.GetObject(ID_DEVICES);
-		if (devices) {
-			string id = '';
-			foreach(id, devices.EnumEnabledIDs()) {
-				object device = dom.GetObject(id);
-				if (device && (device.Address() == '${device}') && (device.ReadyConfig() == false)) {
-					string channelId;
-					foreach(channelId, device.Channels()) {
-						object channel = dom.GetObject(channelId);
-						channel.ReadyConfig(true);
-					}
-					device.ReadyConfig(true, false);
-					WriteLine(id);
-				}
+		object device = xmlrpc.GetObjectByHSSAddress(interfaces.Get('CUxD'), '${device}');
+		if (device && (device.ReadyConfig() == false)) {
+			string channelId;
+			foreach(channelId, device.Channels()) {
+				object channel = dom.GetObject(channelId);
+				channel.ReadyConfig(true);
 			}
+			device.ReadyConfig(true, false);
+			WriteLine(id);
 		}
 	"
 	##hue::write_log 4 "rega_script ${s}"

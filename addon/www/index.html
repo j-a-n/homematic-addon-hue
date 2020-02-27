@@ -2,7 +2,7 @@
 <!--
 HomeMatic addon to control Philips Hue Lighting
 
-Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
+Copyright (C) 2020  Jan Schneider <oss@janschneider.net>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -56,12 +56,40 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		var scenes = {};
 		var used_cuxd_device_serials = {
 			dimmer: [],
-			switch: []
+			switch: [],
+			rgbw: []
 		};
 		var cuxd_device_map = [];
 		var message_timer_id = null;
 		var establish_link_timer_id = null;
 		var sid = null;
+		
+		// Return 1 if a > b
+		// Return -1 if a < b
+		// Return 0 if a == b
+		function compareVersions(a, b) {
+			if (a === b) {
+				return 0;
+			}
+			var a_components = a.split(".");
+			var b_components = b.split(".");
+			var len = Math.min(a_components.length, b_components.length);
+			for (var i = 0; i < len; i++) {
+				if (parseInt(a_components[i]) > parseInt(b_components[i])) {
+					return 1;
+				}
+				if (parseInt(a_components[i]) < parseInt(b_components[i])) {
+					return -1;
+				}
+			}
+			if (a_components.length > b_components.length) {
+				return 1;
+			}
+			if (a_components.length < b_components.length) {
+				return -1;
+			}
+			return 0;
+		}
 		
 		function get_url_vars() {
 			var vars = {};
@@ -229,6 +257,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						display_message('error', i18next.t('cuxd_not_installed'), 300000);
 					}, 5000);
 				}
+				else if (compareVersions(config.cuxd_version, '2.3.10') < 0) {
+					setTimeout(function() {
+						display_message('error', i18next.t('cuxd_to_old', {installed_version: config.cuxd_version, minimum_verison: '2.3.10'}), 300000);
+					}, 5000);
+				}
 			}, error_callback);
 		}
 		
@@ -356,10 +389,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function discover_bridges() {
-			display_message('info', i18next.t('search_bridges'), 15000);
+			//display_message('info', i18next.t('search_bridges'), 15000);
 			rest("GET", "/discover-bridges", null, function(data) {
 				console.log("bridges: " + data);
-				display_message('success', i18next.t('bridges_discovered', {count: data.length}), 5000);
+				//display_message('success', i18next.t('bridges_discovered', {count: data.length}), 1000);
 				$('#discovered-bridges tbody').empty();
 				data.forEach(function(ip) {
 					var badd = $('<button class="ui grey basic button">').attr('data-ip', ip).text(i18next.t('add'));
@@ -404,6 +437,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function get_used_cuxd_device_serials() {
+			rest("POST", "/get-used-cuxd-device-serials", {dtype: 28, dtype2: 1},
+				function(response) {
+					used_cuxd_device_serials.rgbw = response;
+				}
+			);
 			rest("POST", "/get-used-cuxd-device-serials", {dtype: 28, dtype2: 2},
 				function(response) {
 					used_cuxd_device_serials.dimmer = response;
@@ -447,10 +485,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				data.ct_max = ct_max;
 				data.color = ((obj_type == 'group') || (('capabilities' in obj) && ('control' in obj.capabilities) && ('colorgamuttype' in obj.capabilities.control)));
 			};
+			
 			$('#form-create-cuxd-device').data('params', data);
 			
 			if (type == 'dimmer') {
 				$('#modal-create-cuxd-device-header').text(i18next.t('create_cuxd_dimmer'));
+			}
+			else if (type == 'rgbw') {
+				$('#modal-create-cuxd-device-header').text(i18next.t('create_cuxd_rgbw'));
 			}
 			else {
 				$('#modal-create-cuxd-device-header').text(i18next.t('create_cuxd_switch'));
@@ -568,12 +610,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 										$('#bridge-info-content').append(div);
 									}
 									
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_rgbw') + '</div>');
+									div.data('light', light);
+									div.click(function() {
+										create_cuxd_device('rgbw', bridge_id, 'light', light_id, $(this).data('light'));
+									});
+									$('#bridge-info-content').append(div);
+									
+									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_dimmer') + '</div>');
 									div.data('light', light);
 									div.click(function() {
 										create_cuxd_device('dimmer', bridge_id, 'light', light_id, $(this).data('light'));
 									});
 									$('#bridge-info-content').append(div);
+									*/
 									
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>' + i18next.t('create_cuxd_switch') + '</div>');
 									div.data('light', light);
@@ -594,12 +645,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 										$('#bridge-info-content').append(div);
 									}
 									
+									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_rgbw') + '</div>');
+									div.data('group', group);
+									div.click(function() {
+										create_cuxd_device('rgbw', bridge_id, 'group', group_id, $(this).data('group'));
+									});
+									$('#bridge-info-content').append(div);
+									
+									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_dimmer') + '</div>');
 									div.data('group', group);
 									div.click(function() {
 										create_cuxd_device('dimmer', bridge_id, 'group', group_id, $(this).data('group'));
 									});
 									$('#bridge-info-content').append(div);
+									*/
 									
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>' + i18next.t('create_cuxd_switch') + '</div>');
 									div.data('group', group);
@@ -950,7 +1010,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				if ((!serial) || (serial <= 0)) {
 					return false;
 				}
-				if (((type == 'dimmer') && (serial > 999)) || ((type == 'switch') && (serial > 99999))) {
+				if (((type == 'dimmer' || type == 'rgbw') && (serial > 999)) || ((type == 'switch') && (serial > 99999))) {
 					return false;
 				}
 				return (! used_cuxd_device_serials[type].includes(serial));
@@ -1039,6 +1099,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							bridges_discovered: '{{count}} Hue Bridge(s) discovered',
 							bridge_deleted: 'Hue Bridge successfully deleted',
 							bridge_updated: 'Hue Bridge successfully updated',
+							create_cuxd_rgbw: 'Create CUxD-RGB-dimmer (28 01)',
 							create_cuxd_dimmer: 'Create CUxD-dimmer (28 02)',
 							create_cuxd_switch: 'Create CUxD-switch (40)',
 							mapped_cuxd_devices: 'Mapped CUxD-devices:',
@@ -1127,6 +1188,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							value: 'Value',
 							add: 'Add',
 							cuxd_not_installed: 'CUx-Daemon is not installed. Please install the latest CUxD-Addon.',
+							cuxd_to_old: 'Installed CUx-Daemon version {{installed_version}} is to old. Please update the CUxD-Addon to >= {{minimum_verison}}.',
 						}
 					},
 					de: {
@@ -1149,6 +1211,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							bridges_discovered: '{{count}} Hue Bridge(s) gefunden',
 							bridge_deleted: 'Hue Bridge erfolgreich gelöscht',
 							bridge_updated: 'Hue Bridge erfolgreich aktualisiert',
+							create_cuxd_rgbw: 'CUxD-RGB-Dimmer erzeugen (28 01)',
 							create_cuxd_dimmer: 'CUxD-Dimmer erzeugen (28 02)',
 							create_cuxd_switch: 'CUxD-Schalter erzeugen (40)',
 							mapped_cuxd_devices: 'Zugeordnete CUxD-Geräte:',
@@ -1237,6 +1300,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							value: 'Wert',
 							add: 'Hinzufügen',
 							cuxd_not_installed: 'CUx-Daemon ist nicht installiert. Bitte das neueste CUxD-Addon installieren.',
+							cuxd_to_old: 'Der installierte CUx-Daemon {{installed_version}} ist zu alt. Bitte das CUxD-Addon auf >= {{minimum_verison}} aktualisieren.',
 						}
 					}
 				}

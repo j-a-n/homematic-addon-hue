@@ -256,11 +256,20 @@ proc main {} {
 		if {$param != "" && [lsearch [array names params] $param] == -1} {
 			set params($param) $val
 		}
-	}
-	
-	set on [auto_on [array get params] $bridge_id $obj_type $obj_id]
-	if {$on == "true" || $on == "false"} {
-		set params(on) $on
+	} elseif {[info exists env(CUXD_RGBW)]} {
+		if { [expr { $env(CUXD_CHANGED) & 1 }] == 1 } {
+			# VALUE changed 0..MAXVALUE
+			set params(bri) [expr round((double($env(CUXD_VALUE)) / double($env(CUXD_MAXVALUE))) * 254.0)]
+		}
+		if { [expr { $env(CUXD_CHANGED) & 2 }] == 2 } {
+			# RGBW changed 0..255,0..255,0..255,0..255
+			set rgb [split $env(CUXD_RGBW) ","]
+			set rgb_bri 1
+		}
+		if { [expr { $env(CUXD_CHANGED) & 4 }] == 4 } {
+			# WHITE changed 2000..6500 kelvin
+			set params(ct) [expr int(floor(1000000.0 / double($env(CUXD_WHITE))))]
+		}
 	}
 	
 	if {$sleep > 0} {
@@ -269,7 +278,7 @@ proc main {} {
 	}
 	
 	set obj_action 1
-	if {$obj_type == "group" && [array size params] > 0 && [lsearch [array names params] "scene"] == -1} {
+	if {$obj_type == "group" && ([array size params] > 0 || $rgb != "") && [lsearch [array names params] "scene"] == -1} {
 		array set st [get_object_state $bridge_id $obj_type $obj_id]
 		set num_lights [llength $st(lights)]
 		if {$num_lights > 0 && $num_lights < 10} {
@@ -283,7 +292,14 @@ proc main {} {
 						set params(bri) [lindex $x_y_bri 2]
 					}
 				}
+				set on [auto_on [array get params] $bridge_id "light" $light_id]
+				if {$on == "true" || $on == "false"} {
+					set params(on) $on
+				}
 				puts -nonewline [hue::hued_command "object_action" [list $bridge_id "light" $light_id [array get params]]]
+				if {[info exists params(on)]} {
+					unset params(on)
+				}
 			}
 		}
 	}
@@ -295,6 +311,10 @@ proc main {} {
 			if {$rgb_bri} {
 				set params(bri) [lindex $x_y_bri 2]
 			}
+		}
+		set on [auto_on [array get params] $bridge_id $obj_type $obj_id]
+		if {$on == "true" || $on == "false"} {
+			set params(on) $on
 		}
 		puts -nonewline [hue::hued_command "object_action" [list $bridge_id $obj_type $obj_id [array get params]]]
 	}

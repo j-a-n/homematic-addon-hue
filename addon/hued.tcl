@@ -26,6 +26,7 @@ variable set_sysvars_reachable 1
 variable scheduled_update_time 0
 variable scheduled_update_cuxd_device_map_time 0
 variable update_cuxd_device_map_interval 300
+variable forced_updates
 
 proc same_array {array1 array2} {
 	array set a1 $array1
@@ -149,6 +150,7 @@ proc check_update {} {
 	variable scheduled_update_cuxd_device_map_time
 	variable update_cuxd_device_map_interval
 	variable object_states
+	variable forced_updates
 	
 	hue::write_log 4 "Check update (scheduled_update_time=${scheduled_update_time})"
 	
@@ -176,15 +178,26 @@ proc check_update {} {
 					hue::write_log 4 "Processing status of ${obj_path}"
 					array set state [hue::get_object_state_from_json $bridge_id $obj_type $obj_id $data [array get object_states]]
 					
+					set force_update 0
 					if { [info exists object_states($full_id)] } {
 						array set current_state $object_states($full_id)
-						if {[same_array [array get state] [array get current_state]] == 1} {
+						if { [info exists forced_updates($full_id)] } {
+							if {$forced_updates($full_id) > 0} {
+								set force_update 1
+								set forced_updates($full_id) [expr $forced_updates($full_id) - 1]
+							}
+						}
+						if {$force_update == 0 && [same_array [array get state] [array get current_state]] == 1} {
 							hue::write_log 4 "State of ${bridge_id} ${obj_type} ${obj_id} is unchanged"
 							continue
 						}
 					}
 					
-					hue::write_log 4 "State of ${bridge_id} ${obj_type} ${obj_id} has changed"
+					if {$force_update == 1} {
+						hue::write_log 4 "Update of ${bridge_id} ${obj_type} ${obj_id} forced"
+					} else {
+						hue::write_log 4 "State of ${bridge_id} ${obj_type} ${obj_id} has changed"
+					}
 					set object_states($full_id) [array get state]
 					
 					set cuxd_devices [get_cuxd_devices_from_map $bridge_id $obj_type $obj_id]
@@ -230,13 +243,9 @@ proc update_cuxd_device {cuxd_device bridge_id obj_type obj_id astate} {
 	variable set_sysvars_reachable
 	array set state $astate
 	
-	set channel ""
-	if {[regexp "^(\[^:\]+):(\\d+)$" $cuxd_device match d c]} {
-		hue::update_cuxd_device_channel "CUxD.$d" $c $state(reachable) $state(on)
-	} else {
-		hue::update_cuxd_device_channels "CUxD.$cuxd_device" $state(reachable) $state(on) $state(bri) $state(ct) $state(hue) $state(sat)
-	}
-	hue::write_log 3 "Update of ${bridge_id} ${obj_type} ${obj_id} / ${cuxd_device} successful (reachable=$state(reachable) on=$state(on) bri=$state(bri) ct=$state(ct) hue=$state(hue) sat=$state(sat))"
+	hue::update_cuxd_device_state $cuxd_device [array get state]
+	
+	hue::write_log 3 "Update of ${bridge_id} ${obj_type} ${obj_id} / ${cuxd_device} successful (reachable=$state(reachable) on=$state(on) bri=$state(bri) ct=$state(ct) hue=$state(hue) sat=$state(sat) xy=$state(xy))"
 	if {$set_sysvars_reachable == 1} {
 		update_sysvars_reachable "Hue_reachable_${cuxd_device}" $state(reachable)
 		update_sysvars_reachable "Hue_reachable_${bridge_id}_${obj_type}_${obj_id}" $state(reachable)
@@ -260,6 +269,7 @@ proc read_from_channel {channel} {
 	variable group_command_times
 	variable scheduled_update_time
 	variable object_states
+	variable forced_updates
 	
 	set len [gets $channel cmd]
 	set cmd [string trim $cmd]
@@ -289,8 +299,11 @@ proc read_from_channel {channel} {
 				set response [array get current_state]
 			}
 		} elseif {[regexp "^update_object_state\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)$" $cmd match bridge_id obj_type obj_id]} {
-			set_scheduled_update [clock seconds]
+			set_scheduled_update [expr [clock seconds] + 0]
+			set full_id "${bridge_id}_${obj_type}_${obj_id}"
+			set forced_updates($full_id) 2
 		} elseif {[regexp "^reload$" $cmd match]} {
+			hue::write_log 3 "Hue daemon reload"
 			hue::read_global_config
 			update_cuxd_device_map
 			set_scheduled_update [clock seconds]

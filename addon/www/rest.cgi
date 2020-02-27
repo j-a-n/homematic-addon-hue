@@ -212,6 +212,16 @@ proc process {} {
 			set res [hue::create_cuxd_dimmer_device $sid $serial $name $bridge_id $obj $num $ct_min $ct_max $color $transitiontime]
 			hue::hued_command "reload"
 			return "\"${res}\""
+		} elseif {[lindex $path 1] == "create-cuxd-rgbw-device"} {
+			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
+			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name
+			regexp {\"bridge_id\"\s*:\s*\"([^\"]+)\"} $data match bridge_id
+			regexp {\"obj\"\s*:\s*\"([^\"]+)\"} $data match obj
+			regexp {\"num\"\s*:\s*(\d+)} $data match num
+			regexp {\"transitiontime\"\s*:\s*(\d+)} $data match transitiontime
+			set res [hue::create_cuxd_rgbw_device $sid $serial $name $bridge_id $obj $num $transitiontime]
+			hue::hued_command "reload"
+			return "\"${res}\""
 		} elseif {[lindex $path 1] == "create-cuxd-switch-device"} {
 			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
 			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name
