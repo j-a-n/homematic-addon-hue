@@ -1341,29 +1341,20 @@ proc ::hue::create_cuxd_device {sid type serial name bridge_id obj_type obj_id {
 	}
 	set serial [expr {0 + $serial}]
 	
-	set dbase 0
-	set option ""
+	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
+	set dbase ""
 	set dcontrol 0
 	set dname ""
 	if {$type == "switch"} {
-		set dbase 10059
-		set option "virtueller Schalter"
+		set dbase "VIR-LG-RGBW-DIM"
 		set dcontrol 1
 		set dname "${name} SWITCH"
 	} elseif {$type == "rgbw"} {
-		set dbase 10066
-		set option "virtueller Dimmer \\+ RGBW"
+		set dbase "VIR-LG-ONOFF"
 		set dcontrol 4
 		set dname "${name} RGBW"
 	}
-	set response [http_request "127.0.0.1" 80 "GET" "/addons/cuxd/index.ccc?sid=@${sid}@&m=2${dtype}&dtype2=${dtype2}"]
-	if {[regexp "option\\s+(selected)?\\s*value\\D+(\\d+)\\D+${option}" $response match tmp value]} {
-		set dbase $value
-	} else {
-		hue::write_log 2 "Failed to find dbase value for ${type} / ${option}"
-	}
 	
-	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
 	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $dname]&dbase=${dbase}&dcontrol=${dcontrol}"
 	
 	hue::write_log 4 "Creating cuxd ${type} device with serial ${serial}"
