@@ -292,13 +292,20 @@ proc main {} {
 						set params(bri) [lindex $x_y_bri 2]
 					}
 				}
-				set on [auto_on [array get params] $bridge_id "light" $light_id]
-				if {$on == "true" || $on == "false"} {
-					set params(on) $on
+				set aon [auto_on [array get params] $bridge_id "light" $light_id]
+				if {$aon == "true" || $aon == "false"} {
+					set params(on) $aon
 				}
+				if {[info exists params(on)] && $params(on) == "false" && [info exists params(transitiontime)] && $hue::remove_transitiontime_when_turning_off} {
+					hue::write_log 4 "Removing transitiontime from params"
+					unset params(transitiontime)
+				}
+				hue::write_log 3 "object_action [list $bridge_id "light" $light_id [array get params]]"
 				puts -nonewline [hue::hued_command "object_action" [list $bridge_id "light" $light_id [array get params]]]
-				if {[info exists params(on)]} {
-					unset params(on)
+				if {$aon == "true" || $aon == "false"} {
+					if {[info exists params(on)]} {
+						unset params(on)
+					}
 				}
 			}
 		}
@@ -312,10 +319,15 @@ proc main {} {
 				set params(bri) [lindex $x_y_bri 2]
 			}
 		}
-		set on [auto_on [array get params] $bridge_id $obj_type $obj_id]
-		if {$on == "true" || $on == "false"} {
-			set params(on) $on
+		set aon [auto_on [array get params] $bridge_id $obj_type $obj_id]
+		if {$aon == "true" || $aon == "false"} {
+			set params(on) $aon
 		}
+		if {[info exists params(on)] && $params(on) == "false" && [info exists params(transitiontime)] && $hue::remove_transitiontime_when_turning_off} {
+			hue::write_log 3 "Removing transitiontime from params"
+			unset params(transitiontime)
+		}
+		hue::write_log 3 "object_action [list $bridge_id $obj_type $obj_id [array get params]]"
 		puts -nonewline [hue::hued_command "object_action" [list $bridge_id $obj_type $obj_id [array get params]]]
 	}
 	hue::hued_command "update_object_state" [list $bridge_id $obj_type $obj_id]

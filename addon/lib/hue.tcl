@@ -52,6 +52,9 @@ namespace eval hue {
 	variable hued_port 1919
 	variable group_throttling_settings_default "5:1000,10:2000"
 	variable group_throttling_settings $group_throttling_settings_default
+	# If we send on:false with transitiontime:x the hue bridge will turn off the light/group and set bri to 1 (bug?)
+	# So it is better to not send transitiontime when turning light/group off
+	variable remove_transitiontime_when_turning_off 1
 }
 
 
@@ -1222,7 +1225,7 @@ proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_o
 				set state(reachable) "true"
 			}
 			if {$calc_group_brightness} {
-				hue::write_log 4 "Calculated group reachable: ${any_reachable}, brightness: ${val}"
+				hue::write_log 4 "Calculated group ${obj_id} values: reachable=${any_reachable}, brightness=${val}"
 				set state(bri) $val
 			}
 		}
@@ -1311,35 +1314,65 @@ proc ::hue::urlencode {string} {
 	return [subst -nocommand $string]
 }
 
-
-proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num transitiontime} {
+proc ::hue::create_cuxd_device {sid type serial name bridge_id obj_type obj_id {transitiontime 0}} {
 	variable cuxd_xmlrpc_url
-	set dtype 40
+	set dtype 28
+	set dtype2 1
+	set color 0
+	
+	if {$type == "rgbw"} {
+		array set st [hue::get_object_state $bridge_id $obj_type $obj_id]
+		if {$st(color_gamut_type) != ""} {
+			set color 1
+		}
+		if {$obj_type == "group"} {
+			foreach light_id $st(lights) {
+				array set stl [hue::get_object_state $bridge_id "light" $light_id]
+				if {$stl(color_gamut_type) != ""} {
+					set color 1
+					break
+				}
+			}
+		}
+	}
 	
 	if {$serial <= 0} {
-		set serial [get_free_cuxd_device_serial $dtype 0]
+		set serial [get_free_cuxd_device_serial $dtype $dtype2]
 	}
 	set serial [expr {0 + $serial}]
 	
-	set dbase 10022
-	set response [http_request "127.0.0.1" 80 "GET" "/addons/cuxd/index.ccc?sid=@${sid}@&m=2${dtype}&dtype2=0"]
-	if {[regexp {option\s+(selected)?\s*value\D+(\d+)\D+Fernbedienung 19 Tasten} $response match tmp value]} {
+	set dbase 0
+	set option ""
+	set dcontrol 0
+	set dname ""
+	if {$type == "switch"} {
+		set dbase 10059
+		set option "virtueller Schalter"
+		set dcontrol 1
+		set dname "${name} SWITCH"
+	} elseif {$type == "rgbw"} {
+		set dbase 10066
+		set option "virtueller Dimmer \\+ RGBW"
+		set dcontrol 4
+		set dname "${name} RGBW"
+	}
+	set response [http_request "127.0.0.1" 80 "GET" "/addons/cuxd/index.ccc?sid=@${sid}@&m=2${dtype}&dtype2=${dtype2}"]
+	if {[regexp "option\\s+(selected)?\\s*value\\D+(\\d+)\\D+${option}" $response match tmp value]} {
 		set dbase $value
+	} else {
+		hue::write_log 2 "Failed to find dbase value for ${type} / ${option}"
 	}
 	
-	set device "CUX[format %02s $dtype][format %05s $serial]"
-	set command_short "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:false transitiontime:${transitiontime}"
-	set command_long "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} on:true transitiontime:${transitiontime}"
-	#set data "dtype=${dtype}&dserial=${serial}&dname=[urlencode $name]&dbase=${dbase}&dcontrol=1"
-	set data "dtype=${dtype}&dserial=${serial}&dbase=${dbase}&dcontrol=1"
+	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
+	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $dname]&dbase=${dbase}&dcontrol=${dcontrol}"
 	
-	hue::write_log 4 "Creating cuxd switch device with serial ${serial}"
+	hue::write_log 4 "Creating cuxd ${type} device with serial ${serial}"
 	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?sid=@${sid}@&m=3" $data "application/x-www-form-urlencoded"]
 	hue::write_log 4 "CUxD response: ${response}"
 	
 	set i 0
 	while {$i < 10} {
-		set serials [get_used_cuxd_device_serials $dtype 0]
+		set serials [get_used_cuxd_device_serials $dtype $dtype2]
 		if {[lsearch -exact $serials $serial] >= 0} {
 			hue::write_log 4 "Device with serial ${serial} found"
 			break
@@ -1348,8 +1381,23 @@ proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num transit
 		incr i
 	}
 	
-	set struct [list [list "CMD_EXEC" [list "bool" 1]] [list "CMD_SHORT" [list "string" $command_short]] [list "CMD_LONG" [list "string" $command_long]]]
-	xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:1"] [list string "MASTER"] [list struct $struct]
+	set struct_dev ""
+	set struct_chn ""
+	if {$type == "switch"} {
+		set command_short "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj_type} ${obj_id} on:false transitiontime:${transitiontime}"
+		set command_long "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj_type} ${obj_id} on:true transitiontime:${transitiontime}"
+		set struct_chn [list [list "CMD_EXEC" [list "bool" 1]] [list "CMD_SHORT" [list "string" $command_short]] [list "CMD_LONG" [list "string" $command_long]]]
+	} elseif {$type == "rgbw"} {
+		set command_long "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj_type} ${obj_id} transitiontime:${transitiontime}"
+		set struct_dev [list [list "RGBW" [list "bool" $color]]]
+		set struct_chn [list [list "CMD_EXEC" [list "bool" 1]] [list "CMD_LONG" [list "string" $command_long]]]
+	}
+	if {$struct_dev != ""} {
+		xmlrpc $cuxd_xmlrpc_url putParamset [list string $device] [list string "MASTER"] [list struct $struct_dev]
+	}
+	if {$struct_chn != ""} {
+		xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:1"] [list string "MASTER"] [list struct $struct_chn]
+	}
 	
 	after 5000
 	
@@ -1376,86 +1424,12 @@ proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj num transit
 	return $device
 }
 
-proc ::hue::create_cuxd_rgbw_device {sid serial name bridge_id obj num {transitiontime 0}} {
-	variable cuxd_xmlrpc_url
-	set dtype 28
-	set dtype2 1
-	
-	set color 0
-	array set st [hue::get_object_state $bridge_id $obj $num]
-	if {$st(color_gamut_type) != ""} {
-		set color 1
-	}
-	if {$obj == "group"} {
-		foreach light_id $st(lights) {
-			array set stl [hue::get_object_state $bridge_id "light" $light_id]
-			if {$stl(color_gamut_type) != ""} {
-				set color 1
-				break
-			}
-		}
-	}
-	
-	if {$serial <= 0} {
-		set serial [get_free_cuxd_device_serial $dtype $dtype2]
-	}
-	set serial [expr {0 + $serial}]
-	
-	set dbase 10066
-	set response [http_request "127.0.0.1" 80 "GET" "/addons/cuxd/index.ccc?sid=@${sid}@&m=2${dtype}&dtype2=${dtype2}"]
-	if {[regexp {option\s+(selected)?\s*value\D+(\d+)\D+virtueller Dimmer \+ RGBW} $response match tmp value]} {
-		set dbase $value
-	}
-	
-	set device "CUX[format %02s $dtype][format %02s $dtype2][format %03s $serial]"
-	set command_long "/usr/local/addons/hue/hue.tcl ${bridge_id} ${obj} ${num} transitiontime:${transitiontime}"
-	set data "dtype=${dtype}&dtype2=${dtype2}&dserial=${serial}&dname=[urlencode $name]&dbase=${dbase}&dcontrol=4"
-	
-	hue::write_log 4 "Creating cuxd rgbw device with serial ${serial}"
-	set response [http_request "127.0.0.1" 80 "POST" "/addons/cuxd/index.ccc?sid=@${sid}@&m=3" $data "application/x-www-form-urlencoded"]
-	hue::write_log 4 "CUxD response: ${response}"
-	
-	set i 0
-	while {$i < 10} {
-		set serials [get_used_cuxd_device_serials $dtype $dtype2]
-		if {[lsearch -exact $serials $serial] >= 0} {
-			hue::write_log 4 "Device with serial ${serial} found"
-			break
-		}
-		after 1000
-		incr i
-	}
-	
-	
-	set struct [list [list "RGBW" [list "bool" $color]] ]
-	xmlrpc $cuxd_xmlrpc_url putParamset [list string $device] [list string "MASTER"] [list struct $struct]
-	
-	set struct [list [list "CMD_EXEC" [list "bool" 1]] [list "CMD_LONG" [list "string" $command_long]]]
-	xmlrpc $cuxd_xmlrpc_url putParamset [list string "${device}:1"] [list string "MASTER"] [list struct $struct]
-	
-	after 5000
-	
-	set ch1 [encoding convertfrom identity [string map {. ,} "${name}"]]
-	
-	set s "
-		object device = xmlrpc.GetObjectByHSSAddress(interfaces.Get('CUxD'), '${device}');
-		if (device) {
-			string channelId;
-			foreach(channelId, device.Channels()) {
-				object channel = dom.GetObject(channelId);
-				if (channel.ChnNumber() == 1) {
-					channel.Name('${ch1}');
-					WriteLine(channel.Name());
-				}
-			}
-		}
-	"
-	hue::write_log 4 "rega_script ${s}"
-	array set res [rega_script $s]
-	set stdout [encoding convertfrom utf-8 $res(STDOUT)]
-	hue::write_log 4 "${stdout}"
-	
-	return $device
+proc ::hue::create_cuxd_switch_device {sid serial name bridge_id obj_type obj_id transitiontime} {
+	return [hue::create_cuxd_device $sid "switch" $serial $name $bridge_id $obj_type $obj_id $transitiontime]
+}
+
+proc ::hue::create_cuxd_rgbw_device {sid serial name bridge_id obj_type obj_id {transitiontime 0}} {
+	return [hue::create_cuxd_device $sid "rgbw" $serial $name $bridge_id $obj_type $obj_id $transitiontime]
 }
 
 proc ::hue::create_cuxd_dimmer_device {sid serial name bridge_id obj num ct_min ct_max {color 0} {transitiontime 0}} {

@@ -447,7 +447,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					used_cuxd_device_serials.dimmer = response;
 				}
 			);
-			rest("POST", "/get-used-cuxd-device-serials", {dtype: 40},
+			rest("POST", "/get-used-cuxd-device-serials", {dtype: 28, dtype2: 1},
 				function(response) {
 					used_cuxd_device_serials.switch = response;
 				}
@@ -1099,9 +1099,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							bridges_discovered: '{{count}} Hue Bridge(s) discovered',
 							bridge_deleted: 'Hue Bridge successfully deleted',
 							bridge_updated: 'Hue Bridge successfully updated',
-							create_cuxd_rgbw: 'Create CUxD-RGB-dimmer (28 01)',
-							create_cuxd_dimmer: 'Create CUxD-dimmer (28 02)',
-							create_cuxd_switch: 'Create CUxD-switch (40)',
+							create_cuxd_rgbw: 'Create CUxD-RGB-dimmer',
+							create_cuxd_dimmer: 'Create CUxD-dimmer',
+							create_cuxd_switch: 'Create CUxD-switch',
 							mapped_cuxd_devices: 'Mapped CUxD-devices:',
 							bridge: 'Bridge {{bridge_id}}',
 							light: 'Light {{light_id}}',
@@ -1211,9 +1211,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							bridges_discovered: '{{count}} Hue Bridge(s) gefunden',
 							bridge_deleted: 'Hue Bridge erfolgreich gelöscht',
 							bridge_updated: 'Hue Bridge erfolgreich aktualisiert',
-							create_cuxd_rgbw: 'CUxD-RGB-Dimmer erzeugen (28 01)',
-							create_cuxd_dimmer: 'CUxD-Dimmer erzeugen (28 02)',
-							create_cuxd_switch: 'CUxD-Schalter erzeugen (40)',
+							create_cuxd_rgbw: 'CUxD-RGB-Dimmer erzeugen',
+							create_cuxd_dimmer: 'CUxD-Dimmer erzeugen',
+							create_cuxd_switch: 'CUxD-Schalter erzeugen',
 							mapped_cuxd_devices: 'Zugeordnete CUxD-Geräte:',
 							bridge: 'Bridge {{bridge_id}}',
 							light: 'Lampe {{light_id}}',
