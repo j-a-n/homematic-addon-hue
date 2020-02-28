@@ -173,6 +173,7 @@ proc main {} {
 	array set params {}
 	set rgb ""
 	set rgb_bri 0
+	set cuxd_triggered 0
 	
 	foreach a [lrange $argv 2 end] {
 		regexp {(.*)[=:](.*$)} $a match k v
@@ -220,6 +221,7 @@ proc main {} {
 	}
 	
 	if {[info exists env(CUXD_TRIGGER_CH)]} {
+		set cuxd_triggered 1
 		set chan $env(CUXD_TRIGGER_CH)
 		
 		if {$chan == 1} {
@@ -257,6 +259,7 @@ proc main {} {
 			set params($param) $val
 		}
 	} elseif {[info exists env(CUXD_RGBW)]} {
+		set cuxd_triggered 1
 		if { [expr { $env(CUXD_CHANGED) & 1 }] == 1 } {
 			# VALUE changed 0..MAXVALUE
 			set params(bri) [expr round((double($env(CUXD_VALUE)) / double($env(CUXD_MAXVALUE))) * 254.0)]
@@ -296,7 +299,8 @@ proc main {} {
 				if {$aon == "true" || $aon == "false"} {
 					set params(on) $aon
 				}
-				if {[info exists params(on)] && $params(on) == "false" && [info exists params(transitiontime)] && $hue::remove_transitiontime_when_turning_off} {
+				if {[info exists params(on)] && $params(on) == "false" && [info exists params(transitiontime)] &&
+					($hue::remove_transitiontime_when_turning_off == "always" || ($hue::remove_transitiontime_when_turning_off == "cuxd" && $cuxd_triggered == 1))} {
 					hue::write_log 4 "Removing transitiontime from params"
 					unset params(transitiontime)
 				}
@@ -323,8 +327,9 @@ proc main {} {
 		if {$aon == "true" || $aon == "false"} {
 			set params(on) $aon
 		}
-		if {[info exists params(on)] && $params(on) == "false" && [info exists params(transitiontime)] && $hue::remove_transitiontime_when_turning_off} {
-			hue::write_log 3 "Removing transitiontime from params"
+		if {[info exists params(on)] && $params(on) == "false" && [info exists params(transitiontime)] &&
+			($hue::remove_transitiontime_when_turning_off == "always" || ($hue::remove_transitiontime_when_turning_off == "cuxd" && $cuxd_triggered == 1))} {
+			hue::write_log 4 "Removing transitiontime from params"
 			unset params(transitiontime)
 		}
 		hue::write_log 3 "object_action [list $bridge_id $obj_type $obj_id [array get params]]"

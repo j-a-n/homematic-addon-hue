@@ -231,7 +231,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				api_log: config.global.api_log.default,
 				api_connect_timeout: config.global.api_connect_timeout.default,
 				ignore_unreachable: config.global.ignore_unreachable.default,
-				group_throttling_settings: config.global.group_throttling_settings.default
+				group_throttling_settings: config.global.group_throttling_settings.default,
+				remove_transitiontime_when_turning_off: config.global.remove_transitiontime_when_turning_off.default
 			});
 			update_global_config_form_state();
 		}
@@ -336,7 +337,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				api_log: config.global.api_log.value,
 				api_connect_timeout: config.global.api_connect_timeout.value,
 				ignore_unreachable: config.global.ignore_unreachable.value,
-				group_throttling_settings: config.global.group_throttling_settings.value
+				group_throttling_settings: config.global.group_throttling_settings.value,
+				remove_transitiontime_when_turning_off: config.global.remove_transitiontime_when_turning_off.value
 			});
 			update_global_config_form_state();
 		}
@@ -944,6 +946,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							type: 'regExp[/^([0-9]+\:[0-9]+,?)*$/]',
 							prompt: i18next.t('group_throttling_settings_prompt')
 						}]
+					},
+					remove_transitiontime_when_turning_off: {
+						identifier: 'remove_transitiontime_when_turning_off',
+						rules: [{
+							type: 'regExp[(always|cuxd|never)]'
+						}]
 					}
 				},
 				onSuccess: function(event, fields) {
@@ -1130,6 +1138,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							log_hue_api_label: 'Log hue api requests and responses',
 							update_unreachable_label: 'Do not update state if device is unreachable',
 							group_throttling_settings_label: 'Setting for group command throttling',
+							remove_transitiontime_when_turning_off_label: 'When turning off lights/groups do not send transitiontime to api',
+							option_never: 'Never',
+							option_cuxd: 'If triggered by CUxD',
+							option_always: 'Always',
 							load_config: 'Load config',
 							save_config: 'Save config',
 							set_config_defaults: 'Set default values',
@@ -1242,6 +1254,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							log_hue_api_label: 'Hue-API-Anfragen und -Antworten protokollieren',
 							update_unreachable_label: 'Status nicht aktualisieren wenn ein Gerät nicht erreichbar ist',
 							group_throttling_settings_label: 'Einstellung für die Drosselung von Gruppen-Kommandos',
+							remove_transitiontime_when_turning_off_label: 'Beim Ausschalten von Lampen/Gruppen den Parameter transitiontime nicht an die API senden',
+							option_never: 'Nie',
+							option_cuxd: 'Wenn von CUxD ausgelöst',
+							option_always: 'Immer',
 							load_config: 'Konfiguration laden',
 							save_config: 'Konfiguration speichern',
 							set_config_defaults: 'Standardwerte setzen',
@@ -1421,6 +1437,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<div class="field">
 					<label data-i18n="group_throttling_settings_label"></label>
 					<input name="group_throttling_settings" placeholder="num1:delay1_ms,num2:delay2_ms" type="text" onkeyup="update_global_config_form_state();" onchange="update_global_config_form_state();">
+				</div>
+				<div class="field">
+					<label data-i18n="remove_transitiontime_when_turning_off_label"></label>
+					<select class="ui fluid search dropdown" name="remove_transitiontime_when_turning_off" onchange="update_global_config_form_state();">
+						<option value="never" data-i18n="option_never"></option>
+						<option value="cuxd" data-i18n="option_cuxd"></option>
+						<option value="always" data-i18n="option_always">always</option>
+					</select>
 				</div>
 				<div id="load-global-config" onclick="get_config(function(data){update_view();});" class="ui blue basic button"><i class="sync icon"></i>load_config</div>
 				<div id="set-global-config-defaults" onclick="set_config_defaults();" class="ui yellow basic button"><i class="undo icon"></i>set_config_defaults</div>

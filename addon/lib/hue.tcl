@@ -54,7 +54,9 @@ namespace eval hue {
 	variable group_throttling_settings $group_throttling_settings_default
 	# If we send on:false with transitiontime:x the hue bridge will turn off the light/group and set bri to 1 (bug?)
 	# So it is better to not send transitiontime when turning light/group off
-	variable remove_transitiontime_when_turning_off 1
+	# (always) remove / command triggered by (cuxd) / (never) remove
+	variable remove_transitiontime_when_turning_off_default "cuxd"
+	variable remove_transitiontime_when_turning_off $remove_transitiontime_when_turning_off_default
 }
 
 
@@ -586,10 +588,11 @@ proc ::hue::get_config_bridge_ids {} {
 	return $bridge_ids
 }
 
-proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable api_connect_timeout group_throttling_settings} {
+proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable api_connect_timeout group_throttling_settings remove_transitiontime_when_turning_off} {
 	variable ini_file
 	variable lock_id_ini_file
-	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} ignore_unreachable=${ignore_unreachable} api_connect_timeout=${api_connect_timeout} group_throttling_settings=${group_throttling_settings}"
+	
+	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} ignore_unreachable=${ignore_unreachable} api_connect_timeout=${api_connect_timeout} group_throttling_settings=${group_throttling_settings} remove_transitiontime_when_turning_off=${remove_transitiontime_when_turning_off}"
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r+]
 	ini::set $ini "global" "log_level" $log_level
@@ -597,6 +600,7 @@ proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_u
 	ini::set $ini "global" "api_connect_timeout" $api_connect_timeout
 	ini::set $ini "global" "poll_state_interval" $poll_state_interval
 	ini::set $ini "global" "group_throttling_settings" $group_throttling_settings
+	ini::set $ini "global" "remove_transitiontime_when_turning_off" $remove_transitiontime_when_turning_off
 	if {$ignore_unreachable == "true" || $ignore_unreachable == "1"} {
 		ini::set $ini "global" "ignore_unreachable" "1"
 	} else {
@@ -615,6 +619,7 @@ proc ::hue::read_global_config {} {
 	variable poll_state_interval
 	variable ignore_unreachable
 	variable group_throttling_settings
+	variable remove_transitiontime_when_turning_off
 	
 	write_log 4 "Reading global config"
 	acquire_lock $lock_id_ini_file
@@ -626,6 +631,7 @@ proc ::hue::read_global_config {} {
 		set poll_state_interval [expr { 0 + [::ini::value $ini "global" "poll_state_interval" $poll_state_interval] }]
 		set ignore_unreachable [expr { 0 + [::ini::value $ini "global" "ignore_unreachable" $ignore_unreachable] }]
 		set group_throttling_settings [::ini::value $ini "global" "group_throttling_settings" $group_throttling_settings]
+		set remove_transitiontime_when_turning_off [::ini::value $ini "global" "remove_transitiontime_when_turning_off" $remove_transitiontime_when_turning_off]
 	}
 	ini::close $ini
 	release_lock $lock_id_ini_file
@@ -646,6 +652,8 @@ proc ::hue::get_config_json {} {
 	variable ignore_unreachable
 	variable group_throttling_settings_default
 	variable group_throttling_settings
+	variable remove_transitiontime_when_turning_off_default
+	variable remove_transitiontime_when_turning_off
 	
 	set cuxd_version [get_cuxd_version]
 	
@@ -658,7 +666,8 @@ proc ::hue::get_config_json {} {
 	append json "\"api_connect_timeout\":\{\"default\":${api_connect_timeout_default},\"value\":${api_connect_timeout}\},"
 	append json "\"poll_state_interval\":\{\"default\":${poll_state_interval_default},\"value\":${poll_state_interval}\},"
 	append json "\"group_throttling_settings\":\{\"default\":\"${group_throttling_settings_default}\",\"value\":\"${group_throttling_settings}\"\},"
-	append json "\"ignore_unreachable\":\{\"default\":[json_bool $ignore_unreachable_default],\"value\":[json_bool $ignore_unreachable]\}"
+	append json "\"ignore_unreachable\":\{\"default\":[json_bool $ignore_unreachable_default],\"value\":[json_bool $ignore_unreachable]\},"
+	append json "\"remove_transitiontime_when_turning_off\":\{\"default\":\"${remove_transitiontime_when_turning_off_default}\",\"value\":\"${remove_transitiontime_when_turning_off}\"\}"
 	append json "\},"
 	append json "\"bridges\":\["
 	set count 0
