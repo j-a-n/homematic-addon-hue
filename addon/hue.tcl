@@ -330,7 +330,7 @@ proc main {} {
 		hue::write_log 3 "object_action [list $bridge_id $obj_type $obj_id [array get params]]"
 		puts -nonewline [hue::hued_command "object_action" [list $bridge_id $obj_type $obj_id [array get params]]]
 	}
-	hue::hued_command "update_object_state" [list $bridge_id $obj_type $obj_id]
+	hue::hued_command "update_object_state" [list $bridge_id $obj_type $obj_id 2]
 }
 
 if { [ catch {

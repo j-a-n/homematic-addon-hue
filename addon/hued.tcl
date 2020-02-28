@@ -106,6 +106,11 @@ proc main_loop {} {
 proc update_cuxd_device_map {} {
 	variable cuxd_device_map
 	hue::write_log 4 "Updating cuxd device map"
+	# Note that array set does not remove variables which already exist in the array.
+	# Clear array
+	foreach key [array names cuxd_device_map] {
+		unset cuxd_device_map($key)
+	}
 	if { [catch {
 		set dmap [hue::get_cuxd_device_map]
 		array set cuxd_device_map $dmap
@@ -205,7 +210,13 @@ proc check_update {} {
 						continue
 					}
 					foreach cuxd_device $cuxd_devices {
-						update_cuxd_device $cuxd_device $bridge_id $obj_type $obj_id [array get state]
+						if { [catch {
+							update_cuxd_device $cuxd_device $bridge_id $obj_type $obj_id [array get state]
+						} errmsg] } {
+							# CUxD device deleted
+							hue::write_log 2 "Failed to update cuxd device ${cuxd_device}: ${errmsg}"
+							set scheduled_update_cuxd_device_map_time [clock seconds]
+						}
 					}
 				}
 			}
@@ -298,8 +309,8 @@ proc read_from_channel {channel} {
 				array set current_state $object_states($full_id)
 				set response [array get current_state]
 			}
-		} elseif {[regexp "^update_object_state\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)$" $cmd match bridge_id obj_type obj_id]} {
-			set_scheduled_update [expr [clock seconds] + 0]
+		} elseif {[regexp "^update_object_state\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\d+)$" $cmd match bridge_id obj_type obj_id delay_seconds]} {
+			set_scheduled_update [expr [clock seconds] + $delay_seconds]
 			set full_id "${bridge_id}_${obj_type}_${obj_id}"
 			set forced_updates($full_id) 2
 		} elseif {[regexp "^reload$" $cmd match]} {

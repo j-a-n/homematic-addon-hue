@@ -55,9 +55,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		var groups = {};
 		var scenes = {};
 		var used_cuxd_device_serials = {
-			dimmer: [],
-			switch: [],
-			rgbw: []
+			d2801: [],
+			d2802: []
 		};
 		var cuxd_device_map = [];
 		var message_timer_id = null;
@@ -257,11 +256,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						display_message('error', i18next.t('cuxd_not_installed'), 300000);
 					}, 5000);
 				}
+				/*
 				else if (compareVersions(config.cuxd_version, '2.3.10') < 0) {
 					setTimeout(function() {
 						display_message('error', i18next.t('cuxd_to_old', {installed_version: config.cuxd_version, minimum_verison: '2.3.10'}), 300000);
 					}, 5000);
 				}
+				*/
 			}, error_callback);
 		}
 		
@@ -439,27 +440,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function get_used_cuxd_device_serials() {
 			rest("POST", "/get-used-cuxd-device-serials", {dtype: 28, dtype2: 1},
 				function(response) {
-					used_cuxd_device_serials.rgbw = response;
+					used_cuxd_device_serials.d2801 = response;
 				}
 			);
 			rest("POST", "/get-used-cuxd-device-serials", {dtype: 28, dtype2: 2},
 				function(response) {
-					used_cuxd_device_serials.dimmer = response;
-				}
-			);
-			rest("POST", "/get-used-cuxd-device-serials", {dtype: 28, dtype2: 1},
-				function(response) {
-					used_cuxd_device_serials.switch = response;
+					used_cuxd_device_serials.d2802 = response;
 				}
 			);
 		}
 		
 		function create_cuxd_device(type, bridge_id, obj_type, obj_id, obj, transitiontime) {
 			$('#modal-create-cuxd-device').modal('hide');
-			if (!transitiontime) {
-				transitiontime = 0;
+			let serial = Math.max.apply(null, used_cuxd_device_serials.d2801);
+			if (type == 'dimmer') {
+				serial = Math.max.apply(null, used_cuxd_device_serials.d2802);
 			}
-			let serial = Math.max.apply(null, used_cuxd_device_serials[type]);
 			if ((!serial) || serial === -Infinity) {
 				serial = 0;
 			}
@@ -470,8 +466,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				serial: serial,
 				name: "Hue " + obj.name,
 				bridge_id: bridge_id,
-				obj: obj_type,
-				num: parseInt(obj_id),
+				obj_type: obj_type,
+				obj_id: parseInt(obj_id),
 				transitiontime: transitiontime
 			};
 			if (type == 'dimmer') {
@@ -610,21 +606,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 										$('#bridge-info-content').append(div);
 									}
 									
+									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_rgbw') + '</div>');
 									div.data('light', light);
 									div.click(function() {
 										create_cuxd_device('rgbw', bridge_id, 'light', light_id, $(this).data('light'));
 									});
 									$('#bridge-info-content').append(div);
+									*/
 									
-									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_dimmer') + '</div>');
 									div.data('light', light);
 									div.click(function() {
 										create_cuxd_device('dimmer', bridge_id, 'light', light_id, $(this).data('light'));
 									});
 									$('#bridge-info-content').append(div);
-									*/
 									
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>' + i18next.t('create_cuxd_switch') + '</div>');
 									div.data('light', light);
@@ -645,21 +641,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 										$('#bridge-info-content').append(div);
 									}
 									
+									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_rgbw') + '</div>');
 									div.data('group', group);
 									div.click(function() {
 										create_cuxd_device('rgbw', bridge_id, 'group', group_id, $(this).data('group'));
 									});
 									$('#bridge-info-content').append(div);
+									*/
 									
-									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_dimmer') + '</div>');
 									div.data('group', group);
 									div.click(function() {
 										create_cuxd_device('dimmer', bridge_id, 'group', group_id, $(this).data('group'));
 									});
 									$('#bridge-info-content').append(div);
-									*/
 									
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>' + i18next.t('create_cuxd_switch') + '</div>');
 									div.data('group', group);
@@ -1007,13 +1003,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$.fn.form.settings.rules.CUxDserial = function(serial) {
 				var type = $('#form-create-cuxd-device').data('params').type;
 				serial = parseInt(serial);
-				if ((!serial) || (serial <= 0)) {
+				if ((!serial) || (serial <= 0) || (serial > 999)) {
 					return false;
 				}
-				if (((type == 'dimmer' || type == 'rgbw') && (serial > 999)) || ((type == 'switch') && (serial > 99999))) {
-					return false;
+				if (type == 'dimmer') {
+					return (! used_cuxd_device_serials.d2802.includes(serial));
 				}
-				return (! used_cuxd_device_serials[type].includes(serial));
+				return (! used_cuxd_device_serials.d2801.includes(serial));
 			}
 			var create_cuxd_device_form_config = {
 				on: 'blur',
@@ -1035,7 +1031,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					transitiontime: {
 						identifier: 'transitiontime',
 						rules: [{
-							type: 'integer[0..100]',
+							type: 'regExp[/^[0-9]*$/]',
 							prompt: i18next.t('transitiontime')
 						}]
 					}
@@ -1046,12 +1042,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					let data = $('#form-create-cuxd-device').data('params');
 					var form = $(event.currentTarget).form('get values');
 					data.serial = parseInt(form.serial);
-					data.transitiontime = parseInt(form.transitiontime);
+					data.transitiontime = form.transitiontime == "" ? null : parseInt(form.transitiontime);
 					data.name = form.name;
 					
 					$('.create-cuxd-dev').addClass('disabled');
 					$('.create-cuxd-dev').addClass('loading');
-					rest("POST", "/create-cuxd-" + data.type + "-device", data,
+					rest("POST", "/create-cuxd-device", data,
 						function(response) {
 							$('#modal-create-cuxd-device').modal('hide');
 							$('.create-cuxd-dev').removeClass('disabled');
@@ -1164,7 +1160,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							false: 'false',
 							brightness: 'Brightness',
 							transitiontime: 'Transitiontime',
-							transitiontime_label: 'Transitiontime (multiple of 100ms)',
+							transitiontime_label: 'Transitiontime (multiple of 100ms, optional)',
 							alert: 'Alert',
 							effect: 'Effect',
 							hue: 'Hue',
@@ -1276,7 +1272,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							false: 'nein',
 							brightness: 'Helligkeit',
 							transitiontime: 'Übergangszeit',
-							transitiontime_label: 'Übergangszeit (in Schritten von 100ms)',
+							transitiontime_label: 'Übergangszeit (in Schritten von 100ms, optional)',
 							alert: 'Alarm',
 							effect: 'Effekt',
 							hue: 'Farbton',

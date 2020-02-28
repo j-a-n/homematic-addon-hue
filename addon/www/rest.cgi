@@ -194,42 +194,30 @@ proc process {} {
 			set serials [hue::get_used_cuxd_device_serials $dtype $dtype2]
 			set res [join $serials ", "]
 			return "\[${res}\]"
-		} elseif {[lindex $path 1] == "create-cuxd-dimmer-device"} {
+		} elseif {[lindex $path 1] == "create-cuxd-device"} {
+			regexp {\"type\"\s*:\s*\"([^\"]+)\"} $data match type
 			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
 			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name
 			regexp {\"bridge_id\"\s*:\s*\"([^\"]+)\"} $data match bridge_id
-			regexp {\"obj\"\s*:\s*\"([^\"]+)\"} $data match obj
-			regexp {\"num\"\s*:\s*(\d+)} $data match num
-			regexp {\"ct_min\"\s*:\s*(\d+)} $data match ct_min
-			regexp {\"ct_max\"\s*:\s*(\d+)} $data match ct_max
-			regexp {\"color\"\s*:\s*(false|true)} $data match color
-			regexp {\"transitiontime\"\s*:\s*(\d+)} $data match transitiontime
-			if {$color == "true"} {
-				set color 1
-			} else {
-				set color 0
+			regexp {\"obj_type\"\s*:\s*\"([^\"]+)\"} $data match obj_type
+			regexp {\"obj_id\"\s*:\s*(\d+)} $data match obj_id
+			regexp {\"transitiontime\"\s*:\s*(\d+|null)} $data match transitiontime
+			if {$transitiontime == "null"} {
+				set transitiontime ""
 			}
-			set res [hue::create_cuxd_dimmer_device $sid $serial $name $bridge_id $obj $num $ct_min $ct_max $color $transitiontime]
-			hue::hued_command "reload"
-			return "\"${res}\""
-		} elseif {[lindex $path 1] == "create-cuxd-rgbw-device"} {
-			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
-			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name
-			regexp {\"bridge_id\"\s*:\s*\"([^\"]+)\"} $data match bridge_id
-			regexp {\"obj\"\s*:\s*\"([^\"]+)\"} $data match obj
-			regexp {\"num\"\s*:\s*(\d+)} $data match num
-			regexp {\"transitiontime\"\s*:\s*(\d+)} $data match transitiontime
-			set res [hue::create_cuxd_rgbw_device $sid $serial $name $bridge_id $obj $num $transitiontime]
-			hue::hued_command "reload"
-			return "\"${res}\""
-		} elseif {[lindex $path 1] == "create-cuxd-switch-device"} {
-			regexp {\"serial\"\s*:\s*(\d+)} $data match serial
-			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name
-			regexp {\"bridge_id\"\s*:\s*\"([^\"]+)\"} $data match bridge_id
-			regexp {\"obj\"\s*:\s*\"([^\"]+)\"} $data match obj
-			regexp {\"num\"\s*:\s*(\d+)} $data match num
-			regexp {\"transitiontime\"\s*:\s*(\d+)} $data match transitiontime
-			set res [hue::create_cuxd_switch_device $sid $serial $name $bridge_id $obj $num $transitiontime]
+			if {$type == "dimmer"} {
+				regexp {\"ct_min\"\s*:\s*(\d+)} $data match ct_min
+				regexp {\"ct_max\"\s*:\s*(\d+)} $data match ct_max
+				regexp {\"color\"\s*:\s*(false|true)} $data match color
+				if {$color == "true"} {
+					set color 1
+				} else {
+					set color 0
+				}
+				set res [hue::create_cuxd_dimmer_device $sid $serial $name $bridge_id $obj_type $obj_id $ct_min $ct_max $color $transitiontime]
+			} else {
+				set res [hue::create_cuxd_device $sid $type $serial $name $bridge_id $obj_type $obj_id $transitiontime]
+			}
 			hue::hued_command "reload"
 			return "\"${res}\""
 		} elseif {[lindex $path 1] == "config"} {
