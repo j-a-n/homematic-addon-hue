@@ -96,7 +96,7 @@ proc get_object_state {bridge_id obj_type obj_id} {
 	
 	set full_id "${bridge_id}_${obj_type}_${obj_id}"
 	if { ![info exists object_states($full_id)] } {
-		set response [hue::hued_command "object_state" [list $bridge_id $obj_type $obj_id]]
+		set response [string trim [hue::hued_command "object_state" [list $bridge_id $obj_type $obj_id]]]
 		if {$response != ""} {
 			set object_states($full_id) $response
 		} else {

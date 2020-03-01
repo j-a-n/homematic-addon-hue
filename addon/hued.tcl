@@ -304,11 +304,11 @@ proc read_from_channel {channel} {
 			set response [hue::request "command" $bridge_id "PUT" $path $json]
 		} elseif {[regexp "^object_state\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)$" $cmd match bridge_id obj_type obj_id]} {
 			set full_id "${bridge_id}_${obj_type}_${obj_id}"
-			set response ""
-			if { [info exists object_states($full_id)] } {
-				array set current_state $object_states($full_id)
-				set response [array get current_state]
+			if { ![info exists object_states($full_id)] } {
+				set object_states($full_id) [hue::get_object_state $bridge_id $obj_type $obj_id]
 			}
+			array set current_state $object_states($full_id)
+			set response [array get current_state]
 		} elseif {[regexp "^update_object_state\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\d+)$" $cmd match bridge_id obj_type obj_id delay_seconds]} {
 			set_scheduled_update [expr [clock seconds] + $delay_seconds]
 			set full_id "${bridge_id}_${obj_type}_${obj_id}"
