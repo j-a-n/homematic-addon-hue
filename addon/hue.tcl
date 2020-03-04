@@ -64,7 +64,7 @@ proc usage {} {
 		puts stderr "    Parameter:Wert : Komma-getrennte Parameter:Wert-Paare"
 		puts stderr "                     Mögliche Parameter sind: on,sat,bri,bri_inc,hue,hue_inc,xy,ct,rgb,rgb_bri,transitiontime,bri_mode,sleep,ct_min"
 		puts stderr ""
-		puts stderr "  group <Gruppen-ID> \[Parameter:Wert\]...    Eine Gruppe steuen"
+		puts stderr "  group <Gruppen-ID> \[Parameter:Wert\]...    Eine Gruppe steuern"
 		puts stderr "    Gruppen-ID     : ID der Gruppe die gesteuert werden soll"
 		puts stderr "    Parameter:Wert : Komma-getrennte Parameter:Wert-Paare"
 		puts stderr "                     Mögliche Parameter sind: on,sat,bri,bri_inc,hue,hue_inc,xy,ct,rgb,rgb_bri,scene,transitiontime,bri_mode,sleep,ct_min"
