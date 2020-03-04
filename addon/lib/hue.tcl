@@ -1143,25 +1143,27 @@ proc ::hue::update_cuxd_device_state {device astate} {
 	} elseif {$dtype == 28 && $dtype2 == 2} {
 		# System.Multi-DIM-Exec
 		set mm [get_cuxd_channels_min_max $device]
+		set bri_f 0.0
 		if {$bri > 0 && [lindex $mm 1] > 0} {
-			set bri [ format "%.2f" [expr {double($bri) / [lindex $mm 1]}] ]
-			if {$bri > 1.0} { set bri 1.0 }
+			set bri_f [expr round(($bri*100.0) / [lindex $mm 1])/100.0 ]
+			if {$bri_f > 1.0} { set bri_f 1.0 }
+			if {$bri_f < 0.01 && $bri > 0} { set bri_f 0.01 }
 		}
 		if {$ct > 0 && [expr [lindex $mm 3] - [lindex $mm 2]] > 0} {
-			set ct [ format "%.2f" [expr {(double($ct) - [lindex $mm 2]) / double([lindex $mm 3] - [lindex $mm 2])}] ]
+			set ct [expr round(($ct*100.0) - [lindex $mm 2]) / double([lindex $mm 3] - [lindex $mm 2])/100.0 ]
 			if {$ct > 1.0} { set ct 1.0 }
 		}
 		if {$hue > 0 && [lindex $mm 5] > 0} {
-			set hue [ format "%.2f" [expr {double($hue) / [lindex $mm 5]}] ]
+			set hue [expr round(($hue*100.0) / [lindex $mm 5])/100.0 ]
 			if {$hue > 1.0} { set hue 1.0 }
 		}
 		if {$sat > 0 && [lindex $mm 7] > 0} {
-			set sat [ format "%.2f" [expr {double($sat) / [lindex $mm 7]}] ]
+			set sat [expr round(($sat*100.0) / [lindex $mm 7])/100.0 ]
 			if {$sat > 1.0} { set sat 1.0 }
 		}
 		set s "
 			if (dom.GetObject(\"CUxD.${device}:2.LEVEL\")) \{
-				dom.GetObject(\"CUxD.${device}:2.SET_STATE\").State(${bri});
+				dom.GetObject(\"CUxD.${device}:2.SET_STATE\").State(${bri_f});
 			\}
 			if (dom.GetObject(\"CUxD.${device}:3.LEVEL\")) \{
 				dom.GetObject(\"CUxD.${device}:3.SET_STATE\").State(${ct});
