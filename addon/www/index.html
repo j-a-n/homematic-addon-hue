@@ -258,13 +258,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						display_message('error', i18next.t('cuxd_not_installed'), 300000);
 					}, 5000);
 				}
-				/*
-				else if (compareVersions(config.cuxd_version, '2.3.10') < 0) {
+				else if (compareVersions(config.cuxd_version, '2.4') < 0) {
 					setTimeout(function() {
-						display_message('error', i18next.t('cuxd_to_old', {installed_version: config.cuxd_version, minimum_verison: '2.3.10'}), 300000);
+						display_message('error', i18next.t('cuxd_to_old', {installed_version: config.cuxd_version, minimum_verison: '2.4'}), 300000);
 					}, 5000);
 				}
-				*/
 			}, error_callback);
 		}
 		
@@ -618,21 +616,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 										$('#bridge-info-content').append(div);
 									}
 									
-									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_rgbw') + '</div>');
 									div.data('light', light);
 									div.click(function() {
 										create_cuxd_device('rgbw', bridge_id, 'light', light_id, $(this).data('light'));
 									});
 									$('#bridge-info-content').append(div);
-									*/
 									
+									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_dimmer') + '</div>');
 									div.data('light', light);
 									div.click(function() {
 										create_cuxd_device('dimmer', bridge_id, 'light', light_id, $(this).data('light'));
 									});
 									$('#bridge-info-content').append(div);
+									*/
 									
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>' + i18next.t('create_cuxd_switch') + '</div>');
 									div.data('light', light);
@@ -653,21 +651,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 										$('#bridge-info-content').append(div);
 									}
 									
-									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_rgbw') + '</div>');
 									div.data('group', group);
 									div.click(function() {
 										create_cuxd_device('rgbw', bridge_id, 'group', group_id, $(this).data('group'));
 									});
 									$('#bridge-info-content').append(div);
-									*/
 									
+									/*
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="sliders horizontal icon"></i>' + i18next.t('create_cuxd_dimmer') + '</div>');
 									div.data('group', group);
 									div.click(function() {
 										create_cuxd_device('dimmer', bridge_id, 'group', group_id, $(this).data('group'));
 									});
 									$('#bridge-info-content').append(div);
+									*/
 									
 									div = $('<div class="create-cuxd-dev ui blue button"><i class="toggle on icon"></i>' + i18next.t('create_cuxd_switch') + '</div>');
 									div.data('group', group);
