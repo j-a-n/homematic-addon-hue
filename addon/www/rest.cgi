@@ -127,14 +127,15 @@ proc process {} {
 			regexp {\"command\"\s*:\s*\"(.*)\"} $data match command
 			set exitcode 0
 			set output ""
-			if {! [regexp {^/usr/local/addons/hue/hue.tcl( |$)[a-zA-Z0-9 \"'\-,:_/]*$} $command] } {
+			if {! [regexp {^/usr/local/addons/hue/hue.tcl( |$)} $command] } {
 				set exitcode 1
 				set output "Invalid command: ${command}"
 			} else {
 				set exitcode [catch {
 					regexp {\"language\"\s*:\s*\"([^\"]+)\"} $data match language
 					set ::env(LANGUAGE) $language
-					eval exec $command
+					set command [string map {\\\" \"} $command]
+					exec /bin/sh -c $command
 				} output]
 				set output [json_string $output]
 			}
