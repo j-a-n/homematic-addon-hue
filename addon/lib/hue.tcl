@@ -945,7 +945,7 @@ proc ::hue::get_cuxd_channels_min_max {device} {
 	if {[regexp {ct_min:(\d+)} $command match val]} {
 		set ct_min [expr {0 + $val}]
 	} else {
-	hue::write_log 4 "device ${device} - ct_min not found in command, using default: ${ct_min}"
+		hue::write_log 4 "device ${device} - ct_min not found in command, using default: ${ct_min}"
 	}
 	set bri_max [expr {0 + [lindex [xmlrpc $cuxd_xmlrpc_url getParamset [list string $device:2] [list string "MASTER"]] 3]}]
 	set ct_max [expr {$ct_min + [lindex [xmlrpc $cuxd_xmlrpc_url getParamset [list string $device:3] [list string "MASTER"]] 3]}]
@@ -1150,7 +1150,7 @@ proc ::hue::update_cuxd_device_state {device astate} {
 			if {$bri_f < 0.01 && $bri > 0} { set bri_f 0.01 }
 		}
 		if {$ct > 0 && [expr [lindex $mm 3] - [lindex $mm 2]] > 0} {
-			set ct [expr round(($ct*100.0) - [lindex $mm 2]) / double([lindex $mm 3] - [lindex $mm 2])/100.0 ]
+			set ct [expr round((($ct - [lindex $mm 2])*100.0) / (double([lindex $mm 3] - [lindex $mm 2])))/100.0 ]
 			if {$ct > 1.0} { set ct 1.0 }
 		}
 		if {$hue > 0 && [lindex $mm 5] > 0} {
