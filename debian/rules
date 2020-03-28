@@ -1,0 +1,38 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+%:
+	dh $@ --with systemd
+
+clean:
+	dh_testdir
+	dh_clean
+	rm -f debian/files || true
+
+install:
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+	
+	cp -a addon/* debian/hue/usr/local/addons/hue/
+	find debian/hue/usr/local/addons/hue -iname "*~" -delete
+	chmod 755 debian/hue/usr/local/addons/hue/hue.tcl
+	chmod 755 debian/hue/usr/local/addons/hue/hued.tcl
+	install -m 0644 VERSION debian/hue/usr/local/addons/hue/VERSION
+	
+	dh_install
+
+binary-indep: install
+	dh_testdir -i
+	dh_installdebconf
+	dh_installchangelogs -i
+	dh_installinit
+	dh_md5sums
+	dh_gencontrol
+	dh_installdeb
+	dh_builddeb
+
+binary: binary-indep
+build:
+.PHONY: clean binary-indep binary install build

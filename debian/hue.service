@@ -1,0 +1,10 @@
+[Unit]
+Description=hue daemon
+After=cuxd.service
+
+[Service]
+Type=forking
+ExecStart=/usr/local/addons/hue/hued.tcl
+
+[Install]
+WantedBy=multi-user.target

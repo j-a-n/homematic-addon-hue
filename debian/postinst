@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+	configure)
+		ln -s /usr/local/addons/hue/www /etc/config/addons/www/hue
+		/usr/local/addons/cuxd/update_addon hue /usr/local/addons/hue/etc/hue-addon.cfg
+		systemctl daemon-reload
+		systemctl enable hue.service
+		systemctl start hue.service
+	;;
+	
+	abort-upgrade|abort-remove|abort-deconfigure)
+	;;
+
+esac

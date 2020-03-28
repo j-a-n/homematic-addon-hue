@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+	remove|upgrade|deconfigure)
+		systemctl stop hue.service
+		systemctl disable hue.service
+		rm /etc/config/addons/www/hue
+		/usr/local/addons/cuxd/update_addon hue
+	;;
+	
+	failed-upgrade)
+	;;
+esac

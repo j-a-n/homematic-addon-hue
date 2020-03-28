@@ -13,3 +13,7 @@ find $tmp_dir -iname "#*" -delete
 (cd ${tmp_dir}; tar --owner=root --group=root --exclude ".*~" -czvf "${addon_file}" .)
 rm -rf "${tmp_dir}"
 
+dch -v "${version}-1" -D stable -b -m "new release, see github for changelog"
+dpkg-buildpackage
+cp ../hue_${version}-1_amd64.deb hue_amd64.deb
+
