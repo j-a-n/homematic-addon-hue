@@ -696,20 +696,7 @@ proc ::hue::get_config_json {} {
 }
 
 proc ::hue::get_cuxd_version {} {
-	set version ""
-	catch {
-		set data [exec /usr/local/etc/config/rc.d/cuxdaemon info]
-		foreach line [split $data "\n"] {
-			if {[regexp {^(\S+)\s*:\s*(\S.*)\s*$} $line match key value]} {
-				set keyl [string tolower $key]
-				if {$keyl == "version"} {
-					set version $value
-					break
-				}
-			}
-		}
-	}
-	return $version
+	return [exec /usr/local/addons/cuxd/cuxd -v]
 }
 
 proc ::hue::create_bridge {bridge_id name ip username} {
