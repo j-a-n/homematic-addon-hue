@@ -1093,15 +1093,19 @@ proc ::hue::update_cuxd_device_state {device astate} {
 			set states [list]
 			set level [expr round((double($bri)*1000.0) / 254.0)/1000.0]
 			lappend states "LEVEL=${level}"
-			set white [expr round(1000000.0 / double($ct))]
-			if {$white > 6500} {
-				set white 6500
+			if {$ct > 0} {
+				set white [expr round(1000000.0 / double($ct))]
+				if {$white > 6500} {
+					set white 6500
+				}
+				lappend states "WHITE=${white}"
 			}
-			lappend states "WHITE=${white}"
-			set rgb [hue::xybri_to_rgb [lindex $xy 0] [lindex $xy 1] $bri $state(color_gamut_type)]
-			set rgb [join $rgb ","]
-			lappend states "RGBW=${rgb}"
-			#hue::write_log 3 "${address}: $states"
+			if {[lindex $xy 0] > 0 && [lindex $xy 1] > 0} {
+				set rgb [hue::xybri_to_rgb [lindex $xy 0] [lindex $xy 1] $bri $state(color_gamut_type)]
+				set rgb [join $rgb ","]
+				lappend states "RGBW=${rgb}"
+			}
+			#hue::write_log 0 "${address}: $states"
 			set states [join $states "&"]
 			set s "dom.GetObject(\"CUxD.${address}.SET_STATES\").State(\"${states}\");"
 			#set s "
