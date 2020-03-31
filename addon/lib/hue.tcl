@@ -1203,10 +1203,14 @@ proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_o
 		}
 	}
 	
+	set state(color_gamut_type) ""
 	if { [regexp {\"colorgamuttype\"\s*:\s*\"([^\"]+)\"} $data match val] } {
 		set state(color_gamut_type) $val
-	} else {
-		set state(color_gamut_type) ""
+	}
+	
+	set state(type) ""
+	if { [regexp {\"type\"\s*:\s*\"([^\"]+)\"} $data match val] } {
+		set state(type) $val
 	}
 	
 	set state(lights) [list]
@@ -1342,13 +1346,19 @@ proc ::hue::create_cuxd_device {sid type serial name bridge_id obj_type obj_id {
 	
 	if {$type == "rgbw"} {
 		array set st [hue::get_object_state $bridge_id $obj_type $obj_id]
-		if {$st(color_gamut_type) != ""} {
+		if {[string tolower $st(type)] == "extended color light"} {
+			set color 1
+		} elseif {$st(color_gamut_type) != ""} {
 			set color 1
 		}
 		if {$obj_type == "group"} {
 			foreach light_id $st(lights) {
 				array set stl [hue::get_object_state $bridge_id "light" $light_id]
-				if {$stl(color_gamut_type) != ""} {
+				if {[string tolower $stl(type)] == "extended color light"} {
+					set color 1
+					break
+				}
+				elseif {$stl(color_gamut_type) != ""} {
 					set color 1
 					break
 				}
