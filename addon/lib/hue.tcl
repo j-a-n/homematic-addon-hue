@@ -1361,8 +1361,7 @@ proc ::hue::create_cuxd_device {sid type serial name bridge_id obj_type obj_id {
 				if {[string tolower $stl(type)] == "extended color light"} {
 					set color 1
 					break
-				}
-				elseif {$stl(color_gamut_type) != ""} {
+				} elseif {$stl(color_gamut_type) != ""} {
 					set color 1
 					break
 				}
