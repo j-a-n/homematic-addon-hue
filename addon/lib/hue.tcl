@@ -57,6 +57,8 @@ namespace eval hue {
 	# (always) remove / command triggered by (cuxd) / (never) remove
 	variable remove_transitiontime_when_turning_off_default "cuxd"
 	variable remove_transitiontime_when_turning_off $remove_transitiontime_when_turning_off_default
+	variable reflect_bri_in_rgb_default 1
+	variable reflect_bri_in_rgb $reflect_bri_in_rgb_default
 }
 
 
@@ -373,10 +375,12 @@ proc ::hue::rgb_to_xybri {red green blue {color_gamut ""} {scale_bri 1}} {
 }
 
 proc ::hue::xybri_to_rgb {x y bri {color_gamut ""} {scale_bri 1}} {
-	if {$bri <= 0} {
+	if {$bri < 0}   { set bri 0 }
+	if {$bri > 254} { set bri 254 }
+	
+	if {$bri == 0 && $scale_bri} {
 		return [list 0 0 0]
 	}
-	if {$bri > 254} { set bri 254 }
 	
 	if {$color_gamut != ""} {
 		if {![array exists $color_gamut]} {
@@ -418,11 +422,12 @@ proc ::hue::xybri_to_rgb {x y bri {color_gamut ""} {scale_bri 1}} {
 		set r [expr {$r / $max}]
 		set g [expr {$g / $max}]
 		set b [expr {$b / $max}]
+		set max 1
 	}
 	if {$scale_bri} {
 		set bri [expr $bri + 1]
 	} else {
-		set bri 255
+		set bri [expr { round(255 / $max) }]
 	}
 	set r [expr { round($r * $bri) }]
 	set g [expr { round($g * $bri) }]
@@ -588,7 +593,7 @@ proc ::hue::get_config_bridge_ids {} {
 	return $bridge_ids
 }
 
-proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable api_connect_timeout group_throttling_settings remove_transitiontime_when_turning_off} {
+proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable api_connect_timeout group_throttling_settings remove_transitiontime_when_turning_off reflect_bri_in_rgb} {
 	variable ini_file
 	variable lock_id_ini_file
 	
@@ -606,6 +611,11 @@ proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_u
 	} else {
 		ini::set $ini "global" "ignore_unreachable" "0"
 	}
+	if {$reflect_bri_in_rgb == "true" || $reflect_bri_in_rgb == "1"} {
+		ini::set $ini "global" "reflect_bri_in_rgb" "1"
+	} else {
+		ini::set $ini "global" "reflect_bri_in_rgb" "0"
+	}
 	ini::commit $ini
 	release_lock $lock_id_ini_file
 }
@@ -620,6 +630,7 @@ proc ::hue::read_global_config {} {
 	variable ignore_unreachable
 	variable group_throttling_settings
 	variable remove_transitiontime_when_turning_off
+	variable reflect_bri_in_rgb
 	
 	write_log 4 "Reading global config"
 	acquire_lock $lock_id_ini_file
@@ -630,6 +641,7 @@ proc ::hue::read_global_config {} {
 		set api_connect_timeout [expr { 0 + [::ini::value $ini "global" "api_connect_timeout" $api_connect_timeout] }]
 		set poll_state_interval [expr { 0 + [::ini::value $ini "global" "poll_state_interval" $poll_state_interval] }]
 		set ignore_unreachable [expr { 0 + [::ini::value $ini "global" "ignore_unreachable" $ignore_unreachable] }]
+		set reflect_bri_in_rgb [expr { 0 + [::ini::value $ini "global" "reflect_bri_in_rgb" $reflect_bri_in_rgb] }]
 		set group_throttling_settings [::ini::value $ini "global" "group_throttling_settings" $group_throttling_settings]
 		set remove_transitiontime_when_turning_off [::ini::value $ini "global" "remove_transitiontime_when_turning_off" $remove_transitiontime_when_turning_off]
 	}
@@ -654,6 +666,8 @@ proc ::hue::get_config_json {} {
 	variable group_throttling_settings
 	variable remove_transitiontime_when_turning_off_default
 	variable remove_transitiontime_when_turning_off
+	variable reflect_bri_in_rgb_default
+	variable reflect_bri_in_rgb
 	
 	set cuxd_version [get_cuxd_version]
 	
@@ -667,6 +681,7 @@ proc ::hue::get_config_json {} {
 	append json "\"poll_state_interval\":\{\"default\":${poll_state_interval_default},\"value\":${poll_state_interval}\},"
 	append json "\"group_throttling_settings\":\{\"default\":\"${group_throttling_settings_default}\",\"value\":\"${group_throttling_settings}\"\},"
 	append json "\"ignore_unreachable\":\{\"default\":[json_bool $ignore_unreachable_default],\"value\":[json_bool $ignore_unreachable]\},"
+	append json "\"reflect_bri_in_rgb\":\{\"default\":[json_bool $reflect_bri_in_rgb_default],\"value\":[json_bool $reflect_bri_in_rgb]\},"
 	append json "\"remove_transitiontime_when_turning_off\":\{\"default\":\"${remove_transitiontime_when_turning_off_default}\",\"value\":\"${remove_transitiontime_when_turning_off}\"\}"
 	append json "\},"
 	append json "\"bridges\":\["
@@ -1015,6 +1030,7 @@ proc ::hue::get_cuxd_device_map {} {
 proc ::hue::update_cuxd_device_state {device astate} {
 	variable ignore_unreachable
 	variable cuxd_xmlrpc_url
+	variable reflect_bri_in_rgb
 	array set state $astate
 	
 	set address $device
@@ -1101,7 +1117,7 @@ proc ::hue::update_cuxd_device_state {device astate} {
 				lappend states "WHITE=${white}"
 			}
 			if {[lindex $xy 0] > 0 && [lindex $xy 1] > 0} {
-				set rgb [hue::xybri_to_rgb [lindex $xy 0] [lindex $xy 1] $bri $state(color_gamut_type)]
+				set rgb [hue::xybri_to_rgb [lindex $xy 0] [lindex $xy 1] $bri $state(color_gamut_type) $reflect_bri_in_rgb]
 				set rgb [join $rgb ","]
 				lappend states "RGBW=${rgb}"
 			}

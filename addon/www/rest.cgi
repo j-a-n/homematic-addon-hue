@@ -233,9 +233,10 @@ proc process {} {
 					regexp {\"api_connect_timeout\"\s*:\s*\"([^\"]+)\"} $data match api_connect_timeout
 					regexp {\"poll_state_interval\"\s*:\s*\"([^\"]+)\"} $data match poll_state_interval
 					regexp {\"ignore_unreachable\"\s*:\s*(false|true)} $data match ignore_unreachable
+					regexp {\"reflect_bri_in_rgb\"\s*:\s*(false|true)} $data match reflect_bri_in_rgb
 					regexp {\"group_throttling_settings\"\s*:\s*\"([^\"]+)\"} $data match group_throttling_settings
 					regexp {\"remove_transitiontime_when_turning_off\"\s*:\s*\"([^\"]+)\"} $data match remove_transitiontime_when_turning_off
-					hue::update_global_config $log_level $api_log $poll_state_interval $ignore_unreachable $api_connect_timeout $group_throttling_settings $remove_transitiontime_when_turning_off
+					hue::update_global_config $log_level $api_log $poll_state_interval $ignore_unreachable $api_connect_timeout $group_throttling_settings $remove_transitiontime_when_turning_off $reflect_bri_in_rgb
 					catch {
 						hue::hued_command "reload"
 					}
