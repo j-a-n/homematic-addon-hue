@@ -714,7 +714,7 @@ proc ::hue::get_cuxd_version {} {
 	return [exec /usr/local/addons/cuxd/cuxd -v]
 }
 
-proc ::hue::create_bridge {bridge_id name ip username} {
+proc ::hue::create_bridge {bridge_id name ip username {port 80}} {
 	variable ini_file
 	variable lock_id_ini_file
 	acquire_lock $lock_id_ini_file
@@ -723,7 +723,7 @@ proc ::hue::create_bridge {bridge_id name ip username} {
 	ini::set $ini "bridge_${bridge_id}" "name" $name
 	ini::set $ini "bridge_${bridge_id}" "ip" $ip
 	ini::set $ini "bridge_${bridge_id}" "username" $username
-	ini::set $ini "bridge_${bridge_id}" "port" "80"
+	ini::set $ini "bridge_${bridge_id}" "port" $port
 	ini::commit $ini
 	release_lock $lock_id_ini_file
 }

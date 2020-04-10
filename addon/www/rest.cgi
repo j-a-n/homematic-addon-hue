@@ -153,15 +153,18 @@ proc process {} {
 			return $json
 		} elseif {[lindex $path 1] == "establish-link"} {
 			regexp {\"ip\"\s*:\s*\"([^\"]+)\"} $data match ip
-			set username [hue::api_establish_link $ip 80]
-			set config [hue::api_request "info" $ip 80 $username "GET" "config"]
+			if {! [regexp {\"port\"\s*:\s*(\d+)} $data match port]} {
+				set port 80
+			}
+			set username [hue::api_establish_link $ip $port]
+			set config [hue::api_request "info" $ip $port $username "GET" "config"]
 			regexp {\"name\"\s*:\s*\"([^\"]+)\"} $config match name
 			regexp {\"bridgeid\"\s*:\s*\"([^\"]+)\"} $config match bridgeid
-			hue::api_request "command" $ip 80 $username "PUT" "groups/0/action" "\{\"alert\":\"select\"\}"
+			hue::api_request "command" $ip $port $username "PUT" "groups/0/action" "\{\"alert\":\"select\"\}"
 			set username [json_string $username]
 			set name [json_string $name]
 			set bridgeid [json_string $bridgeid]
-			return "\{\"username\":\"${username}\",\"name\":\"${name}\"\,\"bridgeid\":\"${bridgeid}\"\}"
+			return "\{\"username\":\"${username}\",\"name\":\"${name}\"\,\"bridgeid\":\"${bridgeid}\",\"port\":${port}\}"
 		} elseif {[lindex $path 1] == "rgb-to-xybri"} {
 			regexp {\"red\"\s*:\s*(\d+)} $data match red
 			regexp {\"green\"\s*:\s*(\d+)} $data match green
@@ -250,7 +253,10 @@ proc process {} {
 						regexp {\"name\"\s*:\s*\"([^\"]+)\"} $data match name
 						regexp {\"ip\"\s*:\s*\"([^\"]+)\"} $data match ip
 						regexp {\"username\"\s*:\s*\"([^\"]+)\"} $data match username
-						hue::create_bridge $id $name $ip $username
+						if {! [regexp {\"port\"\s*:\s*(\d+)} $data match port]} {
+							set port 80
+						}
+						hue::create_bridge $id $name $ip $username $port
 						return "\"Bridge ${id} successfully created\""
 					} elseif {$env(REQUEST_METHOD) == "DELETE"} {
 						set id [lindex $path 3]

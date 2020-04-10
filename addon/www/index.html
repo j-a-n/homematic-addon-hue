@@ -364,10 +364,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			console.log("establish_link");
 			var form = $('#form-edit-bridge');
 			var ip_or_hostname = form.form('get value', 'ip');
+			var port = form.form('get value', 'port');
+			if (!port) { port = '80' }
+			port = parseInt(port);
 			//form.addClass('loading');
 			if (ip_or_hostname) {
 				display_message('info', i18next.t('connecting_to_bridge'), 15000);
-				rest("POST", "/establish-link", {"ip": ip_or_hostname},
+				rest("POST", "/establish-link", {"ip": ip_or_hostname, "port": port},
 					function(config) {
 						console.log("link established");
 						config.bridgeid = config.bridgeid.toLowerCase();
@@ -375,7 +378,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						form.form('set values', {
 							id: config.bridgeid || '',
 							name: config.name || '',
-							username: config.username || ''
+							username: config.username || '',
+							port: config.port || '80'
 						});
 						$('#submit-edit-bridge').removeClass('disabled');
 					},
@@ -526,6 +530,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						id: bridge.id,
 						name: bridge.name || '',
 						ip: bridge.ip || '',
+						port: bridge.port || 80,
 						username: bridge.username || ''
 					});
 					form.find("input[name='id']").parent().css('display', 'block');
@@ -536,11 +541,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
-		function add_bridge(ip) {
+		function add_bridge(ip, port=80) {
 			var form = $('#form-edit-bridge');
 			form.form('clear');
 			form.form('set values', {
-				ip: ip || ''
+				ip: ip || '',
+				port: port
 			});
 			form.find("input[name='id']").parent().css('display', 'none');
 			form.find("input[name='username']").parent().css('display', 'none');
@@ -1008,6 +1014,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							prompt: i18next.t('address_prompt')
 						}]
 					},
+					port: {
+						identifier: 'port',
+						rules: [{
+							type: 'integer[1..65535]'
+						}]
+					},
 					username: {
 						identifier: 'username'
 					}
@@ -1181,6 +1193,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							get_debug_data: 'Get debug data',
 							hue_bridge: 'Hue Bridge',
 							ip_address_or_hostname: 'IP-Address or Hostname',
+							port: 'Port',
 							username: 'Username',
 							loading: 'Loading',
 							cancel: 'Cancel',
@@ -1298,6 +1311,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							get_debug_data: 'Debug-Daten abrufen',
 							hue_bridge: 'Hue Bridge',
 							ip_address_or_hostname: 'IP-Adresse oder Hostname',
+							port: 'Port',
 							username: 'Benutzername',
 							loading: 'Lade',
 							cancel: 'Abbrechen',
@@ -1563,6 +1577,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<div class="field">
 					<label data-i18n="ip_address_or_hostname"></label>
 					<input name="ip" placeholder="" type="text" onchange='establish_link();'>
+				</div>
+				<div class="field">
+					<label data-i18n="port"></label>
+					<input name="port" placeholder="" type="text" onchange='establish_link();'>
 				</div>
 				<div class="field">
 					<label data-i18n="name"></label>
