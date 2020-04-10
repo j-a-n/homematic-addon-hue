@@ -545,7 +545,7 @@ proc ::hue::discover_bridges {} {
 		set curl "/usr/local/addons/cuxd/curl"
 	}
 	set bridge_ips [list]
-	set data [exec $curl --silent --insecure https://www.meethue.com/api/nupnp]
+	set data [exec $curl --silent --insecure https://discovery.meethue.com/]
 	foreach d [split $data "\}"] {
 		set i ""
 		regexp {"internalipaddress"\s*:\s*"([^"]+)"} $d match i
