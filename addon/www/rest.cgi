@@ -141,11 +141,11 @@ proc process {} {
 			}
 			return "\{\"exitcode\":${exitcode},\"output\":\"${output}\"\}"
 		} elseif {[lindex $path 1] == "discover-bridges"} {
-			set bridge_ips [hue::discover_bridges]
+			set bridges [hue::discover_bridges]
 			set json "\["
-			if {[llength $bridge_ips] > 0} {
-				foreach b $bridge_ips {
-					append json "\"${b}\","
+			if {[llength $bridges] > 0} {
+				foreach b $bridges {
+					append json "\{\"ip\":\"[lindex $b 0]\",\"port\":[lindex $b 1]\},"
 				}
 				set json [string range $json 0 end-1]
 			}

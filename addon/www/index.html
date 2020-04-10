@@ -408,16 +408,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function discover_bridges() {
 			//display_message('info', i18next.t('search_bridges'), 15000);
 			rest("GET", "/discover-bridges", null, function(data) {
-				console.log("bridges: " + data);
+				console.log("bridges:")
+				console.log(data);
 				//display_message('success', i18next.t('bridges_discovered', {count: data.length}), 1000);
 				$('#discovered-bridges tbody').empty();
-				data.forEach(function(ip) {
-					var badd = $('<button class="ui grey basic button">').attr('data-ip', ip).text(i18next.t('add'));
+				data.forEach(function(bridge) {
+					var badd = $('<button class="ui grey basic button">').attr('data-ip', bridge.ip).attr('data-port', bridge.port).text(i18next.t('add'));
 					badd.click(function() {
-							add_bridge(this.getAttribute('data-ip'));
+						add_bridge(this.getAttribute('data-ip'), this.getAttribute('data-port'));
 					});
 					$("#discovered-bridges tbody").append($('<tr>').append(
-						$('<td>').text(ip || ''),
+						$('<td>').text(bridge.ip || ''),
 						$('<td class="center aligned">').append(badd)
 					));
 				});

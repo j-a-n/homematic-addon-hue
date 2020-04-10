@@ -544,16 +544,19 @@ proc ::hue::discover_bridges {} {
 	if { [file exists $curl] == 0 } {
 		set curl "/usr/local/addons/cuxd/curl"
 	}
-	set bridge_ips [list]
-	set data [exec $curl --silent --insecure https://discovery.meethue.com/]
-	foreach d [split $data "\}"] {
-		set i ""
-		regexp {"internalipaddress"\s*:\s*"([^"]+)"} $d match i
-		if { [info exists i] && $i != "" } {
-			lappend bridge_ips $i
+	set bridges [list]
+	foreach url [list "https://discovery.meethue.com/" "https://phoscon.de/discover"] {
+		set data [exec $curl --silent --insecure $url]
+		foreach d [split $data "\}"] {
+			if [regexp {"internalipaddress"\s*:\s*"([^"]+)"} $d match ip] {
+				if { ![regexp {"internalport"\s*:\s*(\d+)} $d match port] } {
+					set port "80"
+				}
+				lappend bridges [list $ip $port]
+			}
 		}
 	}
-	return $bridge_ips
+	return $bridges
 }
 
 proc ::hue::get_bridge_num {bridge_id} {
