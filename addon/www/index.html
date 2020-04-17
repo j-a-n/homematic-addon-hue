@@ -231,7 +231,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				log_level: config.global.log_level.default,
 				api_log: config.global.api_log.default,
 				api_connect_timeout: config.global.api_connect_timeout.default,
-				ignore_unreachable: config.global.ignore_unreachable.default,
+				unreachable_update_mode: config.global.unreachable_update_mode.default,
 				reflect_bri_in_rgb: config.global.reflect_bri_in_rgb.default,
 				group_throttling_settings: config.global.group_throttling_settings.default,
 				remove_transitiontime_when_turning_off: config.global.remove_transitiontime_when_turning_off.default
@@ -345,7 +345,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				log_level: config.global.log_level.value,
 				api_log: config.global.api_log.value,
 				api_connect_timeout: config.global.api_connect_timeout.value,
-				ignore_unreachable: config.global.ignore_unreachable.value,
+				unreachable_update_mode: config.global.unreachable_update_mode.value,
 				reflect_bri_in_rgb: config.global.reflect_bri_in_rgb.value,
 				group_throttling_settings: config.global.group_throttling_settings.value,
 				remove_transitiontime_when_turning_off: config.global.remove_transitiontime_when_turning_off.value
@@ -954,8 +954,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							prompt: i18next.t('api_con_timeout_prompt')
 						}]
 					},
-					ignore_unreachable: {
-						identifier: 'ignore_unreachable',
+					unreachable_update_mode: {
+						identifier: 'unreachable_update_mode',
 					},
 					reflect_bri_in_rgb: {
 						identifier: 'reflect_bri_in_rgb',
@@ -976,12 +976,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				},
 				onSuccess: function(event, fields) {
 					var conf = $(event.currentTarget).form('get values');
-					if (conf.ignore_unreachable == "on" || conf.ignore_unreachable === true) {
-						conf.ignore_unreachable = true;
-					}
-					else {
-						conf.ignore_unreachable = false;
-					}
 					if (conf.reflect_bri_in_rgb == "on" || conf.reflect_bri_in_rgb === true) {
 						conf.reflect_bri_in_rgb = true;
 					}
@@ -1168,7 +1162,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							api_con_timeout_label: 'Timeout in milliseconds for hue api connects (0=default tcl socket behaviour)',
 							log_level_label: 'Log level',
 							log_hue_api_label: 'Log hue api requests and responses',
-							update_unreachable_label: 'Do not update state if device is unreachable',
+							unreachable_update_mode_label: 'How to handle status updates of unrechable devices',
+							set_off: 'Treat as off',
+							as_reachable: 'Treat as reachable',
+							skip_update: 'Skip update',
 							reflect_bri_in_rgb_label: 'Reflect the brightness in rgb values',
 							group_throttling_settings_label: 'Setting for group command throttling',
 							remove_transitiontime_when_turning_off_label: 'When turning off lights/groups do not send transitiontime to api',
@@ -1286,7 +1283,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							api_con_timeout_label: 'Timeout in Millisekunden für API-Verbindungen (0=Standard TCL-Socket-Verhalten)',
 							log_level_label: 'Log-Level',
 							log_hue_api_label: 'Hue-API-Anfragen und -Antworten protokollieren',
-							update_unreachable_label: 'Status nicht aktualisieren wenn ein Gerät nicht erreichbar ist',
+							unreachable_update_mode_label: 'Behandlung von nicht erreichbaren Geräten bei der Status-Aktualisierung',
+							set_off: 'Als aus werten',
+							as_reachable: 'Wie erreichbar',
+							skip_update: 'Keine Aktualisierung',
 							reflect_bri_in_rgb_label: 'Helligkeitswerte in RGB-Werten widerspiegeln',
 							group_throttling_settings_label: 'Einstellung für die Drosselung von Gruppen-Kommandos',
 							remove_transitiontime_when_turning_off_label: 'Beim Ausschalten von Lampen/Gruppen den Parameter transitiontime nicht an die API senden',
@@ -1465,10 +1465,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					</select>
 				</div>
 				<div class="field">
-					<label data-i18n="update_unreachable_label"></label>
-					<div class="ui toggle checkbox">
-						<input name="ignore_unreachable" type="checkbox" onchange="update_global_config_form_state();">
-					</div>
+					<label data-i18n="unreachable_update_mode_label"></label>
+					<select class="ui fluid search dropdown" name="unreachable_update_mode" onchange="update_global_config_form_state();">
+						<option value="set_off" data-i18n="set_off"></option>
+						<option value="as_reachable" data-i18n="as_reachable"></option>
+						<option value="skip_update" data-i18n="skip_update"></option>
+					</select>
 				</div>
 				<div class="field">
 					<label data-i18n="reflect_bri_in_rgb_label"></label>

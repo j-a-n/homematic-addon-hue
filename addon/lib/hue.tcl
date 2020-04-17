@@ -43,8 +43,9 @@ namespace eval hue {
 	variable lock_id_bridge_start 3
 	variable poll_state_interval_default 5
 	variable poll_state_interval $poll_state_interval_default
-	variable ignore_unreachable_default 0
-	variable ignore_unreachable $ignore_unreachable_default
+	# set_off / as_reachable / skip_update
+	variable unreachable_update_mode_default "set_off"
+	variable unreachable_update_mode $unreachable_update_mode_default
 	variable devicetype "homematic-addon-hue#ccu"
 	variable cuxd_ps "/usr/local/addons/cuxd/cuxd.ps"
 	variable cuxd_xmlrpc_url "xmlrpc_bin://127.0.0.1:8701"
@@ -596,11 +597,11 @@ proc ::hue::get_config_bridge_ids {} {
 	return $bridge_ids
 }
 
-proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_unreachable api_connect_timeout group_throttling_settings remove_transitiontime_when_turning_off reflect_bri_in_rgb} {
+proc ::hue::update_global_config {log_level api_log poll_state_interval unreachable_update_mode api_connect_timeout group_throttling_settings remove_transitiontime_when_turning_off reflect_bri_in_rgb} {
 	variable ini_file
 	variable lock_id_ini_file
 	
-	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} ignore_unreachable=${ignore_unreachable} api_connect_timeout=${api_connect_timeout} group_throttling_settings=${group_throttling_settings} remove_transitiontime_when_turning_off=${remove_transitiontime_when_turning_off}"
+	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} unreachable_update_mode=${unreachable_update_mode} api_connect_timeout=${api_connect_timeout} group_throttling_settings=${group_throttling_settings} remove_transitiontime_when_turning_off=${remove_transitiontime_when_turning_off}"
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r+]
 	ini::set $ini "global" "log_level" $log_level
@@ -609,11 +610,7 @@ proc ::hue::update_global_config {log_level api_log poll_state_interval ignore_u
 	ini::set $ini "global" "poll_state_interval" $poll_state_interval
 	ini::set $ini "global" "group_throttling_settings" $group_throttling_settings
 	ini::set $ini "global" "remove_transitiontime_when_turning_off" $remove_transitiontime_when_turning_off
-	if {$ignore_unreachable == "true" || $ignore_unreachable == "1"} {
-		ini::set $ini "global" "ignore_unreachable" "1"
-	} else {
-		ini::set $ini "global" "ignore_unreachable" "0"
-	}
+	ini::set $ini "global" "unreachable_update_mode" $unreachable_update_mode
 	if {$reflect_bri_in_rgb == "true" || $reflect_bri_in_rgb == "1"} {
 		ini::set $ini "global" "reflect_bri_in_rgb" "1"
 	} else {
@@ -630,7 +627,7 @@ proc ::hue::read_global_config {} {
 	variable api_log
 	variable api_connect_timeout
 	variable poll_state_interval
-	variable ignore_unreachable
+	variable unreachable_update_mode
 	variable group_throttling_settings
 	variable remove_transitiontime_when_turning_off
 	variable reflect_bri_in_rgb
@@ -643,7 +640,7 @@ proc ::hue::read_global_config {} {
 		set api_log [::ini::value $ini "global" "api_log" $api_log]
 		set api_connect_timeout [expr { 0 + [::ini::value $ini "global" "api_connect_timeout" $api_connect_timeout] }]
 		set poll_state_interval [expr { 0 + [::ini::value $ini "global" "poll_state_interval" $poll_state_interval] }]
-		set ignore_unreachable [expr { 0 + [::ini::value $ini "global" "ignore_unreachable" $ignore_unreachable] }]
+		set unreachable_update_mode [::ini::value $ini "global" "unreachable_update_mode" $unreachable_update_mode]
 		set reflect_bri_in_rgb [expr { 0 + [::ini::value $ini "global" "reflect_bri_in_rgb" $reflect_bri_in_rgb] }]
 		set group_throttling_settings [::ini::value $ini "global" "group_throttling_settings" $group_throttling_settings]
 		set remove_transitiontime_when_turning_off [::ini::value $ini "global" "remove_transitiontime_when_turning_off" $remove_transitiontime_when_turning_off]
@@ -663,8 +660,8 @@ proc ::hue::get_config_json {} {
 	variable api_connect_timeout
 	variable poll_state_interval_default
 	variable poll_state_interval
-	variable ignore_unreachable_default
-	variable ignore_unreachable
+	variable unreachable_update_mode_default
+	variable unreachable_update_mode
 	variable group_throttling_settings_default
 	variable group_throttling_settings
 	variable remove_transitiontime_when_turning_off_default
@@ -683,7 +680,7 @@ proc ::hue::get_config_json {} {
 	append json "\"api_connect_timeout\":\{\"default\":${api_connect_timeout_default},\"value\":${api_connect_timeout}\},"
 	append json "\"poll_state_interval\":\{\"default\":${poll_state_interval_default},\"value\":${poll_state_interval}\},"
 	append json "\"group_throttling_settings\":\{\"default\":\"${group_throttling_settings_default}\",\"value\":\"${group_throttling_settings}\"\},"
-	append json "\"ignore_unreachable\":\{\"default\":[json_bool $ignore_unreachable_default],\"value\":[json_bool $ignore_unreachable]\},"
+	append json "\"unreachable_update_mode\":\{\"default\":\"${unreachable_update_mode_default}\",\"value\":\"${unreachable_update_mode}\"\},"
 	append json "\"reflect_bri_in_rgb\":\{\"default\":[json_bool $reflect_bri_in_rgb_default],\"value\":[json_bool $reflect_bri_in_rgb]\},"
 	append json "\"remove_transitiontime_when_turning_off\":\{\"default\":\"${remove_transitiontime_when_turning_off_default}\",\"value\":\"${remove_transitiontime_when_turning_off}\"\}"
 	append json "\},"
@@ -1031,7 +1028,7 @@ proc ::hue::get_cuxd_device_map {} {
 }
 
 proc ::hue::update_cuxd_device_state {device astate} {
-	variable ignore_unreachable
+	variable unreachable_update_mode
 	variable cuxd_xmlrpc_url
 	variable reflect_bri_in_rgb
 	array set state $astate
@@ -1050,8 +1047,8 @@ proc ::hue::update_cuxd_device_state {device astate} {
 	set reachable 1
 	if {$state(reachable) == "false" || $state(reachable) == 0} {
 		set reachable 0
-		if {$ignore_unreachable} {
-			hue::write_log 4 "ignoring unreachable device ${address}, no update"
+		if {$unreachable_update_mode == "skip_update"} {
+			hue::write_log 4 "skipping update of unreachable device ${address}"
 			return
 		}
 	}
@@ -1061,7 +1058,9 @@ proc ::hue::update_cuxd_device_state {device astate} {
 	set dtype2 [ expr 0 + $dtype2 ]
 	
 	set on 1
-	if {$state(on) == "false" || $state(on) == 0 || $reachable == 0} {
+	if {$state(on) == "false" || $state(on) == 0} {
+		set on 0
+	} elseif {$reachable == 0 && $unreachable_update_mode == "set_off"} {
 		set on 0
 	}
 	
