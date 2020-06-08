@@ -1,0 +1,5 @@
+/debian/files
+/debian/hue
+/debian/.debhelper
+/debian/hue.debhelper.log
+/debian/hue.substvars
