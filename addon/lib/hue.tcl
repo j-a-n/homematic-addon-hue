@@ -44,7 +44,7 @@ namespace eval hue {
 	variable poll_state_interval_default 5
 	variable poll_state_interval $poll_state_interval_default
 	# set_off / as_reachable / skip_update
-	variable unreachable_update_mode_default "set_off"
+	variable unreachable_update_mode_default "as_reachable"
 	variable unreachable_update_mode $unreachable_update_mode_default
 	variable devicetype "homematic-addon-hue#ccu"
 	variable cuxd_ps "/usr/local/addons/cuxd/cuxd.ps"
