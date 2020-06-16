@@ -68,6 +68,15 @@ fi
 
 sync
 
+if [ -e /usr/local/etc/config/rc.d/cuxdaemon -a -e /usr/local/addons/cuxd/cuxd.ini ]; then
+	echo "cuxd config" >>$LOG_FILE
+	/usr/local/etc/config/rc.d/cuxdaemon stop
+	grep -v "LEVEL-FILTER" /usr/local/addons/cuxd/cuxd.ini > /usr/local/addons/cuxd/cuxd.ini.tmphue
+	echo "LEVEL-FILTER=0" >> /usr/local/addons/cuxd/cuxd.ini.tmphue
+	mv /usr/local/addons/cuxd/cuxd.ini.tmphue /usr/local/addons/cuxd/cuxd.ini
+	/usr/local/etc/config/rc.d/cuxdaemon start
+fi
+
 if [ "$1" = "" ]; then
 	echo "running on CCU1, rebooting"
 	echo "x" > /dev/watchdog
