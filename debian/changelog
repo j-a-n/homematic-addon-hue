@@ -1,3 +1,9 @@
+hue (3.0.13-1) stable; urgency=medium
+
+  * new release, see github for changelog
+
+ -- Jan Schneider <oss@janschneider.net>  Sat, 12 Sep 2020 19:50:06 +0200
+
 hue (3.0.12-1) stable; urgency=medium
 
   * new release, see github for changelog
