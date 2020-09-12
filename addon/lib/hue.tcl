@@ -550,7 +550,7 @@ proc ::hue::discover_bridges {} {
 		set data [exec $curl --silent --insecure $url]
 		foreach d [split $data "\}"] {
 			if [regexp {"internalipaddress"\s*:\s*"([^"]+)"} $d match ip] {
-				if { ![regexp {"internalport"\s*:\s*(\d+)} $d match port] } {
+				if { ![regexp {"internalport"\s*:\s*"?(\d+)"?} $d match port] } {
 					set port "80"
 				}
 				lappend bridges [list $ip $port]
