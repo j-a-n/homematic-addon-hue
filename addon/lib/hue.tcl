@@ -1110,6 +1110,10 @@ proc ::hue::update_cuxd_device_state {device astate} {
 		if {$hss_type == "VIR-LG-RGBW-DIM"} {
 			set states [list]
 			set level [expr round((double($bri)*1000.0) / 254.0)/1000.0]
+			if {$level < 0.01 && $bri > 0} {
+				# Minimum level is 1%
+				set level 0.01
+			}
 			lappend states "LEVEL=${level}"
 			if {$ct > 0} {
 				set white [expr round(1000000.0 / double($ct))]
