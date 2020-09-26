@@ -67,7 +67,7 @@ proc usage {} {
 		puts stderr "  group <Gruppen-ID> \[Parameter:Wert\]...    Eine Gruppe steuern"
 		puts stderr "    Gruppen-ID     : ID der Gruppe die gesteuert werden soll"
 		puts stderr "    Parameter:Wert : Komma-getrennte Parameter:Wert-Paare"
-		puts stderr "                     Mögliche Parameter sind: on,sat,bri,bri_inc,hue,hue_inc,xy,ct,rgb,rgb_bri,scene,transitiontime,bri_mode,sleep,ct_min"
+		puts stderr "                     Mögliche Parameter sind: on,sat,bri,bri_inc,hue,hue_inc,xy,ct,rgb,rgb_bri,scene,transitiontime,bri_mode,sleep,ct_min,group_mode"
 	} else {
 		puts stderr "usage: ${argv0} <bridge-id> <command>"
 		puts stderr ""
@@ -87,7 +87,7 @@ proc usage {} {
 		puts stderr "  group <group-id> \[parm:val\]...         control a group"
 		puts stderr "    group-id : id of the group to control"
 		puts stderr "    parm:val : parameter and value pairs separated by a colon"
-		puts stderr "               some of the possible paramers are: on,sat,bri,bri_inc,hue,hue_inc,xy,ct,rgb,rgb_bri,scene,transitiontime,bri_mode,sleep,ct_min"
+		puts stderr "               some of the possible paramers are: on,sat,bri,bri_inc,hue,hue_inc,xy,ct,rgb,rgb_bri,scene,transitiontime,bri_mode,sleep,ct_min,group_mode"
 	}
 }
 
@@ -168,6 +168,7 @@ proc main {} {
 	
 	set obj_id  [lindex $argv 2]
 	set bri_mode "abs"
+	set group_mode "lights"
 	set sleep 0
 	set ct_min 153
 	array set params {}
@@ -185,6 +186,10 @@ proc main {} {
 			} elseif {$k == "bri_mode"} {
 				if {$v == "abs" || $v == "inc"} {
 					set bri_mode $v
+				}
+			} elseif {$k == "group_mode"} {
+				if {$v == "group" || $v == "lights"} {
+					set group_mode $v
 				}
 			} elseif {$k == "xy"} {
 				set params($k) "\[${v}\]"
@@ -281,7 +286,7 @@ proc main {} {
 	}
 	
 	set obj_action 1
-	if {$obj_type == "group" && ([array size params] > 0 || $rgb != "") && [lsearch [array names params] "scene"] == -1} {
+	if {$obj_type == "group" && $group_mode == "lights" && ([array size params] > 0 || $rgb != "") && [lsearch [array names params] "scene"] == -1} {
 		array set st [get_object_state $bridge_id $obj_type $obj_id]
 		set num_lights [llength $st(lights)]
 		if {$num_lights > 0 && $num_lights < 10} {
