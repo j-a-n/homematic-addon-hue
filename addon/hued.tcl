@@ -256,7 +256,7 @@ proc update_cuxd_device {cuxd_device bridge_id obj_type obj_id astate} {
 	
 	hue::update_cuxd_device_state $cuxd_device [array get state]
 	
-	hue::write_log 3 "Update of ${bridge_id} ${obj_type} ${obj_id} / ${cuxd_device} successful (reachable=$state(reachable) on=$state(on) bri=$state(bri) ct=$state(ct) hue=$state(hue) sat=$state(sat) xy=$state(xy))"
+	hue::write_log 3 "Update of ${bridge_id} ${obj_type} ${obj_id} / ${cuxd_device} successful (reachable=$state(reachable) on=$state(on) colormode=$state(colormode) bri=$state(bri) ct=$state(ct) hue=$state(hue) sat=$state(sat) xy=$state(xy))"
 	if {$set_sysvars_reachable == 1} {
 		update_sysvars_reachable "Hue_reachable_${cuxd_device}" $state(reachable)
 		update_sysvars_reachable "Hue_reachable_${bridge_id}_${obj_type}_${obj_id}" $state(reachable)
