@@ -1105,7 +1105,12 @@ proc ::hue::update_cuxd_device_state {device astate} {
 		set xy $state(xy)
 	}
 	
-	hue::write_log 4 "update_device_channels ${address} set states: reachable=${reachable} on=${on} bri=${bri} ct=${ct} hue=${hue} sat=${sat} xy=${xy}"
+	set colormode "ct"
+	if {$state(colormode) != ""} {
+		set colormode $state(colormode)
+	}
+	
+	hue::write_log 4 "update_device_channels ${address} set states: reachable=${reachable} on=${on} bri=${bri} colormode=${colormode} ct=${ct} hue=${hue} sat=${sat} xy=${xy}"
 	
 	set s ""
 	if {$dtype == 40} {
@@ -1124,17 +1129,20 @@ proc ::hue::update_cuxd_device_state {device astate} {
 				set level 0.01
 			}
 			lappend states "LEVEL=${level}"
-			if {$ct > 0} {
-				set white [expr round(1000000.0 / double($ct))]
-				if {$white > 6500} {
-					set white 6500
+			if {$colormode == "ct"} {
+				if {$ct > 0} {
+					set white [expr round(1000000.0 / double($ct))]
+					if {$white > 6500} {
+						set white 6500
+					}
+					lappend states "WHITE=${white}"
 				}
-				lappend states "WHITE=${white}"
-			}
-			if {[lindex $xy 0] > 0 && [lindex $xy 1] > 0} {
-				set rgb [hue::xybri_to_rgb [lindex $xy 0] [lindex $xy 1] $bri $state(color_gamut_type) $reflect_bri_in_rgb]
-				set rgb [join $rgb ","]
-				lappend states "RGBW=${rgb}"
+			} else {
+				if {[lindex $xy 0] > 0 && [lindex $xy 1] > 0} {
+					set rgb [hue::xybri_to_rgb [lindex $xy 0] [lindex $xy 1] $bri $state(color_gamut_type) $reflect_bri_in_rgb]
+					set rgb [join $rgb ","]
+					lappend states "RGBW=${rgb}"
+				}
 			}
 			#hue::write_log 0 "${address}: $states"
 			set states [join $states "&"]
@@ -1246,6 +1254,11 @@ proc ::hue::get_object_state_from_json {bridge_id obj_type obj_id data {cached_o
 	set state(type) ""
 	if { [regexp {\"type\"\s*:\s*\"([^\"]+)\"} $data match val] } {
 		set state(type) $val
+	}
+	
+	set state(colormode) ""
+	if { [regexp {\"colormode\"\s*:\s*\"([^\"]+)\"} $data match val] } {
+		set state(colormode) $val
 	}
 	
 	set state(lights) [list]
