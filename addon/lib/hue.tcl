@@ -824,10 +824,19 @@ proc ::hue::_http_request {ip port method path {data ""} {content_type ""} {time
 	flush $sock
 	
 	set response ""
+	set content_length 0
 	while {![eof $sock]} {
 		gets $sock line
+		if {[regexp -nocase {content-length\s*:\s*([0-9]+)} $line match cl]} {
+			set content_length $cl
+		}
 		if {$line == ""} {
-			set response [read $sock]
+			if {$content_length == 0} {
+				gets $sock response
+			} else {
+				set response [read $sock $content_length]
+			}
+			break
 		}
 	}
 	catch { close $sock }
