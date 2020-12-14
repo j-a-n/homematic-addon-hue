@@ -175,7 +175,8 @@ proc main {} {
 	set rgb ""
 	set rgb_bri 0
 	set cuxd_triggered 0
-	
+	set do_auto_on 1
+
 	foreach a [lrange $argv 2 end] {
 		regexp {(.*)[=:](.*$)} $a match k v
 		if {[info exists v]} {
@@ -199,6 +200,7 @@ proc main {} {
 				set rgb [split $v ","]
 				set rgb_bri 1
 			} elseif {$k == "scene"} {
+				set do_auto_on 0
 				if {![regexp {[a-zA-Z0-9\-]{15}} $v]} {
 					# Not a scene id
 					array set scene_map [hue::get_scene_name_id_map $bridge_id]
@@ -300,9 +302,12 @@ proc main {} {
 						set params(bri) [lindex $x_y_bri 2]
 					}
 				}
-				set aon [auto_on [array get params] $bridge_id "light" $light_id]
-				if {$aon == "true" || $aon == "false"} {
-					set params(on) $aon
+				set aon ""
+				if {$do_auto_on == 1} {
+					set aon [auto_on [array get params] $bridge_id "light" $light_id]
+					if {$aon == "true" || $aon == "false"} {
+						set params(on) $aon
+					}
 				}
 				if {[info exists params(on)] && $params(on) == "false" && [info exists params(transitiontime)] &&
 					($hue::remove_transitiontime_when_turning_off == "always" || ($hue::remove_transitiontime_when_turning_off == "cuxd" && $cuxd_triggered == 1))} {
@@ -328,9 +333,11 @@ proc main {} {
 				set params(bri) [lindex $x_y_bri 2]
 			}
 		}
-		set aon [auto_on [array get params] $bridge_id $obj_type $obj_id]
-		if {$aon == "true" || $aon == "false"} {
-			set params(on) $aon
+		if {$do_auto_on == 1} {
+			set aon [auto_on [array get params] $bridge_id $obj_type $obj_id]
+			if {$aon == "true" || $aon == "false"} {
+				set params(on) $aon
+			}
 		}
 		if {[info exists params(on)] && $params(on) == "false" && [info exists params(transitiontime)] &&
 			($hue::remove_transitiontime_when_turning_off == "always" || ($hue::remove_transitiontime_when_turning_off == "cuxd" && $cuxd_triggered == 1))} {
