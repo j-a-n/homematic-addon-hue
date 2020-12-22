@@ -376,10 +376,11 @@ proc ::hue::rgb_to_xybri {red green blue {color_gamut ""} {scale_bri 1}} {
 }
 
 proc ::hue::xybri_to_rgb {x y bri {color_gamut ""} {scale_bri 1}} {
+	if {$scale_bri == 0} {set bri 254 }
 	if {$bri < 0}   { set bri 0 }
 	if {$bri > 254} { set bri 254 }
 	
-	if {$bri == 0 && $scale_bri} {
+	if {$bri == 0} {
 		return [list 0 0 0]
 	}
 	
@@ -425,11 +426,7 @@ proc ::hue::xybri_to_rgb {x y bri {color_gamut ""} {scale_bri 1}} {
 		set b [expr {$b / $max}]
 		set max 1
 	}
-	if {$scale_bri} {
-		set bri [expr $bri + 1]
-	} else {
-		set bri [expr { round(255 / $max) }]
-	}
+	set bri [expr { round(255 / $max) }]
 	set r [expr { round($r * $bri) }]
 	set g [expr { round($g * $bri) }]
 	set b [expr { round($b * $bri) }]
@@ -1144,7 +1141,7 @@ proc ::hue::update_cuxd_device_state {device astate} {
 					lappend states "RGBW=${rgb}"
 				}
 			}
-			#hue::write_log 0 "${address}: $states"
+			# hue::write_log 0 "${address}: $states"
 			set states [join $states "&"]
 			set s "dom.GetObject(\"CUxD.${address}.SET_STATES\").State(\"${states}\");"
 			#set s "
