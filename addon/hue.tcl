@@ -314,8 +314,12 @@ proc main {} {
 					hue::write_log 4 "Removing transitiontime from params"
 					unset params(transitiontime)
 				}
-				hue::write_log 3 "object_action [list $bridge_id "light" $light_id [array get params]]"
-				puts -nonewline [hue::hued_command "object_action" [list $bridge_id "light" $light_id [array get params]]]
+				array set cleaned_params [array get params]
+				if {[info exists cleaned_params(bri)] && $cleaned_params(bri) == 0} {
+					unset cleaned_params(bri)
+				}
+				hue::write_log 3 "object_action [list $bridge_id "light" $light_id [array get cleaned_params]]"
+				puts -nonewline [hue::hued_command "object_action" [list $bridge_id "light" $light_id [array get cleaned_params]]]
 				if {$aon == "true" || $aon == "false"} {
 					if {[info exists params(on)]} {
 						unset params(on)
@@ -344,8 +348,12 @@ proc main {} {
 			hue::write_log 4 "Removing transitiontime from params"
 			unset params(transitiontime)
 		}
-		hue::write_log 3 "object_action [list $bridge_id $obj_type $obj_id [array get params]]"
-		puts -nonewline [hue::hued_command "object_action" [list $bridge_id $obj_type $obj_id [array get params]]]
+		array set cleaned_params [array get params]
+		if {[info exists cleaned_params(bri)] && $cleaned_params(bri) == 0} {
+			unset cleaned_params(bri)
+		}
+		hue::write_log 3 "object_action [list $bridge_id $obj_type $obj_id [array get hued_params]]"
+		puts -nonewline [hue::hued_command "object_action" [list $bridge_id $obj_type $obj_id [array get cleaned_params]]]
 	}
 	hue::hued_command "update_object_state" [list $bridge_id $obj_type $obj_id 2]
 }
