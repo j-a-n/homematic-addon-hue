@@ -1461,8 +1461,9 @@ proc ::hue::create_cuxd_device {sid type serial name bridge_id obj_type obj_id {
 		if {$transitiontime != ""} {
 			append command_long " transitiontime:${transitiontime}"
 		}
+		set command_short $command_long
 		set struct_dev [list [list "RGBW" [list "bool" $color]]]
-		set struct_chn [list [list "CMD_EXEC" [list "bool" 1]] [list "CMD_LONG" [list "string" $command_long]]]
+		set struct_chn [list [list "CMD_EXEC" [list "bool" 1]] [list "CMD_SHORT" [list "string" $command_short]] [list "CMD_LONG" [list "string" $command_long]]]
 	}
 	if {$struct_dev != ""} {
 		xmlrpc $cuxd_xmlrpc_url putParamset [list string $device] [list string "MASTER"] [list struct $struct_dev]
