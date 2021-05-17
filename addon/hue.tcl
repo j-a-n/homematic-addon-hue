@@ -265,7 +265,7 @@ proc main {} {
 		if {$param != "" && [lsearch [array names params] $param] == -1} {
 			set params($param) $val
 		}
-	} elseif {[info exists env(CUXD_RGBW)]} {
+	} elseif {[info exists env(CUXD_RGBW)] && $env(CUXD_RGBW) != ""} { 
 		set cuxd_triggered 1
 		if { [expr { $env(CUXD_CHANGED) & 1 }] == 1 } {
 			# VALUE changed 0..MAXVALUE
