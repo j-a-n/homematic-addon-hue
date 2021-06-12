@@ -426,7 +426,7 @@ proc ::hue::xybri_to_rgb {x y bri {color_gamut ""} {scale_bri 1}} {
 		set b [expr {$b / $max}]
 		set max 1
 	}
-	set bri [expr { round(255 / $max) }]
+	set bri [expr { round($bri / $max) }]
 	set r [expr { round($r * $bri) }]
 	set g [expr { round($g * $bri) }]
 	set b [expr { round($b * $bri) }]
