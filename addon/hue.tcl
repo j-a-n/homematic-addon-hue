@@ -274,7 +274,7 @@ proc main {} {
 		if { [expr { $env(CUXD_CHANGED) & 2 }] == 2 } {
 			# RGBW changed 0..255,0..255,0..255,0..255
 			set rgb [split $env(CUXD_RGBW) ","]
-			set rgb_bri 1
+			set rgb_bri $hue::reflect_bri_in_rgb
 		}
 		if { [expr { $env(CUXD_CHANGED) & 4 }] == 4 } {
 			# WHITE changed 2000..6500 kelvin
