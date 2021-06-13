@@ -233,6 +233,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				api_connect_timeout: config.global.api_connect_timeout.default,
 				unreachable_update_mode: config.global.unreachable_update_mode.default,
 				reflect_bri_in_rgb: config.global.reflect_bri_in_rgb.default,
+				full_bri_when_turning_on: config.global.full_bri_when_turning_on.default,
 				group_throttling_settings: config.global.group_throttling_settings.default,
 				remove_transitiontime_when_turning_off: config.global.remove_transitiontime_when_turning_off.default
 			});
@@ -347,6 +348,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				api_connect_timeout: config.global.api_connect_timeout.value,
 				unreachable_update_mode: config.global.unreachable_update_mode.value,
 				reflect_bri_in_rgb: config.global.reflect_bri_in_rgb.value,
+				full_bri_when_turning_on: config.global.full_bri_when_turning_on.value,
 				group_throttling_settings: config.global.group_throttling_settings.value,
 				remove_transitiontime_when_turning_off: config.global.remove_transitiontime_when_turning_off.value
 			});
@@ -958,6 +960,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					reflect_bri_in_rgb: {
 						identifier: 'reflect_bri_in_rgb',
 					},
+					full_bri_when_turning_on: {
+						identifier: 'full_bri_when_turning_on',
+					},
 					group_throttling_settings: {
 						identifier: 'group_throttling_settings',
 						rules: [{
@@ -979,6 +984,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					}
 					else {
 						conf.reflect_bri_in_rgb = false;
+					}
+					if (conf.full_bri_when_turning_on == "on" || conf.full_bri_when_turning_on === true) {
+						conf.full_bri_when_turning_on = true;
+					}
+					else {
+						conf.full_bri_when_turning_on = false;
 					}
 					conf.group_throttling_settings = conf.group_throttling_settings.replace(/,+$/, '');
 					update_global_config(conf);
@@ -1166,6 +1177,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							as_reachable: 'Treat as reachable',
 							skip_update: 'Skip update',
 							reflect_bri_in_rgb_label: 'Reflect the brightness in rgb values',
+							full_bri_when_turning_on_label: 'Set light to full brightness when turning on',
 							group_throttling_settings_label: 'Setting for group command throttling',
 							remove_transitiontime_when_turning_off_label: 'When turning off lights/groups do not send transitiontime to api',
 							option_never: 'Never',
@@ -1287,6 +1299,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							as_reachable: 'Wie erreichbar',
 							skip_update: 'Keine Aktualisierung',
 							reflect_bri_in_rgb_label: 'Helligkeitswerte in RGB-Werten widerspiegeln',
+							full_bri_when_turning_on_label: 'Lampe beim Einschalten auf volle Helligkeit setzen',
 							group_throttling_settings_label: 'Einstellung für die Drosselung von Gruppen-Kommandos',
 							remove_transitiontime_when_turning_off_label: 'Beim Ausschalten von Lampen/Gruppen den Parameter transitiontime nicht an die API senden',
 							option_never: 'Nie',
@@ -1475,6 +1488,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					<label data-i18n="reflect_bri_in_rgb_label"></label>
 					<div class="ui toggle checkbox">
 						<input name="reflect_bri_in_rgb" type="checkbox" onchange="update_global_config_form_state();">
+					</div>
+				</div>
+				<div class="field">
+					<label data-i18n="full_bri_when_turning_on_label"></label>
+					<div class="ui toggle checkbox">
+						<input name="full_bri_when_turning_on" type="checkbox" onchange="update_global_config_form_state();">
 					</div>
 				</div>
 				<div class="field">

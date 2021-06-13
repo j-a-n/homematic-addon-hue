@@ -314,6 +314,9 @@ proc main {} {
 					hue::write_log 4 "Removing transitiontime from params"
 					unset params(transitiontime)
 				}
+				if {[info exists params(on)] && $params(on) == "true" && $hue::full_bri_when_turning_on == 1} {
+					set params(bri) 254
+				}
 				array set cleaned_params [array get params]
 				if {[info exists cleaned_params(bri)] && $cleaned_params(bri) == 0} {
 					unset cleaned_params(bri)
@@ -347,6 +350,9 @@ proc main {} {
 			($hue::remove_transitiontime_when_turning_off == "always" || ($hue::remove_transitiontime_when_turning_off == "cuxd" && $cuxd_triggered == 1))} {
 			hue::write_log 4 "Removing transitiontime from params"
 			unset params(transitiontime)
+		}
+		if {[info exists params(on)] && $params(on) == "true" && $hue::full_bri_when_turning_on == 1} {
+			set params(bri) 254
 		}
 		array set cleaned_params [array get params]
 		if {[info exists cleaned_params(bri)] && $cleaned_params(bri) == 0} {

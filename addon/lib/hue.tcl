@@ -60,6 +60,8 @@ namespace eval hue {
 	variable remove_transitiontime_when_turning_off $remove_transitiontime_when_turning_off_default
 	variable reflect_bri_in_rgb_default 1
 	variable reflect_bri_in_rgb $reflect_bri_in_rgb_default
+	variable full_bri_when_turning_on_default 0
+	variable full_bri_when_turning_on $full_bri_when_turning_on_default
 }
 
 
@@ -594,11 +596,11 @@ proc ::hue::get_config_bridge_ids {} {
 	return $bridge_ids
 }
 
-proc ::hue::update_global_config {log_level api_log poll_state_interval unreachable_update_mode api_connect_timeout group_throttling_settings remove_transitiontime_when_turning_off reflect_bri_in_rgb} {
+proc ::hue::update_global_config {log_level api_log poll_state_interval unreachable_update_mode api_connect_timeout group_throttling_settings remove_transitiontime_when_turning_off reflect_bri_in_rgb full_bri_when_turning_on} {
 	variable ini_file
 	variable lock_id_ini_file
 	
-	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} unreachable_update_mode=${unreachable_update_mode} api_connect_timeout=${api_connect_timeout} group_throttling_settings=${group_throttling_settings} remove_transitiontime_when_turning_off=${remove_transitiontime_when_turning_off}"
+	write_log 4 "Updating global config: log_level=${log_level} api_log=${api_log} poll_state_interval=${poll_state_interval} unreachable_update_mode=${unreachable_update_mode} api_connect_timeout=${api_connect_timeout} group_throttling_settings=${group_throttling_settings} remove_transitiontime_when_turning_off=${remove_transitiontime_when_turning_off} reflect_bri_in_rgb=${reflect_bri_in_rgb} full_bri_when_turning_on=${full_bri_when_turning_on}"
 	acquire_lock $lock_id_ini_file
 	set ini [ini::open $ini_file r+]
 	ini::set $ini "global" "log_level" $log_level
@@ -612,6 +614,11 @@ proc ::hue::update_global_config {log_level api_log poll_state_interval unreacha
 		ini::set $ini "global" "reflect_bri_in_rgb" "1"
 	} else {
 		ini::set $ini "global" "reflect_bri_in_rgb" "0"
+	}
+	if {$full_bri_when_turning_on == "true" || $full_bri_when_turning_on == "1"} {
+		ini::set $ini "global" "full_bri_when_turning_on" "1"
+	} else {
+		ini::set $ini "global" "full_bri_when_turning_on" "0"
 	}
 	ini::commit $ini
 	release_lock $lock_id_ini_file
@@ -628,6 +635,7 @@ proc ::hue::read_global_config {} {
 	variable group_throttling_settings
 	variable remove_transitiontime_when_turning_off
 	variable reflect_bri_in_rgb
+	variable full_bri_when_turning_on
 	
 	write_log 4 "Reading global config"
 	acquire_lock $lock_id_ini_file
@@ -639,6 +647,7 @@ proc ::hue::read_global_config {} {
 		set poll_state_interval [expr { 0 + [::ini::value $ini "global" "poll_state_interval" $poll_state_interval] }]
 		set unreachable_update_mode [::ini::value $ini "global" "unreachable_update_mode" $unreachable_update_mode]
 		set reflect_bri_in_rgb [expr { 0 + [::ini::value $ini "global" "reflect_bri_in_rgb" $reflect_bri_in_rgb] }]
+		set full_bri_when_turning_on [expr { 0 + [::ini::value $ini "global" "full_bri_when_turning_on" $full_bri_when_turning_on] }]
 		set group_throttling_settings [::ini::value $ini "global" "group_throttling_settings" $group_throttling_settings]
 		set remove_transitiontime_when_turning_off [::ini::value $ini "global" "remove_transitiontime_when_turning_off" $remove_transitiontime_when_turning_off]
 	}
@@ -665,6 +674,8 @@ proc ::hue::get_config_json {} {
 	variable remove_transitiontime_when_turning_off
 	variable reflect_bri_in_rgb_default
 	variable reflect_bri_in_rgb
+	variable full_bri_when_turning_on_default
+	variable full_bri_when_turning_on
 	
 	set cuxd_version [get_cuxd_version]
 	
@@ -679,6 +690,7 @@ proc ::hue::get_config_json {} {
 	append json "\"group_throttling_settings\":\{\"default\":\"${group_throttling_settings_default}\",\"value\":\"${group_throttling_settings}\"\},"
 	append json "\"unreachable_update_mode\":\{\"default\":\"${unreachable_update_mode_default}\",\"value\":\"${unreachable_update_mode}\"\},"
 	append json "\"reflect_bri_in_rgb\":\{\"default\":[json_bool $reflect_bri_in_rgb_default],\"value\":[json_bool $reflect_bri_in_rgb]\},"
+	append json "\"full_bri_when_turning_on\":\{\"default\":[json_bool $full_bri_when_turning_on_default],\"value\":[json_bool $full_bri_when_turning_on]\},"
 	append json "\"remove_transitiontime_when_turning_off\":\{\"default\":\"${remove_transitiontime_when_turning_off_default}\",\"value\":\"${remove_transitiontime_when_turning_off}\"\}"
 	append json "\},"
 	append json "\"bridges\":\["
