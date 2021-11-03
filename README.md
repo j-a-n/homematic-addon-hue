@@ -1,5 +1,10 @@
 # HomeMatic addon to control Philips Hue Lighting
 
+## DISCONTINUED
+This repository is DISCONTINUED.
+Since I have changed my own environment to Home Assistant and ZHA, I currently have no possibility to further develop or maintain this addon.
+I only run a CCU instance as an addon in Home Assistant.
+
 ## Prerequisites
 * This addon depends on CUxD
 
