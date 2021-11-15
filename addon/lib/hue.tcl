@@ -1025,15 +1025,24 @@ proc ::hue::get_cuxd_device_map {} {
 		set address [lindex $device 1]
 		if {[regexp {^CUX(28|40)(00|01|02)(\d\d\d)} $address match dtype dtype2 serial]} {
 			set paramset [xmlrpc $cuxd_xmlrpc_url getParamset [list string $address] [list string "MASTER"]]
+			array set ParamHash $paramset
+			set command ""
 			if {$dtype == 28} {
 				if {$dtype2 == 1} {
-					set command [lindex $paramset 11]
+					if {[info exists ParamHash(CMD_LONG)]} {
+						set command $ParamHash(CMD_LONG)
+					}
 				} else {
-					set command [lindex $paramset 3]
+					if {[info exists ParamHash(CMD_EXEC)]} {
+						set command $ParamHash(CMD_EXEC)
+					}
 				}
 			} else {
-				set command [lindex $paramset 5]
+				if {[info exists ParamHash(CMD_LONG)] && [info exists ParamHash(CMD_EXEC)] && $ParamHash(CMD_EXEC) == 1} {
+					set command $ParamHash(CMD_LONG)
+				}
 			}
+			unset ParamHash
 			if {$command != ""} {
 				if {[regexp ".*hue\\.tcl\\s+(\\S+)\\s+(light|group)\\s+(\\d+)" $command match bridge_id obj num]} {
 					set dmap(${address}) "${bridge_id}_${obj}_${num}"
